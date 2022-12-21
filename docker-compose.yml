@@ -1,0 +1,39 @@
+version: "3.8"
+services:
+    aymurai-core:
+        image: ${CORE_IMAGE}
+        container_name: aymurai-core
+        build:
+            context: .
+            dockerfile: ./build/core/Dockerfile
+
+    aymurai-api-dev:
+        image: registry.gitlab.com/collective.ai/datagenero-public/aymurai-api:dev
+        container_name: aymurai-api
+        ports:
+            - "8899:8899"
+        build:
+            context: .
+            dockerfile: ./build/api/Dockerfile
+            args:
+                - CORE_IMAGE=${CORE_IMAGE}
+            target: api-base
+        env_file: common.env
+        environment:
+            - TEST_MODE
+            - API_HOST
+            - API_PORT
+        volumes:
+            - ./resources/:/resources
+
+    aymurai-api-prod:
+        image: registry.gitlab.com/collective.ai/datagenero-public/aymurai-api:prod
+        container_name: aymurai-api
+        ports:
+            - "8899:8000"
+        build:
+            context: .
+            dockerfile: ./build/api/Dockerfile
+            args:
+                - CORE_IMAGE=${CORE_IMAGE}
+            target: api-prod

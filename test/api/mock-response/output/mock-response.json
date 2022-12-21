@@ -1,0 +1,94 @@
+{
+  "document": "2020 Año del General Manuel Belgrano\t\nJUZGADO DE 1RA INSTANCIA EN LO PENAL CONTRAVENCIONAL Y DE FALTAS N°10 SECRETARIA N°19  5 MASCULINOS Y 3 FEMENINOS DE IDENTIDAD DESCONOCIDA, NN Y OTROS SOBRE 5 C - COMERCIO DE ESTUPEFACIENTES O CUALQUIER MATERIA PRIMA PARA SU PRODUCCIÓN /TENENCIA CON FINES DE COMERCIALIZACIÓN \nNúmero: IPP 11111/2013-0 \nCUIJ: IPP J-01-06066606-6/2013-0 \nActuación Nro: 66600666/2022 \nAUDIENCIA UNIPERSONAL \n(art. 2 bis CPP)\n Fecha: 7 de septiembre de 2020 \n Horario de inicio: 10:00 horas \nPARTICIPANTES \nJuez: Pablo C. Casas. \t\nSecretario: Pablo Hilaire Chaneton.\nFiscal: Cristian Longobardi, UIT Sur.\nDESARROLLO \nJuez: le hace saber al Fiscal que tras haber analizado en forma pormenorizada el caso, lo contactó telefónicamente para realizar esta audiencia frente a la necesidad de solicitar algunas aclaraciones y precisiones atinentes a la prueba presentada.\nFiscal: refiere que en función de lo solicitado, resolverá e informara sobre las cuestiones señaladas a la mayor brevedad posible.\nJuez: manifiesta que lo tiene presente y que quedará a la espera de tales aclaraciones en torno a la prueba. \n \t\t\t\t\t\t Horario de cierre: 10:15 horas \nJuzgado PCyF No 10 - Tacuarí 138, 7o Piso - juzcyf10@jusbaires.gob.ar - 4014-6821/20 - @jpcyf10 \nJuzgado PCyF No 10 - Tacuarí 138, 7o Piso - juzcyf10@jusbaires.gob.ar - 4014-6821/20 - @jpcyf10",
+  "labels": [
+    {
+      "text": "5 C",
+      "start_char": 195,
+      "end_char": 198,
+      "attrs": {
+        "aymurai_label": "ART_INFRINGIDO",
+        "aymurai_label_subclass": null
+      }
+    },
+    {
+      "text": "COMERCIO DE ESTUPEFACIENTES O CUALQUIER MATERIA PRIMA PARA SU PRODUCCIÓN",
+      "start_char": 201,
+      "end_char": 273,
+      "attrs": {
+        "aymurai_label": "CONDUCTA",
+        "aymurai_label_subclass": [
+          "estupefacientes"
+        ]
+      }
+    },
+    {
+      "text": "11111/2013-0",
+      "start_char": 327,
+      "end_char": 339,
+      "attrs": {
+        "aymurai_label": "N_EXPTE_EJE",
+        "aymurai_label_subclass": null
+      }
+    },
+    {
+      "text": "7 de septiembre de 2020",
+      "start_char": 453,
+      "end_char": 476,
+      "attrs": {
+        "aymurai_label": "FECHA_RESOLUCION",
+        "aymurai_label_subclass": null
+      }
+    },
+    {
+      "text": "10:00",
+      "start_char": 498,
+      "end_char": 503,
+      "attrs": {
+        "aymurai_label": "HORA_DE_INICIO",
+        "aymurai_label_subclass": null
+      }
+    },
+    {
+      "text": "Pablo C. Casas.",
+      "start_char": 532,
+      "end_char": 547,
+      "attrs": {
+        "aymurai_label": "NOMBRE",
+        "aymurai_label_subclass": [
+          "firma"
+        ]
+      }
+    },
+    {
+      "text": "Pablo Hilaire Chaneton.",
+      "start_char": 562,
+      "end_char": 585,
+      "attrs": {
+        "aymurai_label": "NOMBRE",
+        "aymurai_label_subclass": [
+          "otro"
+        ]
+      }
+    },
+    {
+      "text": "Cristian Longobardi,",
+      "start_char": 594,
+      "end_char": 614,
+      "attrs": {
+        "aymurai_label": "NOMBRE",
+        "aymurai_label_subclass": [
+          "otro"
+        ]
+      }
+    },
+    {
+      "text": "10:15",
+      "start_char": 1152,
+      "end_char": 1157,
+      "attrs": {
+        "aymurai_label": "HORA_DE_CIERRE",
+        "aymurai_label_subclass": null
+      }
+    }
+  ]
+}

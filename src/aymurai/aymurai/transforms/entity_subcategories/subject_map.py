@@ -1,0 +1,16 @@
+subject_map = {
+    "codigo_contravencional": "contravencional",
+    "codigo_penal_de_la_nacion": "penal",
+    "ley_1217": "ejecucion_de_multa",
+    "ley_12331": "penal",
+    "ley_13944": "penal",
+    "ley_14346": "penal",
+    "ley_23098": "habeas_corpus",
+    "ley_23592": "penal",
+    "ley_23737": "penal",
+    "ley_24192": "penal",
+    "ley_24270": "penal",
+    "ley_25761": "penal",
+    "ley_26735": "penal",
+    "ley_451": "faltas",
+}

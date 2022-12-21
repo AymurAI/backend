@@ -1,0 +1,70 @@
+version: "3.8"
+services:
+    redis:
+        image: redis:6.2.6
+        container_name: aymurai-redis
+        ports:
+            - "6379:6379"
+        volumes:
+            - $PWD/resources/cache/redis:/data
+
+    devcontainer-gpu:
+        network_mode: host
+        image: aymurai-devcontainer-gpu
+        container_name: aymurai-devcontainer-gpu
+        build:
+            context: ..
+            dockerfile: .devcontainer/Dockerfile
+            args:
+                - AYMURAI_EXTRA_PACKAGE=dev,gpu
+                - USER_NAME=vscode
+                - USER_UID=1000
+                - USER_GID=1000
+        env_file: ../common.env
+        # depends_on:
+        #     - redis
+        devices:
+            - /dev/nvidia0:/dev/nvidia0
+            - /dev/nvidiactl:/dev/nvidiactl
+            - /dev/nvidia-modeset:/dev/nvidia-modeset
+            - /dev/nvidia-uvm:/dev/nvidia-uvm
+            - /dev/nvidia-uvm-tools:/dev/nvidia-uvm-tool
+        deploy:
+            resources:
+                reservations:
+                    devices:
+                        - capabilities: [ gpu ]
+        shm_size: "8gb"
+        volumes:
+            - ..:/workspace:cached
+            - ../notebooks/:/notebooks
+            - ../resources/:/resources
+            - ../test/:/test
+            - $HOME/.ssh/:/home/vscode/.ssh
+            - $HOME/.gitconfig:/home/vscode/.gitconfig
+        command: /bin/sh -c "while true; do :; done"
+
+    devcontainer:
+        network_mode: host
+        image: aymurai-devcontainer
+        container_name: aymurai-devcontainer-cpu
+        build:
+            context: ..
+            dockerfile: .devcontainer/Dockerfile
+            args:
+                - AYMURAI_EXTRA_PACKAGE=dev
+                - USER_NAME=vscode
+                - USER_UID=1000
+                - USER_GID=1000
+        env_file: ../common.env
+        # depends_on:
+        #     - redis
+        shm_size: "8gb"
+        volumes:
+            - ..:/workspace:cached
+            - ../notebooks/:/notebooks
+            - ../resources/:/resources
+            - ../test/:/test
+            - $HOME/.ssh/:/home/vscode/.ssh
+            - $HOME/.gitconfig:/home/vscode/.gitconfig
+        command: /bin/sh -c "while sleep 1000; do :; done"

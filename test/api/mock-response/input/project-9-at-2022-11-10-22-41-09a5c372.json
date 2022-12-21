@@ -1,0 +1,233 @@
+[
+    {
+        "id": 10252,
+        "data": {
+            "text": "2020 Año del General Manuel Belgrano\t\nJUZGADO DE 1RA INSTANCIA EN LO PENAL CONTRAVENCIONAL Y DE FALTAS N°10 SECRETARIA N°19  5 MASCULINOS Y 3 FEMENINOS DE IDENTIDAD DESCONOCIDA, NN Y OTROS SOBRE 5 C - COMERCIO DE ESTUPEFACIENTES O CUALQUIER MATERIA PRIMA PARA SU PRODUCCIÓN /TENENCIA CON FINES DE COMERCIALIZACIÓN \nNúmero: IPP 11111/2013-0 \nCUIJ: IPP J-01-06066606-6/2013-0 \nActuación Nro: 66600666/2022 \nAUDIENCIA UNIPERSONAL \n(art. 2 bis CPP)\n Fecha: 7 de septiembre de 2020 \n Horario de inicio: 10:00 horas \nPARTICIPANTES \nJuez: Pablo C. Casas. \t\nSecretario: Pablo Hilaire Chaneton.\nFiscal: Cristian Longobardi, UIT Sur.\nDESARROLLO \nJuez: le hace saber al Fiscal que tras haber analizado en forma pormenorizada el caso, lo contactó telefónicamente para realizar esta audiencia frente a la necesidad de solicitar algunas aclaraciones y precisiones atinentes a la prueba presentada.\nFiscal: refiere que en función de lo solicitado, resolverá e informara sobre las cuestiones señaladas a la mayor brevedad posible.\nJuez: manifiesta que lo tiene presente y que quedará a la espera de tales aclaraciones en torno a la prueba. \n \t\t\t\t\t\t Horario de cierre: 10:15 horas \n \n",
+            "meta_info": {
+                "id": "dump-20221021",
+                "path": "/test/api/mock-response/input/documento.docx"
+            }
+        },
+        "annotations": [
+            {
+                "id": 22,
+                "created_username": " rbarriga@collective.ai, 1",
+                "created_ago": "1 week, 6 days",
+                "completed_by": {
+                    "id": 1,
+                    "first_name": "",
+                    "last_name": "",
+                    "avatar": null,
+                    "email": "rbarriga@collective.ai",
+                    "initials": "rb"
+                },
+                "result": [
+                    {
+                        "value": {
+                            "start": 594,
+                            "end": 614,
+                            "text": "Cristian Longobardi,",
+                            "labels": [
+                                "NOMBRE"
+                            ]
+                        },
+                        "id": "GT6TTD8eMf",
+                        "from_name": "label",
+                        "to_name": "text",
+                        "type": "labels",
+                        "origin": "manual"
+                    },
+                    {
+                        "value": {
+                            "start": 594,
+                            "end": 614,
+                            "text": "Cristian Longobardi,",
+                            "choices": [
+                                "otro"
+                            ]
+                        },
+                        "id": "GT6TTD8eMf",
+                        "from_name": "NOMBRE",
+                        "to_name": "text",
+                        "type": "choices",
+                        "origin": "manual"
+                    },
+                    {
+                        "value": {
+                            "start": 532,
+                            "end": 547,
+                            "text": "Pablo C. Casas.",
+                            "labels": [
+                                "NOMBRE"
+                            ]
+                        },
+                        "id": "2Oq-A5l8yH",
+                        "from_name": "label",
+                        "to_name": "text",
+                        "type": "labels",
+                        "origin": "manual"
+                    },
+                    {
+                        "value": {
+                            "start": 532,
+                            "end": 547,
+                            "text": "Pablo C. Casas.",
+                            "choices": [
+                                "firma"
+                            ]
+                        },
+                        "id": "2Oq-A5l8yH",
+                        "from_name": "NOMBRE",
+                        "to_name": "text",
+                        "type": "choices",
+                        "origin": "manual"
+                    },
+                    {
+                        "value": {
+                            "start": 1152,
+                            "end": 1157,
+                            "text": "10:15",
+                            "labels": [
+                                "HORA_DE_CIERRE"
+                            ]
+                        },
+                        "id": "1bfxq1oxoG",
+                        "from_name": "label",
+                        "to_name": "text",
+                        "type": "labels",
+                        "origin": "manual"
+                    },
+                    {
+                        "value": {
+                            "start": 498,
+                            "end": 503,
+                            "text": "10:00",
+                            "labels": [
+                                "HORA_DE_INICIO"
+                            ]
+                        },
+                        "id": "3YLgdS7Hu7",
+                        "from_name": "label",
+                        "to_name": "text",
+                        "type": "labels",
+                        "origin": "manual"
+                    },
+                    {
+                        "value": {
+                            "start": 453,
+                            "end": 476,
+                            "text": "7 de septiembre de 2020",
+                            "labels": [
+                                "FECHA_RESOLUCION"
+                            ]
+                        },
+                        "id": "-HiUTvwFbK",
+                        "from_name": "label",
+                        "to_name": "text",
+                        "type": "labels",
+                        "origin": "manual"
+                    },
+                    {
+                        "value": {
+                            "start": 327,
+                            "end": 339,
+                            "text": "11111/2013-0",
+                            "labels": [
+                                "N_EXPTE_EJE"
+                            ]
+                        },
+                        "id": "2zZNLOfntI",
+                        "from_name": "label",
+                        "to_name": "text",
+                        "type": "labels",
+                        "origin": "manual"
+                    },
+                    {
+                        "value": {
+                            "start": 195,
+                            "end": 198,
+                            "text": "5 C",
+                            "labels": [
+                                "ART_INFRINGIDO"
+                            ]
+                        },
+                        "id": "eIl-etR2ye",
+                        "from_name": "label",
+                        "to_name": "text",
+                        "type": "labels",
+                        "origin": "manual"
+                    },
+                    {
+                        "value": {
+                            "start": 201,
+                            "end": 273,
+                            "text": "COMERCIO DE ESTUPEFACIENTES O CUALQUIER MATERIA PRIMA PARA SU PRODUCCIÓN",
+                            "labels": [
+                                "CONDUCTA"
+                            ]
+                        },
+                        "id": "sU9P19itW3",
+                        "from_name": "label",
+                        "to_name": "text",
+                        "type": "labels",
+                        "origin": "manual"
+                    },
+                    {
+                        "value": {
+                            "start": 201,
+                            "end": 273,
+                            "text": "COMERCIO DE ESTUPEFACIENTES O CUALQUIER MATERIA PRIMA PARA SU PRODUCCIÓN",
+                            "choices": [
+                                "estupefacientes"
+                            ]
+                        },
+                        "id": "sU9P19itW3",
+                        "from_name": "CONDUCTA",
+                        "to_name": "text",
+                        "type": "choices",
+                        "origin": "manual"
+                    },
+                    {
+                        "value": {
+                            "start": 562,
+                            "end": 585,
+                            "text": "Pablo Hilaire Chaneton.",
+                            "labels": [
+                                "NOMBRE"
+                            ]
+                        },
+                        "id": "7L82m_D2J3",
+                        "from_name": "label",
+                        "to_name": "text",
+                        "type": "labels",
+                        "origin": "manual"
+                    },
+                    {
+                        "value": {
+                            "start": 562,
+                            "end": 585,
+                            "text": "Pablo Hilaire Chaneton.",
+                            "choices": [
+                                "otro"
+                            ]
+                        },
+                        "id": "7L82m_D2J3",
+                        "from_name": "NOMBRE",
+                        "to_name": "text",
+                        "type": "choices",
+                        "origin": "manual"
+                    }
+                ],
+                "was_cancelled": false,
+                "ground_truth": false,
+                "created_at": "2022-11-04T20:44:25.455645Z",
+                "updated_at": "2022-11-18T15:57:57.652671Z",
+                "lead_time": 228.062,
+                "task": 10252,
+                "parent_prediction": null,
+                "parent_annotation": null
+            }
+        ],
+        "predictions": []
+    }
+]
