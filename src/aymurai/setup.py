@@ -43,7 +43,7 @@ setup(
         ],
         "dev": [
             # "rich[jupyter]==12.6.0",
-            "tensorboard-2.11.0",
+            "tensorboard==2.11.0",
             "jupyterlab==3.4.3",
             "ipywidgets==8.0.1",
             "matplotlib==3.5.2",
