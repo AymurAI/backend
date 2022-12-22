@@ -41,4 +41,7 @@ ENV CUDA_VISIBLE_DEVICES=-1
 
 FROM api-base as api-prod
 
-COPY ./resources/pipelines /resources/pipelines
+COPY ./resources/pipelines/examples/flair-simple/pipeline.json /resources/pipelines/examples/pipelines/flair-simple/pipeline.json
+COPY ./resources/cache/aymurai /resources/cache/aymurai
+COPY ./resources/cache/tfhub_modules /resources/cache/tfhub_modules
+# RUN pytest --log-cli-level=ERROR --disable-warnings /usr/bin/main.py
