@@ -26,7 +26,7 @@ class DatetimeFormatter(Transform):
             if datetime:
                 suggestions.append(datetime.strftime("%d/%m/%Y %H:%M"))
 
-        ent["attrs"]["aymurai_label_subcategory"] = suggestions
+        ent["attrs"]["aymurai_label_subclass"] = suggestions
 
         return ent
 
