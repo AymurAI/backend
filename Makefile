@@ -7,7 +7,6 @@ core-build:
 core-run:
 	docker-compose run aymurai-core
 
-
 dev-build: core-build
 	docker-compose -f .devcontainer/docker-compose.yml build devcontainer-gpu
 dev-build-cpu: core-build
@@ -24,7 +23,13 @@ jupyter-run-cpu: dev-build-cpu redis-run
 redis-run:
 	docker-compose -f .devcontainer/docker-compose.yml up -d redis
 
-api-build: core-build
+core-cpu-build:
+	docker-compose build aymurai-core-cpu
+core-cpu-run:
+	docker-compose run aymurai-core-cpu
+
+
+api-build: core-cpu-build
 	docker-compose build aymurai-api-dev
 api-run: redis-run
 	docker-compose run --service-ports aymurai-api-dev
@@ -34,7 +39,7 @@ api-test:
 			-e LOG_LEVEL=error \
 		aymurai-api-dev
 
-api-prod-build: core-build
+api-prod-build: api-build
 	docker-compose build aymurai-api-prod
 api-prod-run:
 	docker run -p 8899:8000 --hostname=aymurai-api-prod registry.gitlab.com/collective.ai/datagenero-public/aymurai-api:prod

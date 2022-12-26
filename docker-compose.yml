@@ -7,6 +7,13 @@ services:
             context: .
             dockerfile: ./build/core/Dockerfile
 
+    aymurai-core-cpu:
+        image: registry.gitlab.com/collective.ai/datagenero-public/aymurai-core-cpu:latest
+        container_name: aymurai-core
+        build:
+            context: .
+            dockerfile: ./build/core-cpu/Dockerfile
+
     aymurai-api-dev:
         image: registry.gitlab.com/collective.ai/datagenero-public/aymurai-api:dev
         container_name: aymurai-api
@@ -16,7 +23,7 @@ services:
             context: .
             dockerfile: ./build/api/Dockerfile
             args:
-                - CORE_IMAGE=${CORE_IMAGE}
+                - CORE_IMAGE=registry.gitlab.com/collective.ai/datagenero-public/aymurai-core-cpu:latest
             target: api-base
         env_file: common.env
         environment:
@@ -35,5 +42,5 @@ services:
             context: .
             dockerfile: ./build/api/Dockerfile
             args:
-                - CORE_IMAGE=${CORE_IMAGE}
+                - CORE_IMAGE=registry.gitlab.com/collective.ai/datagenero-public/aymurai-core-cpu:latest
             target: api-prod
