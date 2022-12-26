@@ -9,7 +9,7 @@ from .utils import find_subcategories
 
 
 class RegexSubcategorizer(Transform):
-    NEED_CONTEXT = ["PERSONA_ACUSADA_NO_DETERMINADA"]
+    NEED_CONTEXT = ["PERSONA_ACUSADA_NO_DETERMINADA", "NOMBRE"]
 
     def __call__(self, item: DataItem) -> DataItem:
         item = deepcopy(item)
