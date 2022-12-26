@@ -42,8 +42,10 @@ api-test:
 api-prod-build: api-build
 	docker-compose build aymurai-api-prod
 api-prod-run:
-	docker run -p 8899:8000 --hostname=aymurai-api-prod registry.gitlab.com/collective.ai/datagenero-public/aymurai-api:prod
+	docker run -p 8899:8000 --hostname=aymurai-api-prod ${API_IMAGE}:prod
 api-prod-push:
-	docker-compose push aymurai-api-prod
+	docker tag ${API_IMAGE}:prod ${API_IMAGE}:$(shell date +%F)
+	docker push ${API_IMAGE}:prod
+	docker push ${API_IMAGE}:${shell date +%F}
 api-prod-pull:
-	docker-compose pull aymurai-api-prod
+	docker pull ${API_IMAGE}:prod
