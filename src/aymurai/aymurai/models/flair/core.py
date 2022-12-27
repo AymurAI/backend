@@ -135,6 +135,7 @@ class FlairModel(TrainModule):
 
         label = sentence.get_label()
         text = label.data_point.text
+        full_tokens = sentence.sentence.tokens
 
         label_value = label.value
         score = label.score
@@ -146,15 +147,12 @@ class FlairModel(TrainModule):
         end_char = label.data_point.end_position
 
         # context surround
+        last_token_idx = len(full_tokens)
         soffset = max(0, start - self.offset)
-        eoffset = min(end - start, end + self.offset)
+        eoffset = min(last_token_idx, end + self.offset)
 
-        # print(sentence)
-        # print(type(sentence))
-        # print(sentence[start:end])
-
-        context_pre = " ".join([t.text for t in sentence[soffset:start]])
-        context_post = " ".join([t.text for t in sentence[end:eoffset]])
+        context_pre = " ".join([t.text for t in full_tokens[soffset:start]])
+        context_post = " ".join([t.text for t in full_tokens[end:eoffset]])
 
         return {
             "start": int(start),

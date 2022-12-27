@@ -34,7 +34,7 @@ api-test:
 			-e LOG_LEVEL=error \
 		aymurai-api-dev
 
-api-prod-build: core-build
+api-prod-build: api-build
 	docker-compose build aymurai-api-prod
 api-prod-run:
 	docker run -p 8899:8000 --hostname=aymurai-api-prod registry.gitlab.com/collective.ai/datagenero-public/aymurai-api:prod
