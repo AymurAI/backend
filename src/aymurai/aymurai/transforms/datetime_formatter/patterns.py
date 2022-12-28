@@ -9,6 +9,7 @@ DATES = [
     r"%d/%m/%Y",
     r"%d/%m/%y",
     r"(?i)%-d de %B del? %Y",
+    r"(?i)%-d de %B %Y",
 ]
 HOURS = [
     r"%H[\.:]%M",
