@@ -12,8 +12,8 @@ from numpy import cumsum
 from more_itertools import unzip, collapse
 
 from aymurai.meta.types import DataItem
-from aymurai.spacy.utils import format_entity
 from aymurai.utils.json_data import load_json
+from aymurai.utils.entities import format_entity
 
 nlp = spacy.blank("es")
 
