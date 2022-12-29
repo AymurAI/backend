@@ -29,17 +29,35 @@ class USEMSubcategorizer(Transform):
         device: str = "/cpu:0",
     ):
         self.category = category
+
+        CACHE_PATH = os.path.join(
+            os.getenv("AYMURAI_CACHE_BASEPATH", AYMURAI_CACHE_BASEPATH), self.__name__
+        )
+
         logger.info(f"load usem options from {subcategories_path}")
+        if is_url(url := subcategories_path):
+            fname = md5(url.encode("utf-8")).hexdigest()
+            subcategories_path = f"{CACHE_PATH}/{fname}"
+            logger.info(f"downloading options on {subcategories_path}")
+            os.makedirs(CACHE_PATH, exist_ok=True)
+            subcategories_path = gdown.download(
+                url,
+                quiet=False,
+                fuzzy=True,
+                resume=True,
+                output=subcategories_path,
+            )
+
         with open(subcategories_path, "r") as file:
             self.subcategories = file.read().splitlines()
+        logger.info(f"options head: {self.subcategories[:5]}")
 
         # download embeddings
         if is_url(url := response_embeddings_path):
-            basepath = os.getenv("AYMURAI_CACHE_BASEPATH", AYMURAI_CACHE_BASEPATH)
             fname = md5(url.encode("utf-8")).hexdigest()
-            model_path = f"{basepath}/{self.__name__}/{fname}"
+            model_path = f"{CACHE_PATH}/{fname}"
             logger.info(f"downloading embeddings on {model_path}")
-            os.makedirs(os.path.dirname(model_path), exist_ok=True)
+            os.makedirs(CACHE_PATH, exist_ok=True)
             response_embeddings_path = gdown.download(
                 url,
                 quiet=False,

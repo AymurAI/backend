@@ -1,0 +1,79 @@
+{
+    "preprocess": [
+        [
+            "aymurai.models.flair.utils.FlairTextNormalize",
+            {}
+        ]
+    ],
+    "models": [
+        [
+            "aymurai.models.flair.core.FlairModel",
+            {
+                "basepath": "https://drive.google.com/uc?id=1QJYkegv_P3d27FyRLabIUiw9154ur9-I&confirm=true",
+                "split_doc": true,
+                "device": "cpu"
+            }
+        ],
+        [
+            "aymurai.models.decision.torch.binregex.DecisionConv1dBinRegex",
+            {
+                "tokenizer_path": "https://drive.google.com/uc?id=1eljQOinpObdfBREIKxVnC5Y2g_sbhPHT&confirm=true",
+                "model_checkpoint": "https://drive.google.com/uc?id=19_YmBJnO06iS0qW8ak0zl0EIsJYin8kQ&confirm=true",
+                "device": "cpu",
+                "threshold": 0.5,
+                "return_only_with_detalle": true
+            }
+        ]
+    ],
+    "postprocess": [
+        [
+            "aymurai.transforms.entity_subcategories.regex.RegexSubcategorizer",
+            {}
+        ],
+        [
+            "aymurai.transforms.datetime_formatter.core.DatetimeFormatter",
+            {}
+        ],
+        [
+            "aymurai.transforms.entity_subcategories.usem.USEMSubcategorizer",
+            {
+                "category": "CONDUCTA",
+                "subcategories_path": "https://drive.google.com/uc?id=1Vj5BxyeHzDnR1T8jYjLuteM3YwzE7fTW&confirm=true",
+                "response_embeddings_path": "https://drive.google.com/uc?id=1zvBHGf1MeFyyG_I0TukJl1eaM-7TsbPF&confirm=true",
+                "device": "/cpu:0"
+            }
+        ],
+        [
+            "aymurai.transforms.entity_subcategories.usem.USEMSubcategorizer",
+            {
+                "category": "CONDUCTA_DESCRIPCION",
+                "subcategories_path": "https://drive.google.com/uc?id=1A1I9xwzvynwxSv1I0SDHhN216Z3Yvoqj&confirm=true",
+                "response_embeddings_path": "https://drive.google.com/uc?id=1c3nYVDIq23kYqgMIIKGtDbIz6zDORpYK&confirm=true",
+                "device": "/cpu:0"
+            }
+        ],
+        [
+            "aymurai.transforms.entity_subcategories.usem.USEMSubcategorizer",
+            {
+                "category": "DETALLE",
+                "subcategories_path": "https://drive.google.com/uc?id=1o1Z4fhGTtNzUIL2m3WOfDr_f0KXHu_Ms&confirm=true",
+                "response_embeddings_path": "https://drive.google.com/uc?id=1OumPgnnM9ffjHjObnb5NL96e3hnlt7Ik&confirm=true",
+                "device": "/cpu:0"
+            }
+        ],
+        [
+            "aymurai.transforms.entity_subcategories.usem.USEMSubcategorizer",
+            {
+                "category": "OBJETO_DE_LA_RESOLUCION",
+                "subcategories_path": "https://drive.google.com/uc?id=1ksmfX_AJaE-OFEEGzj2N2mZgg5HZWB_4&confirm=true",
+                "response_embeddings_path": "https://drive.google.com/uc?id=18wOgqzNDsqF13nrvX2XscE0JS_xrgqBU&confirm=true",
+                "device": "/cpu:0"
+            }
+        ],
+        [
+            "aymurai.transforms.entity_subcategories.article.ArticleSubcategorizer",
+            {}
+        ]
+    ],
+    "use_cache": false
+}

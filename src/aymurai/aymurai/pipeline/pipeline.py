@@ -5,8 +5,8 @@ from aymurai.meta.types import DataItem, DataBlock
 
 from .training import TrainingPipeline
 from .preprocess import PreProcessPipeline
-from .config import config2json, json2config
 from .postprocess import PostProcessPipeline
+from .config import config2json, config2yalm, json2config
 
 logger = get_logger(__name__)
 
@@ -17,12 +17,13 @@ class AymurAIPipeline(object):
         training and postprocessing.
     """
 
-    def __init__(self, config: dict):
+    def __init__(self, config: dict, print_config: bool = True):
         """
 
         Args:
             config (Dict): pipeline config, it must have the following keys:
                 preprocess, models, postprocess.
+            print_config (bool, optional): print config. Default True.
         """
         self.config = config
 
@@ -31,9 +32,16 @@ class AymurAIPipeline(object):
             self.logger.setLevel(log_level.upper())
             self.logger.debug(f"Pipeline logger level: {log_level.upper()}")
 
+        if print_config:
+            self.logger.info("pipeline config:")
+            self.logger.info(self)
+
         self.pre_process = PreProcessPipeline(config, logger=self.logger)
         self.training_pipeline = TrainingPipeline(config, logger=self.logger)
         self.post_process = PostProcessPipeline(config, logger=self.logger)
+
+    def __repr__(self):
+        return config2yalm(self.config)
 
     @property
     def models(self):
@@ -133,12 +141,13 @@ class AymurAIPipeline(object):
             print(json_config, file=file)
 
     @classmethod
-    def load(cls, path: str):
+    def load(cls, path: str, print_config: bool = True):
         logger.info(f"loading pipeline from: {path}/pipeline.json")
+
         with open(f"{path}/pipeline.json", "r") as file:
             json_config = file.read()
         config = json2config(json_config)
-        obj = cls(config=config)
+        obj = cls(config=config, print_config=print_config)
         # FIXME: test the correct way to load training pipeline
 
         return obj
