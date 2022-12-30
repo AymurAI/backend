@@ -189,3 +189,9 @@ def test_read_main():
     response = client.post("/predict", json=input_)
     assert response.status_code == 200
     assert response.json() == output_
+
+
+if __name__ == "__main__":
+    logger.info("Loading pipelines and exit.")
+    get_pipeline()
+    get_pipeline_doc_extract()
