@@ -1,6 +1,8 @@
 ARG BASE_IMAGE
 FROM ${BASE_IMAGE} AS api-base
 
+ENV API_PORT=8899
+
 WORKDIR /tmp
 
 # Install python packages

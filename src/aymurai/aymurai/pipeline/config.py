@@ -111,7 +111,7 @@ def config2json(config: ConfigSchema) -> str:
     return json.dumps(config, indent=4)
 
 
-def config2yalm(config: ConfigSchema) -> str:
+def config2yaml(config: ConfigSchema) -> str:
     cfg = config2json(config)
     cfg = srsly.json_loads(cfg)
     return srsly.yaml_dumps(cfg)

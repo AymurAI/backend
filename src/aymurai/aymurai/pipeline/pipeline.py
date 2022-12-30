@@ -6,7 +6,7 @@ from aymurai.meta.types import DataItem, DataBlock
 from .training import TrainingPipeline
 from .preprocess import PreProcessPipeline
 from .postprocess import PostProcessPipeline
-from .config import config2json, config2yalm, json2config
+from .config import config2json, config2yaml, json2config
 
 logger = get_logger(__name__)
 
@@ -41,7 +41,7 @@ class AymurAIPipeline(object):
         self.post_process = PostProcessPipeline(config, logger=self.logger)
 
     def __repr__(self):
-        return config2yalm(self.config)
+        return config2yaml(self.config)
 
     @property
     def models(self):

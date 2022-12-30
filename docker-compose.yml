@@ -41,7 +41,7 @@ services:
         image: ${API_IMAGE}:prod
         container_name: aymurai-api-prod
         ports:
-            - "8899:8000"
+            - "8899:8899"
         build:
             context: .
             dockerfile: ./build/api/Dockerfile
