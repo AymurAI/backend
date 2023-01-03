@@ -5,8 +5,8 @@ import spacy
 import numpy as np
 import tensorflow as tf
 import tensorflow_hub as hub
+from tqdm.auto import tqdm
 import tensorflow_text  # noqa
-from rich.progress import track
 from more_itertools import chunked
 
 from aymurai.logging import get_logger
@@ -65,9 +65,9 @@ class USEMQA:
 
         encoded = [
             self.encode(text_chunk, encoder_type)
-            for text_chunk in track(
+            for text_chunk in tqdm(
                 text_chunks,
-                description="creating USEM vectors...",
+                desc="creating USEM vectors...",
                 total=len(text_array) // batch_size,
             )
         ]
