@@ -4,7 +4,6 @@ import logging
 from copy import deepcopy
 
 import flair
-import gdown
 import numpy as np
 from flair.data import Sentence
 from more_itertools import collapse
@@ -13,6 +12,7 @@ from flair.tokenization import SpaceTokenizer
 
 from aymurai.utils.misc import is_url
 from aymurai.logging import get_logger
+from aymurai.utils.download import download
 from aymurai.meta.types import DataItem, DataBlock
 from aymurai.meta.pipeline_interfaces import TrainModule
 from aymurai.meta.environment import AYMURAI_CACHE_BASEPATH
@@ -50,13 +50,7 @@ class FlairModel(TrainModule):
             model_path = f"{basepath}/{self.__name__}/model.pt"
             logger.info(f"downloading model on {model_path}")
             os.makedirs(os.path.dirname(model_path), exist_ok=True)
-            self._model_path = gdown.download(
-                url,
-                quiet=False,
-                fuzzy=True,
-                resume=True,
-                output=model_path,
-            )
+            self._model_path = download(url, output=model_path)
         else:
             model_path = f"{self.basepath}/model.pt"
         logger.info(f"loading model from {model_path}")
