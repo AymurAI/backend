@@ -43,5 +43,9 @@ FROM api-base as api-prod
 ENV TF_CPP_MIN_LOG_LEVEL=3
 ENV TFHUB_CACHE_DIR=/resources/cache/tfhub_modules
 
+# copy api resources
+COPY ./resources/api /resources/api
+
+# copy pipelines & run app startup to download models
 COPY ./resources/pipelines/production /resources/pipelines/production
 RUN python /usr/bin/main.py
