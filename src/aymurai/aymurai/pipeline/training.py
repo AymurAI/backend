@@ -4,6 +4,7 @@ from collections import OrderedDict
 from aymurai.logging import get_logger
 from aymurai.meta.types import DataItem, DataBlock
 from aymurai.meta.pipeline_interfaces import TrainModule
+from aymurai.utils.cache import cache_load, cache_save, get_cache_key
 
 logger = get_logger(__name__)
 
@@ -56,8 +57,19 @@ class TrainingPipeline(object):
         """
 
         # for each model call method predict with output from previous model.
+
+        use_cache = self.config.get("use_cache")
+
+        cache_key = get_cache_key(item, self.models_repr)
+        if use_cache and (cache_data := cache_load(key=cache_key, logger=self.logger)):
+            return cache_data
+
         for model in self.models:
             item = model.predict_single(item)
+
+        if use_cache:
+            cache_save(item, key=cache_key, logger=self.logger)
+
         return item
 
     def predict(self, data_block: DataBlock) -> DataBlock:
@@ -72,8 +84,19 @@ class TrainingPipeline(object):
         """
 
         # for each model call method predict with output from previous model.
+
+        use_cache = self.config.get("use_cache")
+
+        cache_key = get_cache_key(data_block, self.models_repr)
+        if use_cache and (cache_data := cache_load(key=cache_key, logger=self.logger)):
+            return cache_data
+
         for model in self.models:
             data_block = model.predict(data_block)
+
+        if use_cache:
+            cache_save(data_block, key=cache_key, logger=self.logger)
+
         return data_block
 
     def save(self, path: str) -> Optional[dict]:
