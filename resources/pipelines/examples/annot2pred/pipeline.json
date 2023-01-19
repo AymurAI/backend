@@ -1,0 +1,32 @@
+{
+    "preprocess": [
+        [
+            "aymurai.text.extraction.FulltextExtract",
+            {
+                "errors": "ignore",
+                "use_cache": false
+            }
+        ],
+        [
+            "aymurai.text.normalize.TextNormalize",
+            {}
+        ],
+        [
+            "aymurai.transforms.misc.annot2pred.DummyAnnotToPred",
+            {}
+        ]
+    ],
+    "models": [],
+    "postprocess": [
+        [
+            "aymurai.transforms.entities.FilterEntity",
+            {
+                "entities": [
+                    "DECISION"
+                ]
+            }
+        ]
+    ],
+    "multiprocessing": {},
+    "use_cache": true
+}

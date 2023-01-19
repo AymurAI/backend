@@ -1,13 +1,10 @@
 import os
 import time
-import hashlib
 import tempfile
 from threading import Lock
 from functools import lru_cache
 
 import torch
-import aiofiles
-import pandas as pd
 from fastapi.testclient import TestClient
 from fastapi.responses import RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -17,12 +14,7 @@ from aymurai.logging import get_logger
 from aymurai.utils.misc import get_element
 from aymurai.pipeline import AymurAIPipeline
 from aymurai.text.extraction import MIMETYPE_EXTENSION_MAPPER
-from aymurai.meta.api_interfaces import (
-    DocLabel,
-    DocRecord,
-    TextRequest,
-    DocumentInformation,
-)
+from aymurai.meta.api_interfaces import TextRequest, DocumentInformation
 
 logger = get_logger(__name__)
 
@@ -56,20 +48,18 @@ logger.info("Loading server ...")
 
 @lru_cache(maxsize=1)
 def get_pipeline():
-    return AymurAIPipeline.load("/resources/pipelines/examples/flair-simple")
+    return AymurAIPipeline.load("/resources/pipelines/production/full-paragraph")
 
 
 @lru_cache(maxsize=1)
 def get_pipeline_doc_extract():
-    return AymurAIPipeline.load(
-        "/resources/pipelines/examples/dummy-doc-text-extraction"
-    )
+    return AymurAIPipeline.load("/resources/pipelines/production/doc-extraction")
 
 
 @api.on_event("startup")
 async def load_pipelines():
-    pipe = get_pipeline()
-    pipe = get_pipeline_doc_extract()
+    get_pipeline()
+    get_pipeline_doc_extract()
 
 
 @api.middleware("http")
@@ -108,7 +98,7 @@ async def predict_over_text(
 
 
 @api.post("/predict-batch", response_model=list[DocumentInformation])
-async def predict_over_text(
+async def predict_over_text_batch(
     request: list[TextRequest] = Body(
         [
             {"text": " Buenos Aires, 17 de noviembre 2024"},
@@ -175,19 +165,6 @@ def create_upload_file(
     )
 
 
-@api.post("/entities-to-records", response_model=list[DocRecord])
-async def entities_to_records(entities: list[DocLabel]):
-    KEYS = ["NRO_REGISTRO", "TOMO"]
-    base = pd.read_csv(
-        "/resources/data/dump-20221027/set_de_datos_con_perspectiva_de_genero-database.csv"
-    )
-    base.dropna(subset=["NRO_REGISTRO", "TOMO", "FECHA_RESOLUCION"], inplace=True)
-    pair = base[KEYS].drop_duplicates().sample(1).values[0]
-    records = base.query(f'NRO_REGISTRO == "{pair[0]}" and TOMO == {pair[1]}')
-    records = records.to_dict("records")
-    return [DocRecord(row=row) for row in records]
-
-
 client = TestClient(api)
 
 
@@ -212,3 +189,9 @@ def test_read_main():
     response = client.post("/predict", json=input_)
     assert response.status_code == 200
     assert response.json() == output_
+
+
+if __name__ == "__main__":
+    logger.info("Loading pipelines and exit.")
+    get_pipeline()
+    get_pipeline_doc_extract()

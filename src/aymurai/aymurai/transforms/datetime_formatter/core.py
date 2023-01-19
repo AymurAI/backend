@@ -15,6 +15,8 @@ class DatetimeFormatter(Transform):
         self.dtm = DatetimeMatcher()
         self.VALID_ENTS = list(patterns.keys())
 
+        self.day0 = self.dtm.extract_datetime("%H:%M", "00:00")
+
     def process(self, ent):
         if (label := ent["label"]) not in self.VALID_ENTS:
             return ent
@@ -23,8 +25,17 @@ class DatetimeFormatter(Transform):
         suggestions = []
         for pat in pats:
             datetime = self.dtm.extract_datetime(pat, ent["text"])
-            if datetime:
-                suggestions.append(datetime.strftime("%d/%m/%Y %H:%M"))
+            if not datetime:
+                continue
+
+            diff = datetime - self.day0
+            # not a date, handle just as time
+            if diff.days == 0:
+                text_repr = datetime.strftime("%H:%M")
+            # handle it has date
+            else:
+                text_repr = datetime.strftime("%d/%m/%Y")
+            suggestions.append(text_repr)
 
         ent["attrs"]["aymurai_label_subclass"] = suggestions
 

@@ -1,6 +1,8 @@
 ARG BASE_IMAGE
 FROM ${BASE_IMAGE} AS api-base
 
+ENV API_PORT=8899
+
 WORKDIR /tmp
 
 # Install python packages
@@ -39,9 +41,5 @@ FROM api-base as api-prod
 ENV TF_CPP_MIN_LOG_LEVEL=3
 ENV TFHUB_CACHE_DIR=/resources/cache/tfhub_modules
 
-COPY ./resources/cache/aymurai /resources/cache/aymurai
-COPY ./resources/cache/tfhub_modules /resources/cache/tfhub_modules
-COPY ./resources/pipelines/examples/flair-simple/UsemEmbeddings /resources/pipelines/examples/flair-simple/UsemEmbeddings
-COPY ./resources/pipelines/examples/flair-simple/pipeline.json /resources/pipelines/examples/flair-simple/pipeline.json
-COPY ./resources/pipelines/examples/dummy-doc-text-extraction/pipeline.json /resources/pipelines/examples/dummy-doc-text-extraction/pipeline.json
-# RUN pytest --log-cli-level=ERROR --disable-warnings /usr/bin/main.py
+COPY ./resources/pipelines/production /resources/pipelines/production
+RUN python /usr/bin/main.py
