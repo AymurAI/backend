@@ -1,14 +1,25 @@
 version: "3.8"
 services:
     aymurai-core:
-        image: ${CORE_IMAGE}
+        image: ${CORE_IMAGE_CUDA}:latest
         container_name: aymurai-core
         build:
             context: .
             dockerfile: ./build/core/Dockerfile
+            args:
+                - BASE_IMAGE=nvidia/cuda:11.3.1-cudnn8-devel-ubuntu20.04
+
+    aymurai-core-cpu:
+        image: ${CORE_IMAGE_CPU}:latest
+        container_name: aymurai-core
+        build:
+            context: .
+            dockerfile: ./build/core/Dockerfile
+            args:
+                - BASE_IMAGE=ubuntu:20.04
 
     aymurai-api-dev:
-        image: registry.gitlab.com/collective.ai/datagenero-public/aymurai-api:dev
+        image: ${API_IMAGE}:dev
         container_name: aymurai-api
         ports:
             - "8899:8899"
@@ -16,7 +27,7 @@ services:
             context: .
             dockerfile: ./build/api/Dockerfile
             args:
-                - CORE_IMAGE=${CORE_IMAGE}
+                - BASE_IMAGE=${CORE_IMAGE_CPU}:latest
             target: api-base
         env_file: common.env
         environment:
@@ -27,13 +38,13 @@ services:
             - ./resources/:/resources
 
     aymurai-api-prod:
-        image: registry.gitlab.com/collective.ai/datagenero-public/aymurai-api:prod
-        container_name: aymurai-api
+        image: ${API_IMAGE}:prod
+        container_name: aymurai-api-prod
         ports:
-            - "8899:8000"
+            - "8899:8899"
         build:
             context: .
             dockerfile: ./build/api/Dockerfile
             args:
-                - CORE_IMAGE=${CORE_IMAGE}
+                - BASE_IMAGE=${CORE_IMAGE_CPU}:latest
             target: api-prod

@@ -1,0 +1,19 @@
+{
+    "preprocess": [
+        [
+            "aymurai.text.extraction.FulltextExtract",
+            {
+                "errors": "ignore",
+                "use_cache": false
+            }
+        ],
+        [
+            "aymurai.text.normalize.TextNormalize",
+            {}
+        ]
+    ],
+    "models": [],
+    "postprocess": [],
+    "multiprocessing": {},
+    "use_cache": false
+}

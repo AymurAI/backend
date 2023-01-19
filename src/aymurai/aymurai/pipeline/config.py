@@ -2,6 +2,8 @@ import json
 import importlib
 from copy import deepcopy
 
+import srsly
+
 from aymurai.meta.config import ConfigSchema
 from aymurai.meta.pipeline_interfaces import Transform, TrainModule
 
@@ -68,11 +70,11 @@ def json2config(config: str) -> ConfigSchema:
             if pipeline == "models":
                 assert issubclass(
                     obj, TrainModule
-                ), f"{obj_name} is not a valid TrainModule object"
+                ), f"{obj} is not a valid TrainModule object"
             else:
                 assert issubclass(
                     obj, Transform
-                ), f"{obj_name} is not a valid Transform object"
+                ), f"{obj} is not a valid Transform object"
 
             config[pipeline][i] = (obj, kwargs)
 
@@ -107,3 +109,9 @@ def config2json(config: ConfigSchema) -> str:
             config[pipeline][i] = (path, kwargs)
 
     return json.dumps(config, indent=4)
+
+
+def config2yaml(config: ConfigSchema) -> str:
+    cfg = config2json(config)
+    cfg = srsly.json_loads(cfg)
+    return srsly.yaml_dumps(cfg)

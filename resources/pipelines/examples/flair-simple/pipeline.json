@@ -1,0 +1,20 @@
+{
+    "preprocess": [
+        [
+            "aymurai.models.flair.utils.FlairTextNormalize",
+            {}
+        ]
+    ],
+    "models": [
+        [
+            "aymurai.models.flair.core.FlairModel",
+            {
+                "basepath": "https://drive.google.com/uc?id=1QJYkegv_P3d27FyRLabIUiw9154ur9-I&confirm=true",
+                "split_doc": true,
+                "device": "cpu"
+            }
+        ]
+    ],
+    "postprocess": [],
+    "use_cache": false
+}

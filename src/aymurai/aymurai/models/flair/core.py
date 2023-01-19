@@ -4,7 +4,6 @@ import logging
 from copy import deepcopy
 
 import flair
-import gdown
 import numpy as np
 from flair.data import Sentence
 from more_itertools import collapse
@@ -13,6 +12,7 @@ from flair.tokenization import SpaceTokenizer
 
 from aymurai.utils.misc import is_url
 from aymurai.logging import get_logger
+from aymurai.utils.download import download
 from aymurai.meta.types import DataItem, DataBlock
 from aymurai.meta.pipeline_interfaces import TrainModule
 from aymurai.meta.environment import AYMURAI_CACHE_BASEPATH
@@ -50,13 +50,7 @@ class FlairModel(TrainModule):
             model_path = f"{basepath}/{self.__name__}/model.pt"
             logger.info(f"downloading model on {model_path}")
             os.makedirs(os.path.dirname(model_path), exist_ok=True)
-            self._model_path = gdown.download(
-                url,
-                quiet=False,
-                fuzzy=True,
-                resume=True,
-                output=model_path,
-            )
+            self._model_path = download(url, output=model_path)
         else:
             model_path = f"{self.basepath}/model.pt"
         logger.info(f"loading model from {model_path}")
@@ -135,6 +129,7 @@ class FlairModel(TrainModule):
 
         label = sentence.get_label()
         text = label.data_point.text
+        full_tokens = sentence.sentence.tokens
 
         label_value = label.value
         score = label.score
@@ -146,15 +141,12 @@ class FlairModel(TrainModule):
         end_char = label.data_point.end_position
 
         # context surround
+        last_token_idx = len(full_tokens)
         soffset = max(0, start - self.offset)
-        eoffset = min(end - start, end + self.offset)
+        eoffset = min(last_token_idx, end + self.offset)
 
-        # print(sentence)
-        # print(type(sentence))
-        # print(sentence[start:end])
-
-        context_pre = " ".join([t.text for t in sentence[soffset:start]])
-        context_post = " ".join([t.text for t in sentence[end:eoffset]])
+        context_pre = " ".join([t.text for t in full_tokens[soffset:start]])
+        context_post = " ".join([t.text for t in full_tokens[end:eoffset]])
 
         return {
             "start": int(start),
