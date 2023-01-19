@@ -11,6 +11,16 @@ from aymurai.utils.cache import cache_load, cache_save, get_cache_key
 
 class PostProcessPipeline(object):
     def __init__(self, config, logger=None):
+        """
+        Postprocessing pipeline
+
+        Args:
+            config (dict): Postprocessing config
+            logger (logging.Logger, optional): Logger. Defaults to None.
+
+        Raises:
+            TypeError: If steps is not a subclass of Transform
+        """
         self.config = config
         self.logger = logger or get_logger(__name__)
 
@@ -33,6 +43,15 @@ class PostProcessPipeline(object):
         self.logger.debug(f"postprocessing config: {self.steps_repr}")
 
     def apply_transforms(self, data_item: DataItem) -> DataItem:
+        """
+        Apply postprocessing pipeline to a data item
+
+        Args:
+            data_item (DataItem): Data item to be processed
+
+        Returns:
+            DataItem: Processed data item
+        """
 
         use_cache = self.config.get("use_cache")
 
@@ -49,13 +68,14 @@ class PostProcessPipeline(object):
         return data_item
 
     def transform(self, data_block: DataBlock) -> DataBlock:
-        """Method to call all functions defined in config["postprocess"].
+        """
+        Apply postprocessing pipeline to a data block
 
         Args:
-            data (DataBlock): data to be postprocessed.
+            data_block (DataBlock): Data block to be processed
 
         Returns:
-            DataBlock: transformed data.
+            DataBlock: Processed data block
         """
 
         self.logger.info("doing postprocessing tasks...")
