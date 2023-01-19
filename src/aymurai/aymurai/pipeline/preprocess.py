@@ -1,6 +1,6 @@
 from collections import OrderedDict
 
-from rich.progress import track
+from tqdm.auto import tqdm
 from joblib import Parallel, delayed
 
 from aymurai.logging import get_logger
@@ -69,13 +69,11 @@ class PreProcessPipeline(object):
 
             delayed_transforms = delayed(self.apply_transforms)
             data_block = parallel(
-                delayed_transforms(x) for x in track(data_block, description="")
+                delayed_transforms(x) for x in tqdm(data_block, desc="")
             )
 
             return data_block
 
-        data_block = [
-            self.apply_transforms(x) for x in track(data_block, description="")
-        ]
+        data_block = [self.apply_transforms(x) for x in tqdm(data_block, desc="")]
 
         return data_block

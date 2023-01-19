@@ -2,7 +2,7 @@
 // https://github.com/microsoft/vscode-dev-containers/tree/v0.183.0/containers/python-3
 {
 	"name": "aymurai",
-	"initializeCommand": "make core-build && make redis-run",
+	"initializeCommand": "make core-build",
 	"dockerComposeFile": "docker-compose.yml",
 	"service": "devcontainer",
 	"runServices": [

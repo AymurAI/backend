@@ -6,12 +6,12 @@ import os
 import shutil
 from copy import deepcopy
 
-import gdown
 import regex
 import torch
 from unidecode import unidecode
 
 from aymurai.logging import get_logger
+from aymurai.utils.download import download
 from aymurai.meta.types import DataItem, DataBlock
 from aymurai.utils.misc import is_url, get_element
 from aymurai.meta.pipeline_interfaces import TrainModule
@@ -41,31 +41,19 @@ class DecisionConv1dBinRegex(TrainModule):
         self.return_only_with_detalle = return_only_with_detalle
 
         # download if needed
-        ## tokenizer
+        # tokenizer
         basepath = os.getenv("AYMURAI_CACHE_BASEPATH", AYMURAI_CACHE_BASEPATH)
         if is_url(url := self._tokenizer_path):
             output = f"{basepath}/{self.__name__}/tokenizer.pth"
             logger.info(f"downloading tokenizer on {output}")
             os.makedirs(os.path.dirname(output), exist_ok=True)
-            self._tokenizer_path = gdown.download(
-                url,
-                quiet=False,
-                fuzzy=True,
-                resume=True,
-                output=output,
-            )
+            self._tokenizer_path = download(url, output=output)
         # model
         if is_url(url := self._model_path):
             output = f"{basepath}/{self.__name__}/model.ckpt"
             logger.info(f"downloading model on {output}")
             os.makedirs(os.path.dirname(output), exist_ok=True)
-            self._model_path = gdown.download(
-                url,
-                quiet=False,
-                fuzzy=True,
-                resume=True,
-                output=output,
-            )
+            self._model_path = download(url, output=output)
 
         self.tokenizer = Tokenizer.load(self._tokenizer_path)
         self.model = Conv1dTextClassifier.load_from_checkpoint(
@@ -165,7 +153,7 @@ class DecisionConv1dBinRegex(TrainModule):
         ent = self.gen_aymurai_entity(text=text, category=category, score=score)
         ents.append(ent)
 
-        if not "predictions" in item:
+        if "predictions" not in item:
             item["predictions"] = {}
 
         item["predictions"]["entities"] = ents

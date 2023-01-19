@@ -6,8 +6,11 @@ from functools import lru_cache
 
 import torch
 from fastapi.testclient import TestClient
+from fastapi.staticfiles import StaticFiles
+from fastapi.openapi.utils import get_openapi
 from fastapi.responses import RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi import Body, Depends, FastAPI, Request, UploadFile
 
 from aymurai.logging import get_logger
@@ -22,7 +25,7 @@ torch.set_num_threads = 100
 pipeline_lock = Lock()
 
 
-api = FastAPI()
+api = FastAPI(title="AymurAI API", version="0.5.0")
 
 # configure CORS
 origins = [
@@ -76,7 +79,31 @@ async def index():
     return "/docs"
 
 
-@api.post("/predict", response_model=DocumentInformation)
+api.mount(
+    "/static",
+    StaticFiles(directory="/resources/api/static"),
+    name="static",
+)
+
+
+def custom_openapi():
+    if api.openapi_schema:
+        return api.openapi_schema
+    openapi_schema = get_openapi(
+        title="AymurAI API - Swagger UI",
+        version="0.5.0",
+        description="",
+        routes=api.routes,
+    )
+    openapi_schema["info"]["x-logo"] = {"url": "static/logo256-text.ico"}
+    api.openapi_schema = openapi_schema
+    return api.openapi_schema
+
+
+api.openapi = custom_openapi
+
+
+@api.post("/predict", response_model=DocumentInformation, tags=["paragraphs"])
 async def predict_over_text(
     request: TextRequest = Body({"text": " Buenos Aires, 17 de noviembre 2024"}),
     pipeline: AymurAIPipeline = Depends(get_pipeline),
@@ -97,7 +124,9 @@ async def predict_over_text(
     )
 
 
-@api.post("/predict-batch", response_model=list[DocumentInformation])
+@api.post(
+    "/predict-batch", response_model=list[DocumentInformation], tags=["paragraphs"]
+)
 async def predict_over_text_batch(
     request: list[TextRequest] = Body(
         [
@@ -127,7 +156,7 @@ async def predict_over_text_batch(
     ]
 
 
-@api.post("/document-extract", response_model=DocumentInformation)
+@api.post("/document-extract", response_model=DocumentInformation, tags=["documents"])
 def create_upload_file(
     file: UploadFile,
     pipeline: AymurAIPipeline = Depends(get_pipeline_doc_extract),

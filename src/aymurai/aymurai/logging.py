@@ -1,8 +1,6 @@
 import os
 import logging
 
-from rich.logging import RichHandler
-
 LOG_LEVEL = os.getenv("LOG_LEVEL", "info")
 LOG_LEVEL_MAP = {
     "info": logging.INFO,
@@ -14,9 +12,8 @@ LOG_LEVEL_MAP = {
 def get_logger(name: str) -> logging.Logger:
     logging.basicConfig(
         level=LOG_LEVEL_MAP[LOG_LEVEL],
-        format="%(message)s",
+        format="%(levelname)s:%(name)s:%(message)s",
         datefmt="[%X]",
-        handlers=[RichHandler(markup=True)],
     )
 
     logger = logging.getLogger(name)

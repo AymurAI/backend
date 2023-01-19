@@ -2,13 +2,13 @@ import os
 from hashlib import md5
 from copy import deepcopy
 
-import gdown
 import numpy as np
 import tensorflow as tf
 
 from aymurai.logging import get_logger
 from aymurai.meta.types import DataItem
 from aymurai.models.usem.core import USEMQA
+from aymurai.utils.download import download
 from aymurai.utils.misc import is_url, get_element
 from aymurai.meta.pipeline_interfaces import Transform
 from aymurai.meta.environment import AYMURAI_CACHE_BASEPATH
@@ -40,13 +40,7 @@ class USEMSubcategorizer(Transform):
             subcategories_path = f"{CACHE_PATH}/{fname}"
             logger.info(f"downloading options on {subcategories_path}")
             os.makedirs(CACHE_PATH, exist_ok=True)
-            subcategories_path = gdown.download(
-                url,
-                quiet=False,
-                fuzzy=True,
-                resume=True,
-                output=subcategories_path,
-            )
+            subcategories_path = download(url, output=subcategories_path)
 
         with open(subcategories_path, "r") as file:
             self.subcategories = file.read().splitlines()
@@ -58,13 +52,7 @@ class USEMSubcategorizer(Transform):
             model_path = f"{CACHE_PATH}/{fname}"
             logger.info(f"downloading embeddings on {model_path}")
             os.makedirs(CACHE_PATH, exist_ok=True)
-            response_embeddings_path = gdown.download(
-                url,
-                quiet=False,
-                fuzzy=True,
-                resume=True,
-                output=model_path,
-            )
+            response_embeddings_path = download(url, output=model_path)
         logger.info(f"load usem embeddings from {response_embeddings_path}")
         self.usem_vectors = self.load_usem_vectors(response_embeddings_path)
         self.device = device

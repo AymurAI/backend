@@ -35,7 +35,6 @@ setup(
     extras_require={
         "": [
             "torch==1.12.1",
-            "rich==12.6.0",
         ],
         "gpu": [
             "torch @ https://download.pytorch.org/whl/cu113/torch-1.12.1%2Bcu113-cp310-cp310-linux_x86_64.whl",

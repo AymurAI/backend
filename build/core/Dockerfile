@@ -10,6 +10,7 @@ ENV LD_LIBRARY_PATH=/usr/local/cuda/lib64/:$LD_LIBRARY_PATH
 ENV PIP_VERSION=22.2.2
 ENV PYTHON_VERSION=3.10
 
+
 # OS packages
 RUN apt update \
     && apt install software-properties-common -y \
@@ -82,6 +83,37 @@ RUN apt update && apt install -y locales \
     && update-locale LANG=en_US.UTF-8
 ENV LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
 
+# # install redis
+# RUN curl -fsSL https://packages.redis.io/gpg | gpg --dearmor -o /usr/share/keyrings/redis-archive-keyring.gpg \
+#     && echo "deb [signed-by=/usr/share/keyrings/redis-archive-keyring.gpg] https://packages.redis.io/deb $(lsb_release -cs) main" | tee /etc/apt/sources.list.d/redis.list \
+#     && apt update \
+#     && apt install -y redis \
+#     && apt-get autoremove -y \
+#     && apt-get clean \
+#     && rm -rf /tmp/* /var/tmp/* \
+#     && rm -rf /var/lib/apt/lists/*
+
+# Install Redis.
+RUN \
+  cd /tmp && \
+  wget http://download.redis.io/redis-stable.tar.gz && \
+  tar xvzf redis-stable.tar.gz && \
+  cd redis-stable && \
+  make && \
+  make install && \
+  cp -f src/redis-sentinel /usr/local/bin && \
+  mkdir -p /etc/redis && \
+  cp -f *.conf /etc/redis && \
+  rm -rf /tmp/redis-stable* && \
+  sed -i 's/^\(bind .*\)$/# \1/' /etc/redis/redis.conf && \
+  sed -i 's/^\(daemonize .*\)$/# \1/' /etc/redis/redis.conf && \
+  sed -i 's/^\(dir .*\)$/# \1\ndir \/data/' /etc/redis/redis.conf && \
+  sed -i 's/^\(logfile .*\)$/# \1/' /etc/redis/redis.conf && \
+  sed -i 's/^\(# maxmemory .*\)$/maxmemory 30000000/' /etc/redis/redis.conf && \
+  sed -i 's/^\(# maxmemory-policy .*\)$/maxmemory-policy volatile-lru/' /etc/redis/redis.conf
+
+# Define mountable directories.
+VOLUME ["/data"]
 
 WORKDIR /root
 CMD ["/bin/bash"]
