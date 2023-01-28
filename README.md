@@ -1,43 +1,72 @@
-AymurAI development
+AymurAI backend
 ===================
 
-# Run API
-to run production api
-```
-docker run -p 8899:8000 --hostname=aymurai-api -d registry.gitlab.com/collective.ai/datagenero-public/aymurai-api:prod
-```
+# Intro
 
-# Setup
-# Contenedores Docker
-Este repositorio esta pensado para ser levantado dentro de un contenedor de desarrollo
+# Table of contents
 
-## Jupyter
-Para iniciar el ambiente de desarrollo con `gpu` a traves de Jupyter correr:
+# Intended uses & limitations
+
+# Deployment
+This project is deployed using [Docker](https://www.docker.com/) , and the images are available in the following registry:
 ```bash
-make jupyter-run
+registry.gitlab.com/collective.ai/datagenero-public/aymurai-api:prod
 ```
-o equivalentemente
+You can a production ready instance of the API by running:
 ```bash
-make jupyter-run-cpu
+docker run -d --rm -p 8899:8899 \
+    registry.gitlab.com/collective.ai/datagenero-public/aymurai-api:prod
 ```
-para correr en modo `cpu`
-
-
-## Devcontainer (Recomendado)
-Adicionalmente un `devcontainer`. Este puede ser levantado directamente desde Visual Studio Code.
-
-
-## Ambiente de desarrollo
-<div class="alert alert-danger">
-    Para evitar subir datos sensibles en las notebooks por favor configurar pre-commits
-</div>
-
-***Inicializar la herramienta*** `precommit` ***para el control de sintaxis.***
-
+this will start a container with the API running on port 8899 on your localhost. The API is documented using OpenAPI and can be accessed at `http://localhost:8899/docs`
+Once it is deployed, it doesn't requere a internet connection to work. If you need to deployed in a closed network you can port the image using
 ```bash
-pre-commit install
+docker image save registry.gitlab.com/collective.ai/datagenero-public/aymurai-api:prod -o aymurai-api.tar
+```
+and then transfer the image to the target machine and load it using
+```bash
+docker load -i aymurai-api.tar
+```
+For more information about docker deployment please refer to the [docker documentation](https://docs.docker.com/).
+You also can contact us at aymurai@datagenero.org and we will be happy to help you.
+
+# Repository structure
+* developed with docker
+*
+
+# Data origin
+##
+# Pipeline
+
+# Models
+## NER
+## Decision
+
+# Tutorials
+
+
+# Contributing
+Thanks for your interest in contributing! There are many ways to get involved; start with our [contributor guidelines](docs/CONTRIBUTING.md) and [code of conduct](docs/CODE_OF_CONDUCT.md).
+
+
+# Citing AymurAI
+Please cite [the following paper](https://drive.google.com/file/d/1P-hW0JKXWZ44Fn94fDVIxQRTExkK6m4Y/view) when using AymurAI:
+
+```bibtex
+@techreport{feldfeber2022,
+    author      = "Feldfeber, Ivana and Quiroga, Yasmín Belén  and Guevara, Clarissa  and Ciolfi Felice, Marianela",
+    title       = "Feminisms in Artificial Intelligence:  Automation Tools towards a Feminist Judiciary Reform in Argentina and Mexico",
+    institution = "DataGenero",
+    year        = "2022",
+    url         = "https://drive.google.com/file/d/1P-hW0JKXWZ44Fn94fDVIxQRTExkK6m4Y/view"
+}
 ```
 
+# License
+AymurAI is licensed under the [MIT License](LICENSE.md).
+
+
+
+<!--
 ## Variables de entorno
 El set de variables de entorno pueden encontrarse en `common.env` (Son cargadas automaticamente en el devcontainer o image de jupyter)
 ## Data
@@ -50,4 +79,4 @@ Nota: La descarga de los documentos de la base publica puede tardar.
 
 ### Data privada
 La mayor parte del desarrollo ha sido teniendo encuenta datos privados del Juzgado.
-Estos documentos y sus anotaciones correspondientes no estan disponibles para el publico y se asumen presentes en formatos pdf y doc/docx en las carpetas seteadas por las variables de entorno `$AYMURAI_RESTRICTED_DOCUMENT_PDFS_PATH` y `$AYMURAI_RESTRICTED_DOCUMENT_PDFS_PATH` (ver `common.env` para ver los valores por defecto)
+Estos documentos y sus anotaciones correspondientes no estan disponibles para el publico y se asumen presentes en formatos pdf y doc/docx en las carpetas seteadas por las variables de entorno `$AYMURAI_RESTRICTED_DOCUMENT_PDFS_PATH` y `$AYMURAI_RESTRICTED_DOCUMENT_PDFS_PATH` (ver `common.env` para ver los valores por defecto) -->
