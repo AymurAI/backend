@@ -138,6 +138,12 @@ The dataset was manually annotated by:
 * Zoe Rodriguez Gerzovich
 ## Metrics
 
+<p style="text-align:center;">
+<img src="assets/decision-confusion-matrix.png" width="65%" style="background-color:white" alt="schema"/>
+</p>
+
+Class 0: Not a decision
+Class 1: Decision
 
 
 
