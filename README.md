@@ -1,9 +1,18 @@
 AymurAI backend
 ===================
 
-# Intro
 
 # Table of contents
+* [AymurAI backend](#aymurai-backend)
+* [Intro](#intro)
+* [Table of contents](#table-of-contents)
+* [Intended uses &amp; limitations](#intended-uses--limitations)
+* [Deployment](#deployment)
+* [Pipeline](#pipeline)
+* [Tutorials](#tutorials)
+* [Contributing](#contributing)
+* [Citing AymurAI](#citing-aymurai)
+* [License](#license)
 
 # Intended uses & limitations
 AymurAI is intended to be used as a tool to address the lack of transparency in the judicial system regarding gender-based violence (GBV) cases in Latin America. The goal is to increase report levels, build trust in the justice system, and improve access to justice for women and LGBTIQ+ people. AymurAI will generate and maintain anonymized datasets from legal rulings to understand GBV and support policy making, and also contribute to feminist collectives' campaigns.
@@ -32,19 +41,12 @@ docker load -i aymurai-api.tar
 For more information about docker deployment please refer to the [docker documentation](https://docs.docker.com/).
 You also can contact us at aymurai@datagenero.org and we will be happy to help you.
 
-# Repository structure
-* developed with docker
-*
-
-# Data origin
-##
 # Pipeline
+A detailed description of the pipeline can be found in the [pipeline documentation](docs/pipeline/README.md).
 
-# Models
-## NER
-## Decision
 
 # Tutorials
+Check our [tutorials](tutorials/GET_STARTED.md) to learn how to use AymurAI.
 
 
 # Contributing
