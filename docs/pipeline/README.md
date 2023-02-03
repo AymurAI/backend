@@ -1,12 +1,14 @@
 # Pipeline
-
 <p style="text-align:center;">
 <img src="assets/pipeline.png" width="75%" style="background-color:white" alt="schema"/>
 </p>
 
+The AymurAI pipeline is written in a modular way, each step is independent and can be replaced by another one. This allows us to easily change the models or the way in which the information is processed.
+It's made up of three main steps: preprocessing, inference and postprocessing.
+The preprocessing step is in charge of dividing the court rulings into paragraphs and normalizing their text. The inference step is in charge of extracting the information from the paragraphs. Finally, the postprocessing step is in charge of filtering out irrelevant decisions and formatting the text.
 # Preprocessing
-El flujo de información comienza con un paso de pre-procesamiento de las resoluciones, en el que los documentos son subdivididos en párrafos y su texto es normalizado: se unifican múltiples espacios y se remueven tildes y/o caracteres especiales (esto último, sólo en el caso del modelo de decisión).
-De esta manera, los párrafos constituyen la unidad mínima de análisis y las predicciones se generan en paralelo y de forma independiente entre sí.
+The flow of information in the system starts with a pre-processing step for the court rulings, where the documents are divided into paragraphs and their text is normalized. This normalization process involves the unification of multiple spaces and the removal of accents and/or special characters .
+In this way, the paragraphs become the minimum unit of analysis, and predictions are generated in parallel and independently from one another.
 
 
 # Inference
@@ -14,46 +16,41 @@ De esta manera, los párrafos constituyen la unidad mínima de análisis y las p
 <img src="assets/inference-example.png" width="45%" style="background-color:white" alt="schema"/>
 </p>
 
-Luego del pre-procesamiento, ocurre la inferencia, es decir, el paso en que los modelos de inteligencia artificial procesan los textos para obtener distintas clasificaciones:
-El modelo de NER identifica a qué categoría corresponde cada una de las palabras presentes en el texto.
-El modelo de decisión indica si cada párrafo constituye una decisión judicial o no.
+The fundamental piece of the AymurAI backend is the AI models. They are in charge of extracting information from court rulings.
+For their development, we use the following work frameworks:
+The NER model was developed using [Flair](https://github.com/flairNLP/flair), a Python library created by Humboldt - University of Berlin focused on natural language processing models. Flair is based on PyTorch, one of the main artificial intelligence frameworks, and allows integration with Transformers, another of the main libraries of natural language processing models.
+For the decision model we use PyTorch natively.
+
+Each paragraph is processed by these models, and the results are combined.
+
+Check out the [model cards](#model-cards) for more information about the models, and the [model training](#model-training-notebooks) section for more information about how the models were trained.
 
 # Postprocessing
+Once the inference is made, the predictions are postprocessed in order to obtain the final results.
+This process involves:
+* Subcategorization extraction or classification
+* Filtering out irrelevant decisions
+* Text formatting
 
 ## Subcategorization
 * Regex
-Las expresiones regulares nos permiten identificar algunas subcategorías cuyos textos suelen repetirse siguiendo patrones muy marcados.
-    - Violencia de género
-    - Modalidad de la violencia
-    - Relación entre acusado/a y denunciante
-    - Tipo de resolución
-    - Nivel de instrucción
-    - Género
-    - Persona acusada no determinada
-    - Nombre
-    - Artículo infringido
-    - Decisión
+Regular expressions allow us to identify some subcategories whose texts tend to be repeated following very marked patterns.
 
 * Sentence Similarity
-El modelo de Universal Sentence Encoder Multilingual QA, publicado por Google, nos permite codificar el texto identificado como perteneciente a ciertas categorías para luego calcular un score de similitud semántica con respecto a cada subcategoría posible y así generar un ranking de candidatos, ordenado de mayor a menor similitud.
-    - Conducta
-    - Conducta descripción
-    - Detalle
-    - Objeto de la resolución
+Entities with many subcategories, and less well represented, are identified using sentence similarity. The Universal Sentence Encoder Multilingual QA model, published by Google, allows us to encode the text identified as belonging to certain categories in order to then calculate a semantic similarity score with respect to each possible subcategory and thus generate a ranking of candidates, ordered from highest to lowest similarity.
 
 
 ## Text Formating
+The NER model extract non-structured information from the text. Dates and times are reformatted to a standard format.
 
 ## Filters
-
+Many of the decisions that are extracted by the models are not relevant to the user. Relevant decisions are those that contain a specific type of information, such as presence of other relevant entities (e.i DETALLE)
 
 # Models
-Los modelos de IA son la pieza fundamental del backend de AymurAI. Se encargan de las tareas de extracción de información de las resoluciones judiciales.
-Para su desarrollo, utilizamos los siguientes frameworks de trabajo:
-El modelo de NER fue desarrollado utilizando Flair, una biblioteca de Python creada por Humboldt - Universidad de Berlín con foco en modelos de procesamiento del lenguaje natural. Flair se basa en PyTorch, uno de los principales frameworks de inteligencia artificial, y permite la integración con Transformers, otra de las principales bibliotecas de modelos de procesamiento del lenguaje.
-Para el modelo de decisión empleamos PyTorch de forma nativa.
-
-
 ## Model cards
 * [Flair NER Spanish Judicial](./flair-model-card.md)
 * [Decision Text Classification](./decision-model-card.md)
+
+# Model Training Notebooks
+* [Flair NER Spanish Judicial](../../notebooks/experiments/ner/flair/)
+* [Decision Text Classification](../../notebooks/experiments/decision/)
