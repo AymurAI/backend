@@ -14,11 +14,11 @@ from aymurai.logging import get_logger
 from aymurai.utils.download import download
 from aymurai.meta.types import DataItem, DataBlock
 from aymurai.utils.misc import is_url, get_element
+from aymurai.models.decision.tokenizer import Tokenizer
 from aymurai.meta.pipeline_interfaces import TrainModule
 from aymurai.meta.environment import AYMURAI_CACHE_BASEPATH
-from aymurai.models.decision.torch.tokenizer import Tokenizer
+from aymurai.models.decision.conv1d import Conv1dTextClassifier
 from aymurai.meta.api_interfaces import DocLabel, DocLabelAttributes
-from aymurai.models.decision.torch.conv1d import Conv1dTextClassifier
 
 logger = get_logger(__name__)
 

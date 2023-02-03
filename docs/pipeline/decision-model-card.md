@@ -36,7 +36,7 @@ This model was trained with a closed dataset from an Argentine criminal court. I
 
 ```python
 
-from aymurai.models.decision.torch.binregex import DecisionConv1dBinRegex
+from aymurai.models.decision.binregex import DecisionConv1dBinRegex
 
 model = DecisionConv1dBinRegex(
     tokenizer_path="https://drive.google.com/uc?id=1eljQOinpObdfBREIKxVnC5Y2g_sbhPHT&confirm=true",
@@ -68,7 +68,7 @@ You also can run the model directly in the aymurai pipeline.
 ```python
 from aymurai.pipeline import AymurAIPipeline
 from aymurai.models.flair.utils import FlairTextNormalize
-from aymurai.models.decision.torch.binregex import DecisionConv1dBinRegex
+from aymurai.models.decision.binregex import DecisionConv1dBinRegex
 
 config = {
     "preprocess": [
@@ -80,7 +80,7 @@ config = {
     "models": [
 
         [
-            "aymurai.models.decision.torch.binregex.DecisionConv1dBinRegex",
+            "aymurai.models.decision.binregex.DecisionConv1dBinRegex",
             {
                 "tokenizer_path": "https://drive.google.com/uc?id=1eljQOinpObdfBREIKxVnC5Y2g_sbhPHT&confirm=true",
                 "model_checkpoint": "https://drive.google.com/uc?id=19_YmBJnO06iS0qW8ak0zl0EIsJYin8kQ&confirm=true",
