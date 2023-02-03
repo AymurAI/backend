@@ -57,7 +57,6 @@ Thanks for your interest in contributing! There are many ways to get involved; s
 * Julian Ansaldo - [@jansaldo](https://github.com/jansaldo) at [collective.ai](https://collectiveai.io) ([email](julian@collectiveai.io))
 * Raúl Barriga - [@jedzill4](https://github.com/jedzill4) at [collective.ai](https://collectiveai.io) ([email](r@collectiveai.io))
 
-# Speci
 
 # Citing AymurAI
 Please cite [the following paper](https://drive.google.com/file/d/1P-hW0JKXWZ44Fn94fDVIxQRTExkK6m4Y/view) when using AymurAI:
