@@ -32,11 +32,24 @@ class InvalidFile(Exception):
 
 
 class FulltextExtract(Transform):
+    """
+    Extract plain text from document files (doc, docx, odt)
+    """
+
     def __init__(self, use_cache: bool = False, **kwargs):
         self.use_cache = use_cache
         self.kwargs = kwargs
 
     def __call__(self, item: dict) -> dict:
+        """
+        Extract plain text from document files (doc, docx, odt)
+
+        Args:
+            item (dict): data item
+
+        Returns:
+            dict: data item with extracted text
+        """
 
         if not item.get("data"):
             item["data"] = {}

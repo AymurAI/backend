@@ -10,6 +10,10 @@ from aymurai.transforms.entity_subcategories.utils import (
 
 
 class ArticleSubcategorizer(Transform):
+    """
+    Find subcategories using regex patterns
+    """
+
     def __call__(self, item: DataItem) -> DataItem:
         item = deepcopy(item)
 

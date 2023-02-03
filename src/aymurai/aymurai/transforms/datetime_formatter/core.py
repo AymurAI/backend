@@ -10,7 +10,15 @@ from .patterns import patterns
 
 
 class DatetimeFormatter(Transform):
+    """
+    Format datetime entities
+    """
+
     def __init__(self, field: str = "predictions"):
+        """
+        Args:
+            field (str, optional): field with entities. Defaults to "predictions".
+        """
         self.field = field
         self.dtm = DatetimeMatcher()
         self.VALID_ENTS = list(patterns.keys())
@@ -18,6 +26,16 @@ class DatetimeFormatter(Transform):
         self.day0 = self.dtm.extract_datetime("%H:%M", "00:00")
 
     def process(self, ent):
+        """
+        parse datetime and format it. If it is a date, format it as dd/mm/yyyy
+        if it is a time, format it as hh:mm
+
+        Args:
+            ent (dict): entity to process
+
+        Returns:
+            dict: processed entity
+        """
         if (label := ent["label"]) not in self.VALID_ENTS:
             return ent
 
@@ -42,6 +60,13 @@ class DatetimeFormatter(Transform):
         return ent
 
     def __call__(self, item: DataItem) -> DataItem:
+        """
+        Args:
+            item (DataItem): item to process
+
+        Returns:
+            DataItem: processed item
+        """
         item = deepcopy(item)
 
         ents = get_element(item, [self.field, "entities"]) or []

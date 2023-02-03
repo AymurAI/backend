@@ -17,6 +17,10 @@ N_JOBS = cpu_count()
 
 
 class USEMQA:
+    """
+    Base class for USEM (Universal Sentence Encoder Multilingual QA)
+    """
+
     def __init__(
         self,
         usem_qa_url: str = "https://tfhub.dev/google/universal-sentence-encoder-multilingual-qa/3",
