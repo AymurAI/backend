@@ -7,16 +7,19 @@ core-build:
 core-run:
 	docker-compose run aymurai-core
 
-dev-build: core-build
+redis-run:
+	docker-compose -f .devcontainer/docker-compose.yml run redis
+
+dev-build: core-build redis-run
 	docker-compose -f .devcontainer/docker-compose.yml build devcontainer-gpu
-dev-build-cpu: core-build
+dev-build-cpu: core-build redis-run
 	docker-compose -f .devcontainer/docker-compose.yml build devcontainer
 
 
-jupyter-run: dev-build
+jupyter-run: dev-build redis-run
 	docker-compose -f .devcontainer/docker-compose.yml run devcontainer-gpu \
 		jupyter-lab /workspace --no-browser
-jupyter-run-cpu: dev-build-cpu
+jupyter-run-cpu: dev-build-cpu redis-run
 	docker-compose -f .devcontainer/docker-compose.yml run devcontainer \
 		jupyter-lab /workspace --no-browser
 

@@ -43,6 +43,11 @@ create a python environment of your preference and run:
 pip install src/aymurai
 ```
 
+You may need to install redis or run it in a docker container. You can use the following command to run it in a docker container:
+```bash
+make redis-run
+```
+
 ### Git pre-commit Hooks
 After installing the dependencies, install `pre-commit` hooks via:
 ```bash
