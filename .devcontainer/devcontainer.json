@@ -6,7 +6,8 @@
 	"dockerComposeFile": "docker-compose.yml",
 	"service": "devcontainer",
 	"runServices": [
-		"devcontainer"
+		"devcontainer",
+		"redis",
 	],
 	"workspaceFolder": "/workspace",
 	"settings": {
