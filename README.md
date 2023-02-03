@@ -1,14 +1,9 @@
 AymurAI backend
 ===================
-[AymurAI](https://www.aymurai.info) is an AI-powered software designed to support criminal courts in Latin America in gathering and disseminating data related to gender-based violence. The main objective of AymurAI is to extract valuable information from court rulings and create an open database to enhance judicial transparency. This program is expected to play a significant role in the development of data and statistics concerning gender-based violence.
-
 This repository contains the backend API and ML models for AymurAI.
 
 # Table of contents
-* [AymurAI backend](#aymurai-backend)
-* [Intro](#intro)
-* [Table of contents](#table-of-contents)
-* [Intended uses &amp; limitations](#intended-uses--limitations)
+* [About AymurAI, its uses and limitations](#about-aymurai-its-uses-and-limitations)
 * [Deployment](#deployment)
 * [Pipeline](#pipeline)
 * [Tutorials](#tutorials)
@@ -16,10 +11,14 @@ This repository contains the backend API and ML models for AymurAI.
 * [Citing AymurAI](#citing-aymurai)
 * [License](#license)
 
-# Intended uses & limitations
-AymurAI is intended to be used as a tool to address the lack of transparency in the judicial system regarding gender-based violence (GBV) cases in Latin America. The goal is to increase report levels, build trust in the justice system, and improve access to justice for women and LGBTIQ+ people. AymurAI will generate and maintain anonymized datasets from legal rulings to understand GBV and support policy making, and also contribute to feminist collectives' campaigns.
 
-AymurAI is still a prototype and is only being implemented in Argentina and Mexico. Its capabilities are limited to semi-automated data collection and analysis, and the results may be subject to limitations such as the quality and consistency of the data, potential biases in the AI model, and the availability of the data. Additionally, the effectiveness of AymurAI in addressing the lack of transparency in the judicial system and improving access to justice may also depend on other factors such as the level of cooperation from court officials and the broader cultural and political context.
+# About AymurAI, its uses and limitations
+
+[AymurAI](https://www.aymurai.info) is intended to be used as a tool to address the lack of available data in the judicial system on gender-based violence (GBV) rulings in Latin America. The goal is to increase report levels, build trust in the justice system, and improve access to justice for women and LGBTIQ+ people. AymurAI will generate and maintain anonymized datasets from legal rulings to understand GBV and support policy making, and also contribute to feminist collectives' campaigns.
+
+AymurAI is still a prototype and is only being implemented in Criminal Court N°10 in the City of Buenos Aires, Argentina. Its capabilities are limited to semi-automated data collection and analysis, and the results may be subject to limitations such as the quality and consistency of the data, and the availability of the data. Additionally, the effectiveness of AymurAI in addressing the lack of transparency in the judicial system and improving access to justice may also depend on other factors such as the level of cooperation from court officials and the broader cultural and political context.
+
+This model was trained with a closed dataset from an Argentine criminal court. It's is designed to identify and extract relevant information from court rulings related to GBV cases. The use of a domain specific dataset from an Argentine criminal court ensures that the model is tailored to the specific legal and cultural context, allowing for more accurate results. However, it also means that the model may not be applicable or effective in other countries or regions with different legal systems or cultural norms.
 
 # Deployment
 This project is deployed using [Docker](https://www.docker.com/) , and the images are available in the following registry:
@@ -75,20 +74,3 @@ Please cite [the following paper](https://drive.google.com/file/d/1P-hW0JKXWZ44F
 
 # License
 AymurAI is licensed under the [MIT License](LICENSE.md).
-
-
-
-<!--
-## Variables de entorno
-El set de variables de entorno pueden encontrarse en `common.env` (Son cargadas automaticamente en el devcontainer o image de jupyter)
-## Data
-Este repositorio cuenta con un dataset preconfigurado del Juzgado PCyF 10 de la Ciudad Autonoma de Bueno Aires, Argentina.
-Un ejemplo de pipeline puede ser encontrado en
-```
-notebooks/dev/pipeline-unificado/00-pipeline-public.ipynb
-```
-Nota: La descarga de los documentos de la base publica puede tardar.
-
-### Data privada
-La mayor parte del desarrollo ha sido teniendo encuenta datos privados del Juzgado.
-Estos documentos y sus anotaciones correspondientes no estan disponibles para el publico y se asumen presentes en formatos pdf y doc/docx en las carpetas seteadas por las variables de entorno `$AYMURAI_RESTRICTED_DOCUMENT_PDFS_PATH` y `$AYMURAI_RESTRICTED_DOCUMENT_PDFS_PATH` (ver `common.env` para ver los valores por defecto) -->
