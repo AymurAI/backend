@@ -1,6 +1,8 @@
 AymurAI backend
 ===================
+[AymurAI](https://www.aymurai.info) is an AI-powered software designed to support criminal courts in Latin America in gathering and disseminating data related to gender-based violence. The main objective of AymurAI is to extract valuable information from court rulings and create an open database to enhance judicial transparency. This program is expected to play a significant role in the development of data and statistics concerning gender-based violence.
 
+This repository contains the backend API and ML models for AymurAI.
 
 # Table of contents
 * [AymurAI backend](#aymurai-backend)
@@ -52,6 +54,11 @@ Check our [tutorials](tutorials/GET_STARTED.md) to learn how to use AymurAI.
 # Contributing
 Thanks for your interest in contributing! There are many ways to get involved; start with our [contributor guidelines](docs/CONTRIBUTING.md) and [code of conduct](docs/CODE_OF_CONDUCT.md).
 
+# Contributors
+* Julian Ansaldo - [@jansaldo](https://github.com/jansaldo) at [collective.ai](https://collectiveai.io) ([email](julian@collectiveai.io))
+* Raúl Barriga - [@jedzill4](https://github.com/jedzill4) at [collective.ai](https://collectiveai.io) ([email](r@collectiveai.io))
+
+# Speci
 
 # Citing AymurAI
 Please cite [the following paper](https://drive.google.com/file/d/1P-hW0JKXWZ44Fn94fDVIxQRTExkK6m4Y/view) when using AymurAI:
