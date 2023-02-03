@@ -9,9 +9,22 @@ from .utils import find_subcategories
 
 
 class RegexSubcategorizer(Transform):
+    """
+    Find subcategories using regex patterns
+    """
+
     NEED_CONTEXT = ["PERSONA_ACUSADA_NO_DETERMINADA", "NOMBRE"]
 
     def __call__(self, item: DataItem) -> DataItem:
+        """
+        Regex subcategorizer by patterns
+
+        Args:
+            item (DataItem): item to process
+
+        Returns:
+            DataItem: processed item
+        """
         item = deepcopy(item)
 
         ents = get_element(item, levels=["predictions", "entities"]) or []

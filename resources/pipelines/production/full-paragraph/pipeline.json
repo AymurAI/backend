@@ -9,13 +9,13 @@
         [
             "aymurai.models.flair.core.FlairModel",
             {
-                "basepath": "https://drive.google.com/uc?id=1QJYkegv_P3d27FyRLabIUiw9154ur9-I&confirm=true",
+                "basepath": "aymurai/flair-ner-spanish-judicial",
                 "split_doc": true,
                 "device": "cpu"
             }
         ],
         [
-            "aymurai.models.decision.torch.binregex.DecisionConv1dBinRegex",
+            "aymurai.models.decision.binregex.DecisionConv1dBinRegex",
             {
                 "tokenizer_path": "https://drive.google.com/uc?id=1eljQOinpObdfBREIKxVnC5Y2g_sbhPHT&confirm=true",
                 "model_checkpoint": "https://drive.google.com/uc?id=19_YmBJnO06iS0qW8ak0zl0EIsJYin8kQ&confirm=true",

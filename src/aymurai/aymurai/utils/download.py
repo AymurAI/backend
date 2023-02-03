@@ -10,6 +10,17 @@ logger = get_logger(__name__)
 
 
 def download(url, output):
+    """
+    Download file from url
+    skip if file exists and environment variable NO_DOWNLOAD_IF_EXISTS is set to True
+
+    Args:
+        url (str): url to download
+        output (str): output path
+
+    Returns:
+        str: output path
+    """
 
     if os.path.exists(output) and bool(NO_DOWNLOAD_IF_EXISTS):
         logger.warn(

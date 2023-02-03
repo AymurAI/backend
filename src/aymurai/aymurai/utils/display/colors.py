@@ -1,3 +1,5 @@
+# Description: This file contains the colors used in the visualization of the data
+
 colors = {
     "NOMBRE": "orange",
     "GENERO": "orange",

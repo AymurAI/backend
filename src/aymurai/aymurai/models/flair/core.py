@@ -52,7 +52,7 @@ class FlairModel(TrainModule):
             os.makedirs(os.path.dirname(model_path), exist_ok=True)
             self._model_path = download(url, output=model_path)
         else:
-            model_path = f"{self.basepath}/model.pt"
+            model_path = basepath
         logger.info(f"loading model from {model_path}")
         self.model = SequenceTagger.load(model_path)
         self.tokenizer = SpaceTokenizer()

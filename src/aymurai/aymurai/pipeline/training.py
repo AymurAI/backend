@@ -11,6 +11,17 @@ logger = get_logger(__name__)
 
 class TrainingPipeline(object):
     def __init__(self, config: Dict, logger=None):
+        """
+        Training pipeline
+
+        Args:
+            config (Dict): Training pipeline config
+            logger (Optional[logging.Logger], optional): Logger. Defaults to None.
+
+            Raises:
+                TypeError: If steps is not a subclass of TrainModule
+        """
+
         self.config = config
         self.logger = logger or get_logger(__name__)
 
@@ -115,8 +126,12 @@ class TrainingPipeline(object):
         return self.config
 
     def load(self, path: str):
+        """
+        load models pipeline
+
+        Args:
+            path (str): parent path where models are stored
+
+        DEPRECATED: models loades in __init__ method
+        """
         pass
-        # for t, kwargs in self.config["models"]:
-        #     model = t(*args, **kargs)
-        #     model.load(path)
-        #     self.models.append(model)

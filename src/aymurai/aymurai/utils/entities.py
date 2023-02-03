@@ -10,6 +10,16 @@ logger = get_logger(__name__)
 
 
 def format_entity(entity: spacy.tokens.Span, offset: int = 10) -> dict:
+    """
+    Format entity to dict
+
+    Args:
+        entity (spacy.tokens.Span): entity
+        offset (int, optional): context offset. Defaults to 10.
+
+    Returns:
+        dict: formatted entity in aymurai format
+    """
 
     # start/end tokens (do not confuse with start/end characters)
     start, end = entity.start, entity.end

@@ -1,0 +1,895 @@
+<View style="display: flex;">
+    <View style="width: 30%; padding-right: 2em; margin-left: 2em; height: 600px;  overflow: auto;">
+        <Header value="Numero registro" />
+        <TextArea name="nro_registro" toName="text" showSubmitButton="true" maxSubmissions="1" editable="true" />
+
+        <Header value="Tomo" />
+        <TextArea name="tomo" toName="text" showSubmitButton="true" maxSubmissions="1" editable="true" />
+
+        <Filter name="filter" toName="label" hotkey="shift+f" minlength="1" />
+
+        <Labels name="label" toName="text" showInline="true">
+
+            <Header value="Datos de personas: " />
+            <Label value="NOMBRE" background="orange" />
+            <Label value="GENERO" background="orange" />
+            <Label value="NIVEL_INSTRUCCION" background="orange" />
+            <Label value="NACIONALIDAD" background="orange" />
+            <Label value="FECHA_DE_NACIMIENTO" background="orange" />
+            <Label value="EDAD_AL_MOMENTO_DEL_HECHO" background="orange" />
+            <Label value="PERSONA_ACUSADA_NO_DETERMINADA" background="orange" />
+
+
+            <Header value="Relacion de personas: " />
+            <Label value="RELACION_Y_TIPO_ENTRE_ACUSADO/A_Y_DENUNCIANTE" background="Magenta" />
+            <Label value="HIJOS_HIJAS_EN_COMUN" background="Magenta" />
+            <Label value="FRECUENCIA_EPISODIOS" background="Magenta" />
+
+
+            <Header value="Datos de violencias: " />
+            <Label value="VIOLENCIA_DE_GENERO" background="Coral" />
+            <Label value="MODALIDAD_DE_LA_VIOLENCIA" background="Coral" />
+            <Label value="FRASES_AGRESION" background="Coral" />
+
+
+            <Header value="Datos de la decisión: " />
+            <Label value="ART_INFRINGIDO" background="red" />
+            <Label value="CONDUCTA" background="red" />
+            <Label value="CONDUCTA_DESCRIPCION" background="red" />
+            <Label value="DETALLE" background="red" />
+            <Label value="OBJETO_DE_LA_RESOLUCION" background="red" />
+            <Label value="DECISION" background="DarkOrchid" />
+
+
+            <Header value="Datos del hecho: " />
+            <Label value="LUGAR_DEL_HECHO" background="green" />
+            <Label value="MEDIDAD_DE_PROTECCION_VIGENTES_AL_MOMENTO_DEL_HECHO" background="green" />
+            <Label value="FECHA_DEL_HECHO" background="green" />
+
+
+            <Header value="Entidades del documento: " />
+            <Label value="N_EXPTE_EJE" background="DarkOliveGreen" />
+            <Label value="FECHA_RESOLUCION" background="DarkOliveGreen" />
+            <Label value="TIPO_DE_RESOLUCION" background="DarkOliveGreen" />
+            <Label value="HORA_DE_INICIO" background="DarkOliveGreen" />
+            <Label value="HORA_DE_CIERRE" background="DarkOliveGreen" />
+        </Labels>
+    </View>
+
+    <View style="width: 75%; padding-right: 2em; margin-left: 2em; height: 600px; overflow: auto;">
+        <Text name="text" value="$text" granularity="word" />
+    </View>
+
+    <View style="width: 30%; text-align: left; padding-right: 2em; margin-left: 2em; height: 600px;  overflow: auto;">
+
+        <!-- VALIDACIONES -->
+        <Choices whenLabelValue="NOMBRE" name="NOMBRE" toName="text" perRegion="true">
+            <Choice value="acusadx" />
+            <Choice value="denunciante" />
+            <Choice value="firma" />
+            <Choice value="otro" />
+        </Choices>
+        <Choices whenLabelValue="GENERO" name="GENERO" toName="text" perRegion="true">
+            <Choice value="acusadx" />
+            <Choice value="denunciante" />
+        </Choices>
+        <Choices whenLabelValue="GENERO" name="GENERO_CAT" toName="text" perRegion="true">
+            <Choice value="varon_cis" />
+            <Choice value="mujer_cis" />
+            <Choice value="varon_trans" />
+            <Choice value="mujer_trans" />
+            <Choice value="travesti" />
+            <Choice value="no_binaria" />
+        </Choices>
+        <Choices whenLabelValue="NIVEL_INSTRUCCION" name="NIVEL_INSTRUCCION" toName="text" perRegion="true">
+            <Choice value="acusadx" />
+            <Choice value="denunciante" />
+        </Choices>
+        <Choices whenLabelValue="NIVEL_INSTRUCCION" name="NIVEL_INSTRUCCION_CAT" toName="text" perRegion="true">
+            <Choice value="sin_instruccion" />
+            <Choice value="sin_escolarizar" />
+            <Choice value="primario_incompleto" />
+            <Choice value="primario_completo" />
+            <Choice value="primario_en_curso" />
+            <Choice value="secundario_incompleto" />
+            <Choice value="secundario_completo" />
+            <Choice value="secundario_en_curso" />
+            <Choice value="terciario_incompleto" />
+            <Choice value="terciario_completo" />
+            <Choice value="terciario_en_curso" />
+            <Choice value="universitario_incompleto" />
+            <Choice value="universitario_completo" />
+            <Choice value="universitario_en_curso" />
+        </Choices>
+        <Choices whenLabelValue="NACIONALIDAD" name="NACIONALIDAD" toName="text" perRegion="true">
+            <Choice value="acusadx" />
+            <Choice value="denunciante" />
+        </Choices>
+        <Choices whenLabelValue="FECHA_DE_NACIMIENTO" name="FECHA_DE_NACIMIENTO" toName="text" perRegion="true">
+            <Choice value="acusadx" />
+            <Choice value="denunciante" />
+        </Choices>
+        <Choices whenLabelValue="EDAD_AL_MOMENTO_DEL_HECHO" name="EDAD_AL_MOMENTO_DEL_HECHO" toName="text"
+            perRegion="true">
+            <Choice value="acusadx" />
+            <Choice value="denunciante" />
+        </Choices>
+        <Choices whenLabelValue="PERSONA_ACUSADA_NO_DETERMINADA" name="PERSONA_ACUSADA_NO_DETERMINADA" toName="text"
+            perRegion="true">
+            <Choice value="manifestantes" />
+            <Choice value="organo_jurisdiccional" />
+            <Choice value="pagina_web" />
+            <Choice value="persona_juridica" />
+            <Choice value="personal_policial" />
+            <Choice value="usuario_de_chatstep" />
+            <Choice value="usuario_de_cuenta_de_google" />
+            <Choice value="usuario_de_facebook" />
+            <Choice value="usuario_de_imgur" />
+            <Choice value="usuario_de_instagram" />
+            <Choice value="usuario_de_mercado_libre" />
+            <Choice value="usuario_de_outlook" />
+            <Choice value="usuario_de_skout" />
+            <Choice value="usuario_de_skype" />
+            <Choice value="usuario_de_tiktok" />
+            <Choice value="usuario_de_twitter" />
+            <Choice value="usuario_de_whatsapp" />
+            <Choice value="usuario_de_youtube" />
+            <Choice value="usuario_microsoft" />
+        </Choices>
+
+
+        <Choices whenLabelValue="RELACION_Y_TIPO_ENTRE_ACUSADO/A_Y_DENUNCIANTE"
+            name="RELACION_Y_TIPO_ENTRE_ACUSADO/A_Y_DENUNCIANTE" toName="text" perRegion="true">
+            <Choice value="familiar" />
+            <Choice value="pareja" />
+            <Choice value="ex_pareja" />
+            <Choice value="jefe_empleada" />
+            <Choice value="familiar_de_ex_pareja" />
+            <Choice value="pareja_de_la_madre" />
+            <Choice value="ninguna" />
+            <Choice value="vecino/a" />
+            <Choice value="profesor" />
+            <Choice value="propietario_del_inmueble_de_residencia" />
+            <Choice value="compañero/a_de_trabajo" />
+            <Choice value="amigo/a" />
+            <Choice value="familiar_de_pareja" />
+        </Choices>
+        <Choices whenLabelValue="HIJOS_HIJAS_EN_COMUN" name="HIJOS_HIJAS_EN_COMUN" toName="text" perRegion="true">
+            <Choice value="si" />
+            <Choice value="no" />
+        </Choices>
+        <Choices whenLabelValue="FRECUENCIA_EPISODIOS" name="FRECUENCIA_EPISODIOS" toName="text" perRegion="true">
+            <Choice value="primera_vez" />
+            <Choice value="esporadico" />
+            <Choice value="diario" />
+            <Choice value="habitual" />
+            <Choice value="eventual" />
+        </Choices>
+
+
+        <Choices whenLabelValue="VIOLENCIA_DE_GENERO" name="VIOLENCIA_DE_GENERO" choice="multiple" toName="text"
+            perRegion="true">
+            <Choice value="fisica" />
+            <Choice value="psicologica" />
+            <Choice value="economica" />
+            <Choice value="social" />
+            <Choice value="ambiental" />
+            <Choice value="simbolica" />
+            <Choice value="sexual" />
+            <Choice value="politica" />
+        </Choices>
+        <Choices whenLabelValue="MODALIDAD_DE_LA_VIOLENCIA" name="MODALIDAD_DE_LA_VIOLENCIA" toName="text"
+            perRegion="true">
+            <Choice value="domestica" />
+            <Choice value="en_espacio_publico" />
+            <Choice value="institucional" />
+            <Choice value="laboral" />
+            <Choice value="libertad_reproductiva" />
+            <Choice value="mediatica" />
+            <Choice value="obstetrica" />
+            <Choice value="publica_politica" />
+        </Choices>
+
+
+        <Choices whenLabelValue="ART_INFRINGIDO" name="ART_INFRINGIDO" toName="text" perRegion="true">
+            <Choice value="codigo_contravencional" />
+            <Choice value="codigo_penal_de_la_nacion" />
+            <Choice value="ley_1217" />
+            <Choice value="ley_12331" />
+            <Choice value="ley_13944" />
+            <Choice value="ley_14346" />
+            <Choice value="ley_23098" />
+            <Choice value="ley_23592" />
+            <Choice value="ley_23737" />
+            <Choice value="ley_24192" />
+            <Choice value="ley_24270" />
+            <Choice value="ley_25761" />
+            <Choice value="ley_26735" />
+            <Choice value="ley_451" />
+        </Choices>
+        <Choices whenLabelValue="CONDUCTA" name="CONDUCTA" toName="text" perRegion="true">
+            <Choice value="abandonar_animal_domestico" />
+            <Choice value="abandono_de_personas" />
+            <Choice value="abuso_de_armas" />
+            <Choice value="abuso_de_autoridad_e_incumplimiento_deberes_funcionario_publico" />
+            <Choice value="abuso_sexual" />
+            <Choice value="acceder_a_lugares_distintos_segun_entrada" />
+            <Choice value="acceder_lugares_distintos_segun_entrada" />
+            <Choice value="acceso_a_sistema_restringido" />
+            <Choice value="acoso_sexual_callejero" />
+            <Choice value="actividades_lucrativas_sin_autorizacion" />
+            <Choice value="actividades_lucrativas_sin_habilitacion" />
+            <Choice value="actos_contenido_sexual_con_menores" />
+            <Choice value="administracion_fraudulenta" />
+            <Choice value="afectar_desarrollo_espectaculo" />
+            <Choice value="afectar_el_desarrollo_del_espectaculo" />
+            <Choice value="afectar_funcionamiento_servicios_publicos" />
+            <Choice value="afectar_servicios_de_emergencia_o_seguridad" />
+            <Choice value="afectar_servicios_emergencia" />
+            <Choice value="afectar_señalizacion" />
+            <Choice value="allanamiento_autonomo" />
+            <Choice value="alterar_programa" />
+            <Choice value="alterar_sepulturas" />
+            <Choice value="amenazas" />
+            <Choice value="amparo" />
+            <Choice value="apariencia_falsa" />
+            <Choice value="apariencia_falsa_para_entrar_a_domicilio_o_lugar_privado" />
+            <Choice value="apropiacion_indebida_de_tributos" />
+            <Choice value="arrojar_cosas_que_puedan_causar_lesiones" />
+            <Choice value="arrojar_cosas_sustancias" />
+            <Choice value="arrojar_sustancias_insalubres_en_lugares_publicos" />
+            <Choice value="asociacion_ilicita" />
+            <Choice value="asuncion_falsa_de_contravencion" />
+            <Choice value="atentado_contra_la_autoridad" />
+            <Choice value="ausencia_de_habilitacion" />
+            <Choice value="banderas" />
+            <Choice value="carteles_afiches_volantes" />
+            <Choice value="cierre_defectuoso" />
+            <Choice value="circular_por_carriles_exclusivos" />
+            <Choice value="circular_por_lugar_prohibido" />
+            <Choice value="cohecho_activo" />
+            <Choice value="cohecho_pasivo" />
+            <Choice value="coimas" />
+            <Choice value="competencia_desleal" />
+            <Choice value="conducir_con_mayor_cantidad_de_alcohol_en_sangre_del_permitido" />
+            <Choice value="conducir_con_mayor_grado_de_alcohol_o_bajo_efectos_de_estupefacientes" />
+            <Choice value="conducir_sin_licencia_que_lo_habilite_por_categoria_de_vehiculo" />
+            <Choice value="conducir_usando_aparato_electronico" />
+            <Choice value="connivencia_policial" />
+            <Choice value="contactar_menor_por_medio_de_tecnologias_para_cometer_delitos_contra_su_integridad_sexual" />
+            <Choice value="cruce_de_semaforo_en_rojo" />
+            <Choice value="cuida_coche" />
+            <Choice value="cuidar_coches_sin_autorizacion" />
+            <Choice value="daños" />
+            <Choice value="daños_informaticos" />
+            <Choice value="defraudacion" />
+            <Choice value="defraudacion_contra_la_administracion_publica" />
+            <Choice value="delito_contra_seguridad_transito" />
+            <Choice value="denegacion_de_justicia" />
+            <Choice value="derecho_admision" />
+            <Choice value="desarmado_automotor" />
+            <Choice value="desinfeccion_y_desratizacion" />
+            <Choice value="desobediencia_a_cargas_procesales" />
+            <Choice value="desobediencia_a_la_autoridad" />
+            <Choice value="difusion_no_autorizada_de_imagenes" />
+            <Choice value="difusion_no_autorizada_de_imagenes_intimas" />
+            <Choice value="discriminar" />
+            <Choice value="documentacion_sanitaria" />
+            <Choice value="ejecucion_de_multa" />
+            <Choice value="ejercer_ilegitimamente_actividad" />
+            <Choice value="ejercicio_ilegal_de_la_medicina" />
+            <Choice value="elementos_de_prevencion_contra_incendio" />
+            <Choice value="encubrimiento" />
+            <Choice value="encubrimiento_actividades_baile" />
+            <Choice value="ensuciar_bienes" />
+            <Choice value="entregar_indebidamente_armas_explosivos" />
+            <Choice value="espantar_animales" />
+            <Choice value="espejos_retrovisores" />
+            <Choice value="estacionamiento_prohibido" />
+            <Choice value="estacionamiento_sobre_senda_peatonal" />
+            <Choice value="estafa" />
+            <Choice value="estupefacientes" />
+            <Choice value="exceso_capacidad_ingreso" />
+            <Choice value="exceso_de_velocidad" />
+            <Choice value="exhibicion_de_documentacion_obligatoria" />
+            <Choice value="exhibiciones_obscenas" />
+            <Choice value="exhortos_de_otras_jurisdicciones" />
+            <Choice value="explotacion_trabajo_infantil" />
+            <Choice value="extorsion" />
+            <Choice value="fabricar_transportar_artefactos_pirotecnicos" />
+            <Choice value="falsa_denuncia" />
+            <Choice value="falsedad_documental_de_certificado_de_aptitud_ambiental" />
+            <Choice value="falsificacion_certificado_medico" />
+            <Choice value="falsificacion_de_documento" />
+            <Choice value="falsificacion_de_marcas_firmas_señas_oficiales" />
+            <Choice value="falsificacion_de_numeracion_de_objeto_registrada_de_acuerdo_a_ley" />
+            <Choice value="falta_de_poliza_de_seguros" />
+            <Choice value="favorecimiento_evasion_persona_detenida" />
+            <Choice value="frustrar_subasta_publica" />
+            <Choice value="guardar_artefactos_pirotecnicos" />
+            <Choice value="guardar_elementos_aptos_violencia" />
+            <Choice value="habeas_corpus" />
+            <Choice value="habilitacion_en_infraccion" />
+            <Choice value="homicidio" />
+            <Choice value="hostigamiento" />
+            <Choice value="hostigamiento_digital" />
+            <Choice value="hurto" />
+            <Choice value="impedimento_de_contacto_de_menor_con_padre_no_conviviente" />
+            <Choice value="incendio_explosion_inundacion_con_peligro_para_bienes" />
+            <Choice value="incendios_y_otros_estragos" />
+            <Choice value="incitar_al_desorden" />
+            <Choice value="incitar_desorden" />
+            <Choice value="incumplimiento_de_plazos" />
+            <Choice value="incumplimiento_deberes_familiares" />
+            <Choice value="incumplimiento_deberes_funcionario_publico" />
+            <Choice value="incumplimiento_medidas_prevencion_sanidad" />
+            <Choice value="incumplimiento_perimetro_profundidad" />
+            <Choice value="incumplir_clausura" />
+            <Choice value="incumplir_obligaciones_legales" />
+            <Choice value="inducir_menor_a_mendigar" />
+            <Choice value="infraccion_reglamentos_seguridad" />
+            <Choice value="ingresar_artefactos_pirotecnicos" />
+            <Choice value="ingresar_consumir_bebidas_alcoholicas" />
+            <Choice value="ingresar_contra_derecho_admision" />
+            <Choice value="ingresar_sin_autorizacion_lugares_reservados" />
+            <Choice value="ingresar_sin_entrada" />
+            <Choice value="ingresar_sin_entrada_autorizacion" />
+            <Choice value="ingreso_a_domicilio_sin_autorizacion" />
+            <Choice value="inhumar_exhumar_profanar" />
+            <Choice value="intimidacion" />
+            <Choice value="juego_sin_autorizacion" />
+            <Choice value="juegos_de_azar_sin_autorizacion" />
+            <Choice value="lesiones" />
+            <Choice value="ley_451" />
+            <Choice value="licencia_vencida" />
+            <Choice value="maltrato" />
+            <Choice value="mantener_animal_domestico_espacios_inadecuados" />
+            <Choice value="mantenimiento_de_cercas_y_aceras" />
+            <Choice value="menoscabar_integridad_animal_domestico" />
+            <Choice value="mesnna_masnna" />
+            <Choice value="no_realizar_grabado_de_autopartes" />
+            <Choice value="no_respetar_carriles" />
+            <Choice value="no_respetar_senda_peatonal" />
+            <Choice value="obligacion_de_exhibir_cartel" />
+            <Choice value="obligacion_de_informar_prohibicion_de_fumar" />
+            <Choice value="obligacion_de_conservar" />
+            <Choice value="obstaculizar_ingreso_o_salida" />
+            <Choice value="obstruccion_de_inspeccion" />
+            <Choice value="obstruccion_de_via" />
+            <Choice value="obstruccion_de_via_publica" />
+            <Choice value="obstruccion_via_publica" />
+            <Choice value="obstruir_salida" />
+            <Choice value="ocupar_via_publica" />
+            <Choice value="oferta_demanda_sexo_espacio_publico" />
+            <Choice value="omitir_cuidados_animal_domestico" />
+            <Choice value="omitir_recaudos_de_cuidado_animal_domestico" />
+            <Choice value="omitir_recaudos_de_organizacion" />
+            <Choice value="omitir_recaudos_espectaculo_masivo" />
+            <Choice value="omitir_recaudos_organizacion_seguridad" />
+            <Choice value="organizar_explotar_juego" />
+            <Choice value="organizar_sin_autorizacion_juego" />
+            <Choice value="participar_competencias_velocidad_via_publica" />
+            <Choice value="pelear_en_lugar_publico" />
+            <Choice value="permiso_y_planos_de_obra" />
+            <Choice value="persona_no_habilitada" />
+            <Choice value="perturbar_ceremonias_religiosas_funebres" />
+            <Choice value="perturbar_filas_ingreso_no_respetar_vallado" />
+            <Choice value="placas_de_dominio" />
+            <Choice value="pornografia_infantil" />
+            <Choice value="portacion_de_arma" />
+            <Choice value="portar_armas_no_convencionales" />
+            <Choice value="presencia_menores_lugar_no_autorizado" />
+            <Choice value="presunta_comision_delito" />
+            <Choice value="presunta_contravencion" />
+            <Choice value="privacion_ilegitima_de_la_libertad" />
+            <Choice value="producir_avalanchas" />
+            <Choice value="promocion_o_facilitacion_de_prostitucion_de_personas" />
+            <Choice value="promover_comerciar_ofertar_juego" />
+            <Choice value="propaganda_discriminatoria" />
+            <Choice value="proteccion_animal" />
+            <Choice value="provocar_parcialidad" />
+            <Choice value="publicidad_en_lugares_no_habilitados_via_publica" />
+            <Choice value="regentear_o_administrar_casas_de_tolerancia" />
+            <Choice value="residuos_peligrosos" />
+            <Choice value="retencion_indebida" />
+            <Choice value="revender_entradas" />
+            <Choice value="robo" />
+            <Choice value="ruidos_molestos" />
+            <Choice value="ruidos_y_vibraciones" />
+            <Choice value="sancion_generica" />
+            <Choice value="servicios_de_seguridad_prohibiciones_incumplidas" />
+            <Choice value="servicios_de_seguridad_requisitos_incumplidos" />
+            <Choice value="suministrar_alcohol_menor" />
+            <Choice value="suministrar_bebidas_alcoholicas" />
+            <Choice value="suministrar_elementos_aptos_agresion" />
+            <Choice value="suministrar_material_pornografico" />
+            <Choice value="suministrar_objetos_peligrosos" />
+            <Choice value="suministrar_productos_farmaceuticos" />
+            <Choice value="suministro_de_medicamentos" />
+            <Choice value="suplantacion_identidad" />
+            <Choice value="suplantacion_digital_de_identidad" />
+            <Choice value="taxis_transportes_escolares_remises_sin_autorizacion" />
+            <Choice value="tenencia_de_arma" />
+            <Choice value="transporte_de_pasajeros" />
+            <Choice value="transporte_de_pasajeros_sin_habilitacion" />
+            <Choice value="transporte_de_pasajeros_sin_habilitacion_o_autorizacion" />
+            <Choice value="usar_indebidamente_credencial" />
+            <Choice value="usar_indebidamente_espacio_publico" />
+            <Choice value="usar_indiebidamente_armas" />
+            <Choice value="uso_de_documento_falso_o_adulterado" />
+            <Choice value="uso_indebido_del_espacio_publico" />
+            <Choice value="uso_o_exhibicion_de_franquicias" />
+            <Choice value="usurpacion" />
+            <Choice value="vehiculo_abandonado" />
+            <Choice value="vender_entradas_o_permitir_ingreso_exceso" />
+            <Choice value="vender_sustancias_medicinales_sin_receta" />
+            <Choice value="venta_o_consumo_de_bebidas_alcoholicas_fuera_del_horario" />
+            <Choice value="verificacion_tecnica" />
+            <Choice value="violacion_de_peaje" />
+            <Choice value="violacion_de_domicilio" />
+            <Choice value="violacion_de_secretos_y_de_la_privacidad" />
+            <Choice value="violar_clausura" />
+            <Choice value="violar_inhabilitacion_para_conducir" />
+            <Choice value="violar_reglamentacion_juego" />
+            <Choice value="zanjas_y_pozos_en_via_publica" />
+
+        </Choices>
+        <Choices whenLabelValue="CONDUCTA_DESCRIPCION" name="CONDUCTA_DESCRIPCION" toName="text" perRegion="true">
+            <Choice value="agravada" />
+            <Choice value="agravadas_por_edad" />
+            <Choice value="agravadas_por_el_uso_de_armas" />
+            <Choice value="agravadas_por_uso_de_armas" />
+            <Choice value="agravadas_por_uso_de_armas_impropia" />
+            <Choice value="agravado" />
+            <Choice value="agravado_abuso_funcion" />
+            <Choice value="agravado_alevosia" />
+            <Choice value="agravado_causar_sufrimiento_otra_persona" />
+            <Choice value="agravado_concurso" />
+            <Choice value="agravado_familiar" />
+            <Choice value="agravado_insertar_datos_en_datos_personales" />
+            <Choice value="agravado_lugar_publico" />
+            <Choice value="agravado_mas_personas" />
+            <Choice value="agravado_medio_idoneo" />
+            <Choice value="agravado_menor_de_edad" />
+            <Choice value="agravado_miembro_fuerzas" />
+            <Choice value="agravado_monumentos" />
+            <Choice value="agravado_otro_delito" />
+            <Choice value="agravado_peligro_de_muerte" />
+            <Choice value="agravado_por_el_vinculo" />
+            <Choice value="agravado_por_espacio" />
+            <Choice value="agravado_por_ser_fuerza_de_seguridad" />
+            <Choice value="agravado_precio" />
+            <Choice value="agravado_relacion_de_pareja" />
+            <Choice value="agravado_superior_militar" />
+            <Choice value="agravado_violar_informacion_banco_de_datos" />
+            <Choice value="agravado_violar_sistemas_seguridad" />
+            <Choice value="agravado_violencia_de_genero" />
+            <Choice value="agravado_violencia_mujer" />
+            <Choice value="agravados" />
+            <Choice value="coactivas" />
+            <Choice value="coactivas_agravadas" />
+            <Choice value="coactivas_agravadas_por_uso_de_armas" />
+            <Choice value="comercio_de_plantas_para_producir_estupefacientes" />
+            <Choice value="con_escalamiento" />
+            <Choice value="conduccion_imprudente" />
+            <Choice value="culposas" />
+            <Choice value="culposo" />
+            <Choice value="de_fuego_uso_civil" />
+            <Choice value="de_guerra" />
+            <Choice value="destinado_a_acreditar_identidad_de_personas_habilitacion_o_titularidad" />
+            <Choice value="digital" />
+            <Choice value="digital_agravado_familiar" />
+            <Choice value="digital_agravado_jefe" />
+            <Choice value="digital_agravado_mas_de_una_persona" />
+            <Choice value="digital_agravado_menor_de_edad" />
+            <Choice value="digital_agravado_relacion_de_pareja" />
+            <Choice value="durante_espectaculo_deportivo" />
+            <Choice value="en_grandes_parques_o_espectaculos_masivos" />
+            <Choice value="en_riña" />
+            <Choice value="entrega_suministro_facilitacion" />
+            <Choice value="funcionario_publico" />
+            <Choice value="ganzua_llave" />
+            <Choice value="graves" />
+            <Choice value="graves_tentativa" />
+            <Choice value="informatica" />
+            <Choice value="ingreso_a_domicilio_sin_autorizacion" />
+            <Choice value="intimadacion_o_invocando_orden_superior" />
+            <Choice value="leves" />
+            <Choice value="leves_agravadas" />
+            <Choice value="muebles_transportables" />
+            <Choice value="no_denuncia_delito" />
+            <Choice value="ocasion_de_incendio" />
+            <Choice value="organismo_publico" />
+            <Choice value="para_produccion_o_tenencia_con_fines_de_comercializacion" />
+            <Choice value="por_despojo" />
+            <Choice value="por_obligacion_de_devolver" />
+            <Choice value="por_turbacion_de_la_posesion" />
+            <Choice value="productos_separados_suelo" />
+            <Choice value="publico_o_privado" />
+            <Choice value="seguido_de_muerte" />
+            <Choice value="simple" />
+            <Choice value="simples" />
+            <Choice value="sin_autorizacion" />
+            <Choice value="tarjeta_credito_debito" />
+            <Choice value="tenencia" />
+            <Choice value="tentativa" />
+            <Choice value="tentativa_agravado_alevosia" />
+            <Choice value="transporte_de_pasajeros_sin_habilitacion_o_autorizacion" />
+            <Choice value="uso_de_tarjeta_o_datos" />
+            <Choice value="vehiculos" />
+        </Choices>
+        <Choices whenLabelValue="DETALLE" name="DETALLE" choice="multiple" toName="text" perRegion="true">
+            <Choice value="audiencia_victima_ley26485" />
+            <Choice value="30_dias" />
+            <Choice value="45_dias" />
+            <Choice value="60_dias" />
+            <Choice value="90_dias" />
+            <Choice value="180_dias" />
+            <Choice value="abandono_vehiculo" />
+            <Choice value="absolucion" />
+            <Choice value="absolucion_desistimiento_fiscal" />
+            <Choice value="accesorias_legales" />
+            <Choice value="acepta_competencia_inhibitoria" />
+            <Choice value="acepta_cuestion_turno" />
+            <Choice value="aclaratoria" />
+            <Choice value="acta_de_comprobacion" />
+            <Choice value="acta_de_intimacion" />
+            <Choice value="acuerdo_de_pago_levanta_embargo" />
+            <Choice value="acumulacion_por_conexidad_y_ampliacion" />
+            <Choice value="admisibilidad" />
+            <Choice value="agente_encubierto" />
+            <Choice value="agente_revelador" />
+            <Choice value="agotamiento_de_la_pena" />
+            <Choice value="alimentos_provisorios" />
+            <Choice value="allanamiento" />
+            <Choice value="apelacion" />
+            <Choice value="apertura_extraccion_examen_datos" />
+            <Choice value="aprehension" />
+            <Choice value="arma" />
+            <Choice value="armas" />
+            <Choice value="arresto_domiciliario_deja_sin_efecto" />
+            <Choice value="asesor_tutelar" />
+            <Choice value="atipicidad_sobreseimiento" />
+            <Choice value="audiencia_acusado_ley26485" />
+            <Choice value="audiencia_acusado_difiere_sentencia" />
+            <Choice value="audiencia_preliminar" />
+            <Choice value="audiencia_victima_11bis_ley24660" />
+            <Choice value="bloqueo_acceso_al_dominio" />
+            <Choice value="cadena_de_custodia_de_elementos_secuestrados" />
+            <Choice value="camara_gesell" />
+            <Choice value="cambio_domicilio_prision_domiciliaria" />
+            <Choice value="captura" />
+            <Choice value="captura_deja_sin_efecto" />
+            <Choice value="caucion_real" />
+            <Choice value="cedula_de_notificacion" />
+            <Choice value="cese_de_actos_de_perturbacion_o_intimidacion" />
+            <Choice value="cese_de_medidas" />
+            <Choice value="cese_de_medidas_parcial" />
+            <Choice value="cierre_de_instancia" />
+            <Choice value="clausura" />
+            <Choice value="clausura_deja_sin_efecto" />
+            <Choice value="competencia_penal_juvenil" />
+            <Choice value="concede" />
+            <Choice value="concede_parcialmente" />
+            <Choice value="conocimiento_personal" />
+            <Choice value="consigna_policial" />
+            <Choice value="contienda_negativa" />
+            <Choice value="control" />
+            <Choice value="convalida_fallecimiento" />
+            <Choice value="convalida_inimputabilidad" />
+            <Choice value="convalidacion_otras_causales" />
+            <Choice value="copia_forense_celular" />
+            <Choice value="copias_de_capturas_de_pantalla_mensajes_y_llamados" />
+            <Choice value="cosa_juzgada_sobreseimiento" />
+            <Choice value="cuarto_intermedio" />
+            <Choice value="cuarto_intermedio_para_resolver" />
+            <Choice value="cumplimiento_de_regla_de_conducta_en_complejo_penitenciario" />
+            <Choice value="cumplimiento_de_reglas_de_conducta" />
+            <Choice value="declaracion_testimonial" />
+            <Choice value="declina_competencia" />
+            <Choice value="defensa" />
+            <Choice value="defensa_particular" />
+            <Choice value="defensa_querella" />
+            <Choice value="deja_sin_efecto_inhabilitacion_y_devuelve_licencia" />
+            <Choice value="deja_sin_efecto_revocacion" />
+            <Choice value="delitos_de_accion_publica" />
+            <Choice value="desistimiento_accion_instancia_privada_sobreseimiento" />
+            <Choice value="desistimiento_fiscal" />
+            <Choice value="destruccion_de_arma" />
+            <Choice value="detencion" />
+            <Choice value="detencion_captura_y/o_traslado" />
+            <Choice value="detencion_captura_y/o_traslado_deja_sin_efecto" />
+            <Choice value="detencion_secuestro_y_requisa" />
+            <Choice value="devolucion_acarreo_y_estadia" />
+            <Choice value="dictamen_fiscal" />
+            <Choice value="difiere_decision" />
+            <Choice value="difiere_fundamentos" />
+            <Choice value="difiere_resolucion" />
+            <Choice value="dispositivo_de_geoposicionamiento_mantiene_hasta_juicio" />
+            <Choice value="domiciliaria_con_vigilancia_electronica" />
+            <Choice value="egreso_del_pais" />
+            <Choice value="ejecucion_de_honorarios" />
+            <Choice value="embargo" />
+            <Choice value="embargo_deja_sin_efecto" />
+            <Choice value="estimulo_educativo" />
+            <Choice value="estupefacientes" />
+            <Choice value="estupefacientes_dinero" />
+            <Choice value="estupefacientes_telefono_dinero" />
+            <Choice value="estupefacientes_telefono_dinero_arma" />
+            <Choice value="estupefacientes_telefono_vehiculo" />
+            <Choice value="estupefacientes_vehiculo_dinero" />
+            <Choice value="excarcelacion" />
+            <Choice value="exclusion_del_hogar" />
+            <Choice value="exhorto" />
+            <Choice value="exhorto_diplomatico" />
+            <Choice value="exime_pago_multa" />
+            <Choice value="exime_reparacion_del_daño_y_pago_multa" />
+            <Choice value="eximicion_pago" />
+            <Choice value="eximicion_pauta_de_conducta" />
+            <Choice value="expulsion_art_64_a_ley_25871" />
+            <Choice value="extincion_accion_por_autocomposicion" />
+            <Choice value="extincion_accion_por_cumplimiento" />
+            <Choice value="extincion_accion_sobreseimiento" />
+            <Choice value="extincion_accion_sobreseimiento_por_fallecimiento" />
+            <Choice value="extincion_de_la_pena" />
+            <Choice value="extincion_sancion_por_cumplimiento" />
+            <Choice value="extrañamiento" />
+            <Choice value="falta_de_accion_sobreseimiento" />
+            <Choice value="falta_de_legitimacion_pasiva" />
+            <Choice value="falta_de_participacion" />
+            <Choice value="falta_de_presentacion" />
+            <Choice value="falta_de_requisitos_procedencia" />
+            <Choice value="fija_nueva_audiencia" />
+            <Choice value="fondo_de_reserva" />
+            <Choice value="habeas_corpus" />
+            <Choice value="hasta_agotar_investigacion" />
+            <Choice value="identidad_objeto_y_sujeto" />
+            <Choice value="imagenes_videos" />
+            <Choice value="incompetencia_material" />
+            <Choice value="incompetencia_por_conexidad" />
+            <Choice value="incompetencia_por_conexidad_subjetiva" />
+            <Choice value="incompetencia_territorial" />
+            <Choice value="indeterminacion_imputacion" />
+            <Choice value="informacion_y_apertura_de_antenas_llamadas" />
+            <Choice value="informe_cij" />
+            <Choice value="informe_mercado_libre" />
+            <Choice value="informe_ncmec" />
+            <Choice value="informe_previo" />
+            <Choice value="informes_llamadas_y_deteccion_de_celdas" />
+            <Choice value="inhabilitacion_para_conducir" />
+            <Choice value="inhabilitacion_para_conducir_deja_sin_efecto" />
+            <Choice value="inmovilizacion" />
+            <Choice value="interes_en_el_caso" />
+            <Choice value="internacion_involuntaria" />
+            <Choice value="interprete" />
+            <Choice value="interprete_y_defensa" />
+            <Choice value="interrogatorio_policial" />
+            <Choice value="intervencion_equipo_especializado" />
+            <Choice value="intervencion_previa" />
+            <Choice value="intervencion_red_social" />
+            <Choice value="intervencion_telefonica" />
+            <Choice value="intervencion_telefonica_con_ubicacion_de_celda_de_apertura" />
+            <Choice value="levantamiento_clausura_administrativa" />
+            <Choice value="levantamiento_secreto_bancario" />
+            <Choice value="levantamiento_secreto_fiscal" />
+            <Choice value="liberacion_aves" />
+            <Choice value="libertad_asistida_incorporacion" />
+            <Choice value="libertad_condicional_otorga" />
+            <Choice value="libertad_condicional_revoca" />
+            <Choice value="litispendencia" />
+            <Choice value="mantiene" />
+            <Choice value="mediacion" />
+            <Choice value="medidas_restrictivas" />
+            <Choice value="modifica_pauta_de_conducta" />
+            <Choice value="morigeracion_domiciliaria" />
+            <Choice value="no_convalida" />
+            <Choice value="no_homologa_absolucion" />
+            <Choice value="notificacion_via_mail" />
+            <Choice value="nulidad_incorporacion_prueba" />
+            <Choice value="otorga_plazo" />
+            <Choice value="otras_vias_idoneas" />
+            <Choice value="pago_de_multa_en_cuotas" />
+            <Choice value="pago_minimo_multa_sobreseimiento" />
+            <Choice value="pago_minimo_multa_y_reparacion_daño_64cp" />
+            <Choice value="paradero" />
+            <Choice value="paradero_deja_sin_efecto" />
+            <Choice value="parcial_requerimiento_de_juicio" />
+            <Choice value="parcial_requerimiento_de_juicio_falta_de_circunscripcion_temporal" />
+            <Choice value="parcial_requerimiento_de_juicio_falta_de_fundamentacion" />
+            <Choice value="parcial_requerimiento_de_juicio_por_introduccion_de_agravante" />
+            <Choice value="pedido_de_informe_banco" />
+            <Choice value="pedido_de_informe_facebook" />
+            <Choice value="pedido_de_informe_facebook_google" />
+            <Choice value="pedido_de_informe_facebook_microsoft" />
+            <Choice value="pedido_de_informe_google" />
+            <Choice value="pedido_de_informe_google_microsoft" />
+            <Choice value="pedido_de_informe_imgur_llc" />
+            <Choice value="pedido_de_informe_instagram" />
+            <Choice value="pedido_de_informe_microsoft" />
+            <Choice value="pedido_de_informe_skype" />
+            <Choice value="pedido_de_informe_telefonia" />
+            <Choice value="pedido_de_informe_whatsapp" />
+            <Choice value="pedido_informe_tiktok" />
+            <Choice value="pedido_prision_domiciliaria" />
+            <Choice value="pena_de_arresto_efectivo_cumplimiento" />
+            <Choice value="pena_de_arresto_efectivo_cumplimiento_compurgada" />
+            <Choice value="pena_de_arresto_en_suspenso" />
+            <Choice value="pena_de_inhabilitacion_especial" />
+            <Choice value="pena_de_multa_efectivo_cumplimiento" />
+            <Choice value="pena_de_multa_en_suspenso" />
+            <Choice value="pena_de_multa_sustituida_por_amonestacion" />
+            <Choice value="pena_de_multa_sustituida_por_clausura_se_tiene_por_cumplida" />
+            <Choice value="pena_de_multa_sustituida_por_trabajos_comunitarios" />
+            <Choice value="pena_de_prision_domiciliaria" />
+            <Choice value="pena_de_prision_efectivo_cumplimiento" />
+            <Choice value="pena_de_prision_efectivo_cumplimiento_compurgada" />
+            <Choice value="pena_de_prision_efectivo_cumplimiento_domiciliaria" />
+            <Choice value="pena_de_prision_en_suspenso" />
+            <Choice value="pena_de_tareas_comunitarias" />
+            <Choice value="pena_de_tareas_de_utilidad_publica" />
+            <Choice value="pericia" />
+            <Choice value="pericia_arma" />
+            <Choice value="pericia_examen_veterinario" />
+            <Choice value="peritaje_de_telefono" />
+            <Choice value="peritaje_ordenadores_y_o_telefonos" />
+            <Choice value="peritaje_telefono" />
+            <Choice value="perito" />
+            <Choice value="permiso_de_viaje" />
+            <Choice value="plazo_razonable_sobreseimiento" />
+            <Choice value="plazo_razonable_sobresimiento" />
+            <Choice value="pleito_con_una_parte" />
+            <Choice value="por_quince_dias_hasta_tomar_contacto_con_victima" />
+            <Choice value="prescripcion_sobreseimiento" />
+            <Choice value="prision_domiciliaria_mantiene" />
+            <Choice value="prision_domiciliaria_prorroga" />
+            <Choice value="procedimiento" />
+            <Choice value="procedimiento_administrativo_pendiente" />
+            <Choice value="prohibicion_compra_tenencia_registracion_de_armas" />
+            <Choice value="prohibicion_de_acercamiento" />
+            <Choice value="prohibicion_de_acercamiento_y_contacto" />
+            <Choice value="prohibicion_de_publicar_en_redes" />
+            <Choice value="prohibicion_de_publicar_en_redes_sobre" />
+            <Choice value="promocion_a_periodo_de_prueba_art_7_ley_24660" />
+            <Choice value="prorroga" />
+            <Choice value="prueba_ofrecida" />
+            <Choice value="publicacion_de_edictos" />
+            <Choice value="queja" />
+            <Choice value="querella" />
+            <Choice value="quita_puntos_de_licencia_de_conducir" />
+            <Choice value="realizacion" />
+            <Choice value="rebeldia" />
+            <Choice value="rebeldia_deja_sin_efecto" />
+            <Choice value="rebeldia_y_captura" />
+            <Choice value="rebeldia_y_paradero" />
+            <Choice value="rechaza_acuerdo" />
+            <Choice value="rechaza_competencia" />
+            <Choice value="regimen_de_comunicacion_provisoria" />
+            <Choice value="reincidencia" />
+            <Choice value="reintegra_puntos_de_licencia_de_conducir" />
+            <Choice value="remate_vehiculo" />
+            <Choice value="remision_a_justicia_civil" />
+            <Choice value="remision_camara_para_sorteo" />
+            <Choice value="reparacion_integral_del_daño_sobreseimiento" />
+            <Choice value="replica_de_arma_de_plastico" />
+            <Choice value="reposicion" />
+            <Choice value="reposicion_apelacion_subsidio" />
+            <Choice value="reprogramacion" />
+            <Choice value="requerido_por_infractor" />
+            <Choice value="requerimiento_de_juicio" />
+            <Choice value="requerimiento_de_juicio_falta_de_fundamentacion" />
+            <Choice value="requisa" />
+            <Choice value="restitucion_de_inmueble" />
+            <Choice value="revision_psicofisica_capacidad" />
+            <Choice value="revision_psiquiatrica_y_psicologica" />
+            <Choice value="revoca" />
+            <Choice value="revoca_condicionalidad" />
+            <Choice value="revocacion" />
+            <Choice value="rueda_de_reconocimiento" />
+            <Choice value="salidas_extraordinarias" />
+            <Choice value="salidas_transitorias" />
+            <Choice value="sancion_sustitutiva_prorroga" />
+            <Choice value="secuestro" />
+            <Choice value="sin_indicacion_plazo" />
+            <Choice value="sobreseimiento" />
+            <Choice value="solicita" />
+            <Choice value="solicitud_destruccion_de_estupefacientes" />
+            <Choice value="tareas_de_investigacion" />
+            <Choice value="telefono" />
+            <Choice value="temor_parcialidad_generico" />
+            <Choice value="tiene_por_desistido" />
+            <Choice value="tiene_por_no_computado_plazo" />
+            <Choice value="tiene_presente" />
+            <Choice value="tiene_presente_acuerdo" />
+            <Choice value="tobillera_refractaria" />
+            <Choice value="traslado_por_fuerza_publica" />
+            <Choice value="unifica_solicita_inhibitoria" />
+            <Choice value="unificacion_de_pena" />
+            <Choice value="vehiculo" />
+            <Choice value="vencimiento_plazo_ipp" />
+        </Choices>
+        <Choices whenLabelValue="OBJETO_DE_LA_RESOLUCION" name="OBJETO_DE_LA_RESOLUCION" toName="text" perRegion="true">
+            <Choice value="acumulacion_de_caso" />
+            <Choice value="admisibilidad_amparo" />
+            <Choice value="admisibilidad_habeas_corpus" />
+            <Choice value="admisibilidad_prueba" />
+            <Choice value="apartamiento" />
+            <Choice value="archivo_fiscal" />
+            <Choice value="audiencia_de_conciliacion" />
+            <Choice value="beneficio_litigar_sin_gastos" />
+            <Choice value="caducidad_de_instancia" />
+            <Choice value="cuestion_de_competencia" />
+            <Choice value="decomiso" />
+            <Choice value="desistimiento_faltas" />
+            <Choice value="ejecucion_de_la_pena" />
+            <Choice value="excepcion" />
+            <Choice value="excusacion" />
+            <Choice value="extraccion_testimonios" />
+            <Choice value="juicio_abreviado" />
+            <Choice value="juicio_oral" />
+            <Choice value="juzgamiento_faltas" />
+            <Choice value="mediacion" />
+            <Choice value="medida_cautelar" />
+            <Choice value="medida_probatoria" />
+            <Choice value="mesa_de_dialogo" />
+            <Choice value="nulidad" />
+            <Choice value="prision_preventiva" />
+            <Choice value="prorroga_investigacion_penal_preparatoria" />
+            <Choice value="recurso" />
+            <Choice value="recusacion" />
+            <Choice value="regulacion_de_honorarios" />
+            <Choice value="remision_controladora" />
+            <Choice value="restablecimiento_de_contacto" />
+            <Choice value="restitucion_de_efectos" />
+            <Choice value="restitucion_de_inmueble" />
+            <Choice value="restitucion_efectos" />
+            <Choice value="suspension_del_proceso_a_prueba" />
+        </Choices>
+        <Choices whenLabelValue="DECISION" name="DECISION" toName="text" perRegion="true">
+            <Choice value="hace_lugar" />
+            <Choice value="no_hace_lugar" />
+        </Choices>
+
+
+        <Choices whenLabelValue="LUGAR_DEL_HECHO" name="LUGAR_DEL_HECHO" toName="text" perRegion="true"
+            choice="multiple">
+            <Choice value="en_auto_particular" />
+            <Choice value="en_comisaria" />
+            <Choice value="en_complejo_penitenciario" />
+            <Choice value="en_domicilio_laboral" />
+            <Choice value="en_domicilio_laboral_y_mediante_medios_tecnologicos" />
+            <Choice value="en_domicilio_particular" />
+            <Choice value="en_domicilio_particular_y_en_puerta_de_domicilio_particular" />
+            <Choice value="en_domicilio_particular_y_mediante_medios_tecnologicos" />
+            <Choice value="en_estadio_de_futbol" />
+            <Choice value="en_geriatrico" />
+            <Choice value="en_hospital" />
+            <Choice value="en_institucion_privada" />
+            <Choice value="en_lugar_privado" />
+            <Choice value="en_lugar_publico" />
+            <Choice value="en_puerta_de_domicilio_particular_y_mediante_medios_tecnologicos" />
+            <Choice value="en_transporte_publico" />
+            <Choice value="en_una_institucion_educativa" />
+            <Choice value="en_via_publica_y_mediante_medios_tecnologicos" />
+            <Choice value="mediante_medios_tecnologicos" />
+            <Choice value="pasillo_de_domicilio" />
+            <Choice value="puerta_de_domicilio_particula_y_en_domicilio_laboral" />
+            <Choice value="puerta_de_domicilio_particular" />
+            <Choice value="puerta_de_domicilio_particular_y_en_puerta_de_domicilio_laboral" />
+            <Choice value="via_publica" />
+            <Choice value="via_publica_y_en_domicilio_particular" />
+            <Choice value="via_publica_y_en_domicilio_particular_y_mediante_medios_tecnologicos" />
+        </Choices>
+        <Choices whenLabelValue="MEDIDAD_DE_PROTECCION_VIGENTES_AL_MOMENTO_DEL_HECHO"
+            name="MEDIDAD_DE_PROTECCION_VIGENTES_AL_MOMENTO_DEL_HECHO" toName="text" perRegion="true">
+            <Choice value="si" />
+            <Choice value="no" />
+        </Choices>
+
+
+        <Choices whenLabelValue="TIPO_DE_RESOLUCION" name="TIPO_DE_RESOLUCION" toName="text" perRegion="true">
+            <Choice value="definitiva" />
+            <Choice value="interlocutoria" />
+        </Choices>
+    </View>
+
+</View>

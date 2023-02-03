@@ -106,21 +106,6 @@ class AymurAIPipeline(object):
 
         return data_test
 
-    # def fit_predict(self, data_train: DataBlock, data_test: DataBlock) -> DataBlock:
-    #     """
-    #     Method to train the pipeline and generate predictions over test.
-
-    #     Args:
-    #         data_train (DataBlock): training data
-    #         data_test (DataBlock): test data
-
-    #     Returns:
-    #         DataBlock: data_test with predictions.
-    #     """
-
-    #     self.fit(data_train)
-    #     return self.post_process.transform(self.predict(data_test))
-
     def save(self, path: str):
         """
         save pipeline

@@ -19,6 +19,10 @@ logger = get_logger(__name__)
 
 
 class USEMSubcategorizer(Transform):
+    """
+    Use USEM to retrieve subcategories
+    """
+
     usem = USEMQA()
 
     def __init__(
@@ -28,6 +32,15 @@ class USEMSubcategorizer(Transform):
         response_embeddings_path: str,
         device: str = "/cpu:0",
     ):
+        """
+        Sentence Similarity using USEM (Universal Sentence Encoder Multilingual QA)
+
+        Args:
+            category (str): category to filter
+            subcategories_path (list[str]): path to subcategories
+            response_embeddings_path (str): path to response embeddings
+            device (str, optional): device to use. Defaults to "/cpu:0".
+        """
         self.category = category
 
         CACHE_PATH = os.path.join(
@@ -58,10 +71,16 @@ class USEMSubcategorizer(Transform):
         self.device = device
 
     def load_usem_vectors(self, file_path):
+        """
+        Load USEM vectors
+        """
         usem_vectors = np.load(file_path)
         return usem_vectors.copy()
 
     def retrieve(self, text: str, top_k: int = 10) -> list[str]:
+        """
+        Retrieve similar sentences using USEM
+        """
         with tf.device(self.device):
             query_vector = self.usem.encode(
                 [text],
@@ -75,6 +94,16 @@ class USEMSubcategorizer(Transform):
         return similar_sentences
 
     def __call__(self, item: DataItem) -> DataItem:
+        """
+        Retrieve subcategories for entities. If the entity is not in the category of interest,
+        the subcategory is not retrieved.
+
+        Args:
+            item (DataItem): input data item
+
+        Returns:
+            DataItem: output data item
+        """
         item = deepcopy(item)
 
         ents = get_element(item, levels=["predictions", "entities"]) or []

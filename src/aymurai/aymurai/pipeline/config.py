@@ -15,6 +15,18 @@ class PipeNotFoundError(Exception):
 
 
 def resolve_obj(func_path):
+    """
+    Resolve a string path to a callable object
+
+    Args:
+        func_path (str): String path to the callable object
+
+    Raises:
+        ModuleNotFoundError: Pipe or model is not valid
+
+    Returns:
+        Callable: Callable object
+    """
     # else func is a string
     module_name = ".".join(func_path.split(".")[:-1])
 
@@ -112,6 +124,19 @@ def config2json(config: ConfigSchema) -> str:
 
 
 def config2yaml(config: ConfigSchema) -> str:
+    """
+    Pipeline config validator. Check if it is a valid config object.
+    Also transform "callable" config format to YAML format
+
+    Args:
+        config (ConfigSchema): Config object
+
+    Raises:
+        ModuleNotFoundError: Pipe or model is not valid
+
+    Returns:
+        ConfigSchema: Config in functional YAML
+    """
     cfg = config2json(config)
     cfg = srsly.json_loads(cfg)
     return srsly.yaml_dumps(cfg)

@@ -1,6 +1,7 @@
 version: "3.8"
 services:
     redis:
+        network_mode: host
         image: redis:6.2.6
         container_name: aymurai-redis
         ports:

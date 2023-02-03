@@ -6,6 +6,10 @@ from aymurai.meta.pipeline_interfaces import Transform
 
 
 class FlairTextNormalize(Transform):
+    """
+    Normalize text for Flair
+    """
+
     def __call__(self, item: DataItem) -> DataItem:
         item = deepcopy(item)
 

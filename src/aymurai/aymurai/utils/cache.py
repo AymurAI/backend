@@ -13,6 +13,17 @@ redis = Redis()
 
 
 def flatten_dict(current: dict, key: str = "", result: dict = {}) -> dict:
+    """
+    Flatten a dict
+
+    Args:
+        current (dict): dict to be flattened
+        key (str, optional): key to be used. Defaults to "".
+        result (dict, optional): result dict. Defaults to {}.
+
+    Returns:
+        dict: flattened dict
+    """
     if type(current) is dict:
         for k in current:
             new_key = f"{key}.{k}" if len(key) > 0 else k
@@ -23,11 +34,18 @@ def flatten_dict(current: dict, key: str = "", result: dict = {}) -> dict:
 
 
 def cache_clear(keys: list[str]):
+    """
+    Clear cache
+
+    Args:
+        keys (list[str]): keys to be cleared
+    """
     redis.delete(*keys)
 
 
 def get_cache_key(obj: Any, context: Any = "") -> str:
-    """cache hasher
+    """
+    Get cache key
 
     Args:
         data (Data): Data to hash
@@ -55,7 +73,8 @@ def cache_save(
     key: str,
     logger=None,
 ):
-    """save data on cache
+    """
+    save data on cache
 
     Args:
         data (Data): data to be cached
@@ -74,14 +93,16 @@ def cache_load(
     key: str,
     logger=None,
 ) -> Optional[DataItem]:
-    """restore data from cached
+    """
+    load data from cache
 
     Args:
-        key (str): key to retrive
+        key (str): key to load
         logger (optional): logger
 
     Returns:
-        Data
+        Optional[Data]: loaded data
+
     """
     logger = logger or get_logger(__name__)
 

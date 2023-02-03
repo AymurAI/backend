@@ -32,9 +32,20 @@ def set_color(ent, mapping: dict):
 
 
 class DocRender(Transform):
+    """
+    Render a document with displacy
+    """
+
     def __init__(
         self, base: str = "es", config: dict = {}, ents_field: str = "predictions"
     ):
+        """
+        Args:
+            base (str, optional): spacy model. Defaults to "es".
+            config (dict, optional): displacy config. Defaults to {}.
+            ents_field (str, optional): field with entities. Defaults to "predictions".
+
+        """
         self.nlp = load_base(base)
         self.ents_field = ents_field
         self.config = config
@@ -48,6 +59,20 @@ class DocRender(Transform):
         paragraphs: int = None,
         config: dict = {},
     ):
+        """
+        Render a document with displacy
+
+        Args:
+            item (DataItem): data item
+            style (str, optional): displacy style. Defaults to "ent".
+            spans_key (str, optional): spans key. Defaults to "sc".
+            limit (int, optional): limit text length. Defaults to None.
+            paragraphs (int, optional): limit paragraphs. Defaults to None.
+            config (dict, optional): displacy config. Defaults to {}.
+
+        Returns:
+            dict: displacy data
+        """
         text = item["data"]["doc.text"]
         if limit:
             text = text[:limit]
