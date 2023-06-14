@@ -23,12 +23,7 @@ RUN groupadd --gid $USER_GID $USER_NAME \
 ENV SHELL=/usr/bin/zsh
 RUN chsh $USER_NAME -s $SHELL
 
-# persistent history
-RUN SNIPPET="export PROMPT_COMMAND='history -a' && export HISTFILE=/commandhistory/.zsh_history" \
-    && mkdir /commandhistory \
-    && touch /commandhistory/.zsh_history \
-    && chown -R $USER_NAME /commandhistory \
-    && echo $SNIPPET >> "/home/$USER_NAME/.zshrc"
+
 
 
 # Install dev dependences & tools

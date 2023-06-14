@@ -1,15 +1,6 @@
 version: "3.8"
 services:
-    redis:
-        network_mode: host
-        image: redis:6.2.6
-        container_name: aymurai-redis
-        ports:
-            - "6379:6379"
-        volumes:
-            - $PWD/resources/cache/redis:/data
-
-    devcontainer-gpu:
+    aymurai-devcontainer-gpu:
         network_mode: host
         image: aymurai-devcontainer-gpu
         container_name: aymurai-devcontainer-gpu
@@ -21,15 +12,6 @@ services:
                 - USER_NAME=vscode
                 - USER_UID=1000
                 - USER_GID=1000
-        env_file: ../common.env
-        # depends_on:
-        #     - redis
-        devices:
-            - /dev/nvidia0:/dev/nvidia0
-            - /dev/nvidiactl:/dev/nvidiactl
-            - /dev/nvidia-modeset:/dev/nvidia-modeset
-            - /dev/nvidia-uvm:/dev/nvidia-uvm
-            - /dev/nvidia-uvm-tools:/dev/nvidia-uvm-tool
         deploy:
             resources:
                 reservations:
@@ -44,8 +26,11 @@ services:
             - $HOME/.ssh/:/home/vscode/.ssh
             - $HOME/.gitconfig:/home/vscode/.gitconfig
         command: /bin/sh -c "while true; do :; done"
+        env_file: 
+            - ../.env.common
+            - ../.env
 
-    devcontainer:
+    aymurai-devcontainer:
         network_mode: host
         image: aymurai-devcontainer
         container_name: aymurai-devcontainer-cpu
@@ -57,7 +42,6 @@ services:
                 - USER_NAME=vscode
                 - USER_UID=1000
                 - USER_GID=1000
-        env_file: ../common.env
         # depends_on:
         #     - redis
         shm_size: "8gb"
@@ -69,3 +53,6 @@ services:
             - $HOME/.ssh/:/home/vscode/.ssh
             - $HOME/.gitconfig:/home/vscode/.gitconfig
         command: /bin/sh -c "while sleep 1000; do :; done"
+        env_file: 
+            - ../.env.common
+            - ../.env
