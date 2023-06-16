@@ -9,7 +9,7 @@
 		"aymurai-devcontainer"
 	],
 	"workspaceFolder": "/workspace",
-		"customizations": {
+	"customizations": {
 		"vscode": {
 			"settings": {
 				"python.languageServer": "Pylance",

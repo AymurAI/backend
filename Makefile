@@ -4,13 +4,16 @@ export $(shell sed 's/=.*//' .env)
 
 core-build:
 	docker compose build aymurai-core
+	docker tag ${CORE_IMAGE_CUDA}:latest aymurai-core-gpu:latest
 core-run:
 	docker compose run aymurai-core
 
+redis-run:
+	docker compose -f .devcontainer/docker-compose.yml run redis
 
-dev-build: core-build
+dev-build: core-build redis-run
 	docker compose -f .devcontainer/docker-compose.yml build devcontainer-gpu
-dev-build-cpu: core-build
+dev-build-cpu: core-build redis-run
 	docker compose -f .devcontainer/docker-compose.yml build devcontainer
 
 
@@ -21,10 +24,15 @@ jupyter-run-cpu: dev-build-cpu redis-run
 	docker compose -f .devcontainer/docker-compose.yml run devcontainer \
 		jupyter-lab /workspace --no-browser
 
+core-cpu-build:
+	docker compose build aymurai-core-cpu
+core-cpu-run:
+	docker compose run aymurai-core-cpu
 
-api-build: core-build
+
+api-build: core-cpu-build
 	docker compose build aymurai-api-dev
-api-run: redis-run
+api-run:
 	docker compose run --service-ports aymurai-api-dev
 api-test:
 	docker compose run \

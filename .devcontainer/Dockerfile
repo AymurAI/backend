@@ -1,6 +1,8 @@
 # syntax=docker/dockerfile:1.3
 
-FROM aymurai-core:latest
+ARG CORE_IMAGE_CUDA=aymurai-core-gpu:latest
+FROM ${CORE_IMAGE_CUDA}
+
 ENV EDITOR=vim
 
 ARG USER_NAME=vscode

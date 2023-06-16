@@ -1,5 +1,14 @@
 version: "3.8"
 services:
+    redis:
+        network_mode: host
+        image: redis:6.2.6
+        container_name: aymurai-redis
+        ports:
+            - "6379:6379"
+        volumes:
+            - $PWD/resources/cache/redis:/data
+
     aymurai-devcontainer-gpu:
         network_mode: host
         image: aymurai-devcontainer-gpu
@@ -8,10 +17,13 @@ services:
             context: ..
             dockerfile: .devcontainer/Dockerfile
             args:
+                - CORE_IMAGE_CUDA
                 - AYMURAI_EXTRA_PACKAGE=dev,gpu
                 - USER_NAME=vscode
                 - USER_UID=1000
                 - USER_GID=1000
+        depends_on:
+            - redis
         deploy:
             resources:
                 reservations:
@@ -26,7 +38,7 @@ services:
             - $HOME/.ssh/:/home/vscode/.ssh
             - $HOME/.gitconfig:/home/vscode/.gitconfig
         command: /bin/sh -c "while true; do :; done"
-        env_file: 
+        env_file:
             - ../.env.common
             - ../.env
 
@@ -38,12 +50,13 @@ services:
             context: ..
             dockerfile: .devcontainer/Dockerfile
             args:
+                - CORE_IMAGE_CUDA
                 - AYMURAI_EXTRA_PACKAGE=dev
                 - USER_NAME=vscode
                 - USER_UID=1000
                 - USER_GID=1000
-        # depends_on:
-        #     - redis
+        depends_on:
+            - redis
         shm_size: "8gb"
         volumes:
             - ..:/workspace:cached
@@ -53,6 +66,6 @@ services:
             - $HOME/.ssh/:/home/vscode/.ssh
             - $HOME/.gitconfig:/home/vscode/.gitconfig
         command: /bin/sh -c "while sleep 1000; do :; done"
-        env_file: 
+        env_file:
             - ../.env.common
             - ../.env
