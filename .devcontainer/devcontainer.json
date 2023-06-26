@@ -48,12 +48,12 @@
 				"ms-python.black-formatter",
 				"ms-python.isort",
 				"eamodio.gitlens",
-				"GitHub.copilot",
-				"GitHub.copilot-labs",
+				// "GitHub.copilot",
+				// "GitHub.copilot-labs",
 				"charliermarsh.ruff",
 				"ms-toolsai.jupyter"
 			]
 		}
 	},
-	"postCreateCommand": "sudo /entrypoint.sh",
+	"postCreateCommand": "sudo /entrypoint.sh"
 }

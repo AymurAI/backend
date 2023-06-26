@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.3
 
-ARG CORE_IMAGE_CUDA=aymurai-core-gpu:latest
+ARG CORE_IMAGE_CUDA
 FROM ${CORE_IMAGE_CUDA}
 
 ENV EDITOR=vim
