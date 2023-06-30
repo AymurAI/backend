@@ -1,4 +1,3 @@
-# ARG BASE_IMAGE=nvidia/cuda:11.3.1-cudnn8-devel-ubuntu20.04
 ARG BASE_IMAGE
 FROM $BASE_IMAGE AS cuda-base
 
@@ -23,7 +22,6 @@ RUN apt update \
     wget \
     unzip \
     cmake \
-    python3-setuptools \
     apt-transport-https \
     gnupg \
     antiword \
@@ -32,6 +30,7 @@ RUN apt update \
     libtool \
     libleptonica-dev \
     pkg-config \
+    python3-setuptools \
     python${PYTHON_VERSION} \
     python${PYTHON_VERSION}-dev \
     python${PYTHON_VERSION}-distutils \
