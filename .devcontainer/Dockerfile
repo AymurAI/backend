@@ -1,6 +1,8 @@
 # syntax=docker/dockerfile:1.3
 
-FROM aymurai-core:latest
+ARG CORE_IMAGE_CUDA
+FROM ${CORE_IMAGE_CUDA}
+
 ENV EDITOR=vim
 
 ARG USER_NAME=vscode
@@ -23,12 +25,7 @@ RUN groupadd --gid $USER_GID $USER_NAME \
 ENV SHELL=/usr/bin/zsh
 RUN chsh $USER_NAME -s $SHELL
 
-# persistent history
-RUN SNIPPET="export PROMPT_COMMAND='history -a' && export HISTFILE=/commandhistory/.zsh_history" \
-    && mkdir /commandhistory \
-    && touch /commandhistory/.zsh_history \
-    && chown -R $USER_NAME /commandhistory \
-    && echo $SNIPPET >> "/home/$USER_NAME/.zshrc"
+
 
 
 # Install dev dependences & tools

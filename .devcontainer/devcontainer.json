@@ -4,51 +4,56 @@
 	"name": "aymurai",
 	"initializeCommand": "make core-build",
 	"dockerComposeFile": "docker-compose.yml",
-	"service": "devcontainer",
+	"service": "aymurai-devcontainer",
 	"runServices": [
-		"devcontainer",
-		"redis",
+		"aymurai-devcontainer"
 	],
 	"workspaceFolder": "/workspace",
-	"settings": {
-		"python.pythonPath": "/bin/python",
-		"python.languageServer": "Pylance",
-		"editor.formatOnSave": true,
-		"python.formatting.provider": "black",
-		"python.formatting.blackPath": "/usr/local/bin/black",
-		"python.formatting.blackArgs": [
-			"--line-length=88"
-		],
-		"python.linting.enabled": true,
-		"python.linting.flake8Enabled": true,
-		"python.linting.pylintEnabled": true,
-		"python.linting.pycodestyleEnabled": false,
-		"python.linting.flake8Path": "/usr/local/bin/flake8",
-		"python.linting.pylintPath": "/usr/local/bin/pylint",
-		"python.linting.pylintArgs": [
-			"--generate-members"
-		],
-		"[python]": {
-			"editor.codeActionsOnSave": {
-				"source.organizeImports": true
-			}
-		},
-		"files.trimFinalNewlines": true,
-		"files.trimTrailingWhitespace": true,
-		"files.watcherExclude": {
-			"**/.git/objects/**": true,
-			"**/.git/subtree-cache/**": true,
+	"customizations": {
+		"vscode": {
+			"settings": {
+				"python.languageServer": "Pylance",
+				"editor.formatOnSave": true,
+				"python.formatting.provider": "none",
+				"python.formatting.blackArgs": [
+					"--line-length=88"
+				],
+				"python.linting.enabled": true,
+				"python.linting.flake8Path": "/usr/local/bin/flake8",
+				"python.linting.pylintArgs": [
+					"--generate-members"
+				],
+				"[python]": {
+					"editor.defaultFormatter": "ms-python.black-formatter",
+					"editor.formatOnSave": true,
+					"editor.codeActionsOnSave": {
+						"source.organizeImports": true
+					}
+				},
+				"isort.args": [
+					"--profile",
+					"black"
+				],
+				"files.trimFinalNewlines": true,
+				"files.trimTrailingWhitespace": true,
+				"files.watcherExclude": {
+					"**/.git/objects/**": true,
+					"**/.git/subtree-cache/**": true
+				}
+			},
+			// Add the IDs of extensions you want installed when the container is created.
+			"extensions": [
+				"ms-python.python",
+				"magicstack.magicpython",
+				"ms-python.black-formatter",
+				"ms-python.isort",
+				"eamodio.gitlens",
+				// "GitHub.copilot",
+				// "GitHub.copilot-labs",
+				"charliermarsh.ruff",
+				"ms-toolsai.jupyter"
+			]
 		}
 	},
-	"extensions": [
-		"ms-python.python",
-		"ms-python.vscode-pylance",
-		"eamodio.gitlens",
-		"njpwerner.autodocstring",
-		"christian-kohler.path-intellisense",
-		"magicstack.magicpython",
-		"ms-toolsai.jupyter-renderers",
-		"VisualStudioExptTeam.vscodeintellicode"
-	],
-	"postCreateCommand": "sudo /entrypoint.sh",
+	"postCreateCommand": "sudo /entrypoint.sh"
 }

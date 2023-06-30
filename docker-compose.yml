@@ -7,7 +7,7 @@ services:
             context: .
             dockerfile: ./build/core/Dockerfile
             args:
-                - BASE_IMAGE=nvidia/cuda:11.3.1-cudnn8-devel-ubuntu20.04
+                - BASE_IMAGE=nvidia/cuda:11.8.0-cudnn8-runtime-ubuntu22.04
 
     aymurai-core-cpu:
         image: ${CORE_IMAGE_CPU}:latest
@@ -29,7 +29,9 @@ services:
             args:
                 - BASE_IMAGE=${CORE_IMAGE_CPU}:latest
             target: api-base
-        env_file: common.env
+        env_file:
+            - .env
+            - .env.common
         environment:
             - TEST_MODE
             - API_HOST
