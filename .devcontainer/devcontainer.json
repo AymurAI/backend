@@ -39,7 +39,8 @@
 				"files.watcherExclude": {
 					"**/.git/objects/**": true,
 					"**/.git/subtree-cache/**": true
-				}
+				},
+				"notebook.formatOnSave.enabled": true
 			},
 			// Add the IDs of extensions you want installed when the container is created.
 			"extensions": [
