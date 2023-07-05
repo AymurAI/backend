@@ -51,7 +51,8 @@
 				"eamodio.gitlens",
 				"charliermarsh.ruff",
 				"ms-toolsai.jupyter",
-				"GitHub.vscode-pull-request-github"
+				"GitHub.vscode-pull-request-github",
+				"njpwerner.autodocstring"
 			]
 		}
 	},
