@@ -34,6 +34,7 @@ setup(
         "python-multipart>=0.0.5",
         "pydantic>=1.8.2",
         "httpx>=0.24.1",
+        "pytesseract==0.3.10",
     ],
     extras_require={
         "": [
