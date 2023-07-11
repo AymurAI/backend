@@ -62,7 +62,7 @@ RUN chmod +x /bin/parse-deps.py
 RUN apt update && apt install -y tesseract-ocr libtesseract-dev
 
 # Install spanish model
-RUN wget -c -P /usr/share/tesseract-ocr/tessdata https://github.com/tesseract-ocr/tessdata/raw/main/spa.traineddata
+RUN wget -c -P /usr/local/share/tessdata https://github.com/tesseract-ocr/tessdata/raw/main/spa.traineddata
 
 
 # install aymurai requirements
