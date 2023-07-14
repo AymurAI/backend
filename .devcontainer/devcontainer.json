@@ -39,7 +39,8 @@
 				"files.watcherExclude": {
 					"**/.git/objects/**": true,
 					"**/.git/subtree-cache/**": true
-				}
+				},
+				"notebook.formatOnSave.enabled": true
 			},
 			// Add the IDs of extensions you want installed when the container is created.
 			"extensions": [
@@ -48,10 +49,11 @@
 				"ms-python.black-formatter",
 				"ms-python.isort",
 				"eamodio.gitlens",
-				// "GitHub.copilot",
-				// "GitHub.copilot-labs",
 				"charliermarsh.ruff",
-				"ms-toolsai.jupyter"
+				"ms-toolsai.jupyter",
+				"GitHub.vscode-pull-request-github",
+				"njpwerner.autodocstring",
+				"GrapeCity.gc-excelviewer"
 			]
 		}
 	},
