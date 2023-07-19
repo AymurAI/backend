@@ -8,35 +8,111 @@ import xmltodict
 import numpy as np
 import pandas as pd
 from unidecode import unidecode
-from more_itertools import zip_offset
+from more_itertools import flatten, zip_offset
 
 from aymurai.utils.misc import get_element
+from aymurai.text.extraction import extract_document
+
+IA2_LABELS = [
+    "SECRETARIX",
+    "EDAD",
+    "NER",
+    "NUM",
+    "CBU",
+    "DIRECCION",
+    "JUEZX",
+    "PASAPORTE",
+    "FECHA",
+    "ESTUDIOS",
+    "IP",
+    "PERIODO",
+    "USUARIX",
+    "ARTICULO",
+    "FISCAL",
+    "LOC",
+    "LEY",
+    "CUIT",
+    "BANCO",
+    "DEFENSORX",
+    "PER",
+    "LINK",
+    "NACIONALIDAD",
+    "DNI",
+    "CUIJ",
+]
 
 
-def mapping2conll(df, filename):
+def norm_ia2_label(text) -> str | float:
+    if not isinstance(text, str):
+        return np.nan
+
+    text = unidecode(text)
+    text = re.sub(r"\W", "", text)
+
+    return text if text in IA2_LABELS else np.nan
+
+
+def label_to_conll_format(labels: pd.Series) -> pd.Series:
+    labels = labels.copy()
+
+    if len(labels.dropna()) == 0:
+        return labels
+
+    # tag the labels
+    labels = "B-" + labels
+    mask = labels.values[1:] == labels.values[:-1]
+    mask = np.insert(mask, 0, False)
+    labels.loc[mask] = labels.loc[mask].str.replace("B-", "I-")
+    labels.fillna("O", inplace=True)
+
+    return labels
+
+
+def mapping2conll(
+    df: pd.DataFrame,
+    filename: str,
+    text_column: str = "original",
+    label_column: str = "label",
+):
     dir = os.path.dirname(filename)
     os.makedirs(dir, exist_ok=True)
     with open(filename, "w") as file:
         print("-DOCSTART- -X- O", file=file)
         for _, row in df.iterrows():
-            text = row["original"]
-            label = row["conll_label"]
+            text = row[text_column]
+            label = row[label_column]
             print(f"{text} -X- _ {label}" if text != " " else "", file=file)
 
 
-def load_styles_from_odt(odt_file_path):
-    styles_content = ""
+def _load_xml_from_odt(path: str, xmlfile: str = "styles.xml") -> str:
+    """load xml file inside an odt
 
-    with zipfile.ZipFile(odt_file_path, "r") as odt_zip:
-        if "styles.xml" in odt_zip.namelist():
-            with odt_zip.open("styles.xml") as styles_file:
-                styles_content = styles_file.read().decode("utf-8")
+    Args:
+        path (str): path to odt file
+        xmlfile (str, optional): xml to open. Defaults to 'styles.xml'.
 
-    return styles_content
+    Returns:
+        str: xml content
+    """
+    with zipfile.ZipFile(path, "r") as odt:
+        if xmlfile not in odt.namelist():
+            return ""
+        with odt.open(xmlfile) as file:
+            content = file.read().decode("utf-8")
+
+    return content
 
 
 def get_header(path: str) -> list[str]:
-    styles_xml_content = load_styles_from_odt(path)
+    """Extract header from styles.xml inside a ODT file
+
+    Args:
+        path (str): path to odt file
+
+    Returns:
+        list[str]: header lines
+    """
+    styles_xml_content = _load_xml_from_odt(path)
     styles_dict = xmltodict.parse(styles_xml_content)
     header_root = get_element(
         styles_dict,
@@ -56,14 +132,10 @@ def get_header(path: str) -> list[str]:
     return [element.get("#text") for element in header_root if element.get("#text")]
 
 
-def tokenize(text):
-    tokens = []
-    lines = text.splitlines()
-
-    for line in lines:
-        tokens.extend(line.split())
-
-    return tokens
+def tokenize(text: str) -> list[str]:
+    tokens = map(str.split, text.splitlines())
+    tokens = flatten(tokens)
+    return list(tokens)
 
 
 def norm_label(text) -> str | float:
@@ -76,9 +148,8 @@ def norm_label(text) -> str | float:
 
 
 def aligner(anonymized: str, original: str):
-    anon_lines = anonymized.splitlines()
-    # orig_lines = original.splitlines()
-    orig_lines = [line.strip() for line in original.splitlines()]
+    anon_lines = list(map(str.strip, anonymized.splitlines()))
+    orig_lines = list(map(str.strip, original.splitlines()))
 
     seqmatcher = SequenceMatcher(None, anon_lines, orig_lines)
     matches = seqmatcher.get_matching_blocks()
@@ -93,12 +164,7 @@ def aligner(anonymized: str, original: str):
 
     mapping = pd.DataFrame(
         [
-            {
-                "original": t1 if t1 else "",
-                "anonymized": t2 if t2 else "",
-                "ia2_label": None,
-                # "ia2_norm_label": None,
-            }
+            {"original": t1 or "", "anonymized": t2 or ""}
             for t1, t2 in zip_offset(
                 reversed(tokenize(original[:orig_offset])),
                 reversed(tokenize(anonymized[:anon_offset])),
@@ -132,37 +198,10 @@ def aligner(anonymized: str, original: str):
         if not label_candidate:
             continue
 
-        if len(label_candidate) > 1:
-            # print(f"multiple labels:\n{text}\n{label_candidate}")
-            label = "/".join(
-                set([re.sub(",", "", candidate) for candidate in label_candidate])
-            )
-            _aux = [
-                {
-                    "original": t,
-                    "anonymized": label,
-                    "ia2_label": label,
-                }
-                for i, t in enumerate(text)
-            ]
-
-        else:
-            label = "/".join(label_candidate)
-            _aux = [
-                {
-                    "original": t,
-                    "anonymized": label,
-                    "ia2_label": label,
-                }
-                for i, t in enumerate(text)
-            ]
+        label = "/".join(label_candidate)
+        _aux = [{"original": t, "anonymized": label} for i, t in enumerate(text)]
 
         mapping = pd.concat([mapping, pd.DataFrame(_aux)], ignore_index=True)
-
-    if "ia2_label" not in mapping:
-        mapping["ia2_label"] = np.nan
-
-    mapping["ia2_norm_label"] = mapping["ia2_label"].apply(norm_label)
 
     return mapping.reset_index(drop=True)
 
@@ -178,7 +217,10 @@ def add_empty_lines_between_paragraphs(
         try:
             processed = pd.DataFrame(
                 np.insert(
-                    processed.values, i, values=[" "] * len(processed.columns), axis=0
+                    processed.values,
+                    i,
+                    values=[""] * len(processed.columns),
+                    axis=0,
                 ),
                 columns=processed.columns,
             )
@@ -188,39 +230,7 @@ def add_empty_lines_between_paragraphs(
     return processed
 
 
-def aymurai_align(df: pd.DataFrame, conll: str) -> pd.DataFrame:
-    df = df.copy()
-    aymurai_conll = pd.DataFrame(
-        [line.split() for line in conll.splitlines()],
-        columns=["aymurai_v1", "aymurai_v1_label"],
-    )
-
-    # normalize labels to easy use
-    def normalize(x):
-        if not isinstance(x, str):
-            return x
-        return re.sub(r"[BI]-", "", x)
-
-    aymurai_conll["aymurai_v1_label"] = aymurai_conll["aymurai_v1_label"].apply(
-        normalize
-    )
-    aymurai_conll["aymurai_v1_label"] = aymurai_conll["aymurai_v1_label"].replace(
-        "O", np.nan
-    )
-
-    seqmatcher = SequenceMatcher(None, df["original"], aymurai_conll["aymurai_v1"])
-    matches = seqmatcher.get_matching_blocks()
-
-    for match in matches:
-        orig = df.iloc[match.a : match.a + match.size]
-        aymu = aymurai_conll.iloc[match.b : match.b + match.size]
-
-        # we assume that in this alignment the two dataframes have the same len and are aligned.
-        df.loc[orig.index, aymu.columns] = aymu.values
-    return df
-
-
-def process(item):
+def process(item: dict) -> pd.DataFrame:
     original = item["doc.text"]
     path = item["anonymized_path"]
     anonymized = textract.process(path, extension="odt", output_encoding="utf-8")
@@ -230,7 +240,17 @@ def process(item):
     anon_header = "\n".join(get_header(path))
     anonymized = anon_header + "\n" + anonymized
 
-    processed = aligner(anonymized, original)
-    processed = add_empty_lines_between_paragraphs(original, processed)
+    mapping = aligner(anonymized, original)
+    mapping = add_empty_lines_between_paragraphs(original, mapping)
 
-    return processed
+    # set labels
+    mask = mapping["original"] != mapping["anonymized"]
+    if len(mask) == 0:
+        mapping["label"] = "O"
+        return mapping
+
+    labels = mapping.loc[mask, "anonymized"]
+    labels = labels.apply(norm_ia2_label).dropna()
+    mapping["label"] = labels
+    mapping["label"] = label_to_conll_format(mapping["label"])
+    return mapping
