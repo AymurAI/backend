@@ -78,7 +78,7 @@ def extract_document(
     filename: str,
     errors: str = "ignore",
     **kwargs,
-) -> str:
+) -> str | None:
     """extract text from document by path
 
     Args:
