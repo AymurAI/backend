@@ -39,27 +39,32 @@ def align_text(
     seqmatcher = SequenceMatcher(None, source_tokens, target_tokens)
     matches = seqmatcher.get_matching_blocks()
 
-    for match, next_match in zip(matches, matches[1:]):
-        _aux = {
-            "source": source_tokens[match.a : match.a + match.size],
-            "target": target_tokens[match.b : match.b + match.size],
-        }
-        mapping = pd.concat([mapping, pd.DataFrame(_aux)], ignore_index=True)
+    # FIXME: patch to misaligned headers
+    if not target_text:
+        mapping["source"] = source_tokens
+        mapping.fillna("", inplace=True)
+    else:
+        for match, next_match in zip(matches, matches[1:]):
+            _aux = {
+                "source": source_tokens[match.a : match.a + match.size],
+                "target": target_tokens[match.b : match.b + match.size],
+            }
+            mapping = pd.concat([mapping, pd.DataFrame(_aux)], ignore_index=True)
 
-        # get how differ the tokens at the end of the current match to the next
-        diff = Differ().compare(
-            source_tokens[match.a + match.size : next_match.a],
-            target_tokens[match.b + match.size : next_match.b],
-        )
-        diff = list(diff)
-        left = [t[2:].strip() for t in diff if t.startswith(("-", " "))]
-        right = [t[2:].strip() for t in diff if t.startswith("+")]
-        right_agg = "/".join(right)
+            # get how differ the tokens at the end of the current match to the next
+            diff = Differ().compare(
+                source_tokens[match.a + match.size : next_match.a],
+                target_tokens[match.b + match.size : next_match.b],
+            )
+            diff = list(diff)
+            left = [t[2:].strip() for t in diff if t.startswith(("-", " "))]
+            right = [t[2:].strip() for t in diff if t.startswith("+")]
+            right_agg = "/".join(right)
 
-        _aux = pd.DataFrame({"source": left})
-        _aux["target"] = right_agg
+            _aux = pd.DataFrame({"source": left})
+            _aux["target"] = right_agg
 
-        mapping = pd.concat([mapping, pd.DataFrame(_aux)], ignore_index=True)
+            mapping = pd.concat([mapping, pd.DataFrame(_aux)], ignore_index=True)
 
     # rename columns
     mapping.columns = columns
