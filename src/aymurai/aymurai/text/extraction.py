@@ -1,20 +1,21 @@
-import os
 import logging
-import zipfile
+import os
 import unicodedata
+import zipfile
 from pathlib import Path
 from zipfile import BadZipFile
 
 import magic
 import textract
 import xmltodict
+from more_itertools import flatten
 from textract.exceptions import ShellError
 from textract.parsers import _get_available_extensions
 
 from aymurai.logging import get_logger
-from aymurai.utils.misc import get_element
 from aymurai.meta.pipeline_interfaces import Transform
 from aymurai.utils.cache import cache_load, cache_save, get_cache_key
+from aymurai.utils.misc import get_element, get_recursively
 
 logger = get_logger(__file__)
 
@@ -109,22 +110,37 @@ def get_header(path: str) -> list[str]:
     """
     styles_xml_content = _load_xml_from_odt(path)
     styles_dict = xmltodict.parse(styles_xml_content)
+
     header_root = get_element(
         styles_dict,
         levels=[
             "office:document-styles",
             "office:master-styles",
             "style:master-page",
-            1,
-            "style:header",
-            "text:p",
         ],
     )
 
     if not isinstance(header_root, list):
+        header_root = [header_root]
+
+    style_header = [
+        get_recursively(item, "style:header")
+        for item in header_root
+        if get_recursively(item, "style:header")
+    ]
+    style_header = list(flatten(style_header))
+
+    texts = [
+        get_recursively(item, "#text")
+        for item in style_header
+        if get_recursively(item, "#text")
+    ]
+    texts = list(flatten(texts))
+
+    if not texts:
         return []
 
-    return [element.get("#text") for element in header_root if element.get("#text")]
+    return texts
 
 
 def extract_document(
