@@ -53,4 +53,7 @@ def document_normalize(text: str) -> str:
     # quotation marks
     text = re.sub(r"(“|”)", '"', text)
 
+    # scaped slashes
+    text = text.replace("\/", "/")
+
     return text
