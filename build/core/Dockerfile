@@ -57,6 +57,14 @@ RUN wget https://github.com/pypa/pip/archive/refs/tags/${PIP_VERSION}.zip \
 COPY build/core/parse-deps.py /bin/
 RUN chmod +x /bin/parse-deps.py
 
+
+# Install Tesseract
+RUN apt update && apt install -y tesseract-ocr libtesseract-dev
+
+# Install spanish model
+RUN wget -c -P /usr/local/share/tessdata https://github.com/tesseract-ocr/tessdata/raw/main/spa.traineddata
+
+
 # install aymurai requirements
 RUN --mount=type=bind,source=src/aymurai/setup.py,target=/root/aymurai/setup.py \
     --mount=type=cache,target=/root/.cache,id=pip \
@@ -82,15 +90,6 @@ RUN apt update && apt install -y locales \
     && update-locale LANG=en_US.UTF-8
 ENV LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
 
-# # install redis
-# RUN curl -fsSL https://packages.redis.io/gpg | gpg --dearmor -o /usr/share/keyrings/redis-archive-keyring.gpg \
-#     && echo "deb [signed-by=/usr/share/keyrings/redis-archive-keyring.gpg] https://packages.redis.io/deb $(lsb_release -cs) main" | tee /etc/apt/sources.list.d/redis.list \
-#     && apt update \
-#     && apt install -y redis \
-#     && apt-get autoremove -y \
-#     && apt-get clean \
-#     && rm -rf /tmp/* /var/tmp/* \
-#     && rm -rf /var/lib/apt/lists/*
 
 # Install Redis.
 RUN \
@@ -110,6 +109,7 @@ RUN \
   sed -i 's/^\(logfile .*\)$/# \1/' /etc/redis/redis.conf && \
   sed -i 's/^\(# maxmemory .*\)$/maxmemory 30000000/' /etc/redis/redis.conf && \
   sed -i 's/^\(# maxmemory-policy .*\)$/maxmemory-policy volatile-lru/' /etc/redis/redis.conf
+
 
 # Define mountable directories.
 VOLUME ["/data"]
