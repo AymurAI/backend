@@ -12,13 +12,13 @@ from aymurai.utils.json_data import load_json
 locale.setlocale(locale.LC_TIME, "es_AR.UTF-8")
 
 
-with open("nationalities.list", "r") as file:
+with open("/resources/data_augmentation/nationalities.list", "r") as file:
     nationalities = file.read().splitlines()
 
-with open("bank_codes.list", "r") as file:
+with open("/resources/data_augmentation/bank_codes.list", "r") as file:
     bank_codes = file.read().splitlines()
 
-cars = load_json("cars.json")
+cars = load_json("/resources/data_augmentation/cars.json")
 
 
 class CarProvider(BaseProvider):
