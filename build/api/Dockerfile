@@ -15,7 +15,7 @@ RUN rm -rf /tmp/*
 
 WORKDIR /root
 
-COPY ./api/main.py /usr/bin/main.py
+COPY ./src/aymurai/aymurai/api/main.py /usr/bin/main.py
 COPY ./test /test
 
 # Install aymurai
