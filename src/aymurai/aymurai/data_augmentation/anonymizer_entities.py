@@ -48,7 +48,7 @@ class CarProvider(BaseProvider):
 
         named = choice([0, 1])
         if named:
-            brand_model = f"marca {brand} modelo {model}"
+            brand_model = f"{brand} modelo {model}"
 
         return brand_model
 
