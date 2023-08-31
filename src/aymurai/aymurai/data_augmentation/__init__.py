@@ -1,1 +1,1 @@
-from .core import DataAugmentator
+from .core import DataAugmenter

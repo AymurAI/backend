@@ -2,16 +2,16 @@ import re
 from itertools import groupby
 
 from joblib import hash
-from more_itertools import unzip, flatten
+from more_itertools import flatten, unzip
 
 
-class DataAugmentator:
+class DataAugmenter:
     def __init__(self, augmentation_functions: dict, code2label: dict) -> None:
         self.augmentation_functions = augmentation_functions
         self.code2label = code2label
         self.label2code = {v: k for k, v in self.code2label.items()}
 
-    def get_tokens_and_labels(self, text: str, entity: str) -> tuple[list, list]:
+    def _get_tokens_and_labels(self, text: str, entity: str) -> tuple[list, list]:
         tokens = text.split()
         tags = [f"I-{entity}"] * len(tokens)
         tags[0] = f"B-{entity}"
@@ -37,7 +37,7 @@ class DataAugmentator:
                 augmented_labels.append(list(labels))
                 continue
 
-            replacement_tokens, replacement_labels = self.get_tokens_and_labels(
+            replacement_tokens, replacement_labels = self._get_tokens_and_labels(
                 self.augmentation_functions.get(entity)(), entity
             )
 
