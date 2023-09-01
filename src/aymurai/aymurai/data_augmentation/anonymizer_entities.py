@@ -215,5 +215,4 @@ augmentation_functions = {
     "MARCA_AUTOMOVIL": faker.car_model,
     "PATENTE_DOMINIO": faker.plate,
     "TEXTO_ANONIMIZAR": blank,
-    "LUGAR_HECHO": blank,
 }
