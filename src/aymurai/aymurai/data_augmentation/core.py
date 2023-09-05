@@ -2,7 +2,7 @@ import re
 from itertools import groupby
 
 from joblib import hash
-from more_itertools import flatten, unzip
+from more_itertools import unzip, flatten
 
 
 class DataAugmenter:
@@ -11,10 +11,10 @@ class DataAugmenter:
         self.code2label = code2label
         self.label2code = {v: k for k, v in self.code2label.items()}
 
-    def _get_tokens_and_labels(self, text: str, entity: str) -> tuple[list, list]:
+    def _get_tokens_and_tags(self, text: str, entity: str) -> tuple[list, list]:
         tokens = text.split()
-        tags = [f"I-{entity}"] * len(tokens)
-        tags[0] = f"B-{entity}"
+        tags = [self.label2code.get(f"I-{entity}")] * len(tokens)
+        tags[0] = self.label2code.get(f"B-{entity}")
         return tokens, tags
 
     def augment(self, sample: dict) -> tuple[list, list]:
@@ -25,28 +25,28 @@ class DataAugmenter:
         ]
 
         augmented_tokens = []
-        augmented_labels = []
+        augmented_tags = []
 
         for entity, group in groupby(
-            zip(sample_tokens, sample_labels), key=lambda x: x[1]
+            zip(sample_tokens, sample_tags, sample_labels), key=lambda x: x[2]
         ):
-            tokens, labels = unzip(group)
+            tokens, tags, _ = unzip(group)
 
-            if entity == "O":
+            if entity in ["O", "TEXTO_ANONIMIZAR"]:
                 augmented_tokens.append(list(tokens))
-                augmented_labels.append(list(labels))
+                augmented_tags.append(list(tags))
                 continue
 
-            replacement_tokens, replacement_labels = self._get_tokens_and_labels(
+            replacement_tokens, replacement_tags = self._get_tokens_and_tags(
                 self.augmentation_functions.get(entity)(), entity
             )
 
             augmented_tokens.append(list(replacement_tokens))
-            augmented_labels.append(list(replacement_labels))
+            augmented_tags.append(list(replacement_tags))
 
         augmented_tokens = list(flatten(augmented_tokens))
-        augmented_labels = list(flatten(augmented_labels))
-        augmented_tags = [self.label2code.get(label) for label in augmented_labels]
+        augmented_tags = list(flatten(augmented_tags))
+
         n_labels = len([tag for tag in augmented_tags if tag > 0])
 
         augmented_sample = {
