@@ -2,6 +2,7 @@ import re
 import locale
 from datetime import datetime
 
+import pandas as pd
 from faker import Faker
 from faker.providers import BaseProvider
 from numpy.random import choice, randint
@@ -12,13 +13,14 @@ from aymurai.utils.json_data import load_json
 locale.setlocale(locale.LC_TIME, "es_AR.UTF-8")
 
 
-with open("/resources/data_augmentation/nationalities.list", "r") as file:
-    nationalities = file.read().splitlines()
-
-with open("/resources/data_augmentation/bank_codes.list", "r") as file:
+with open("/resources/data-augmentation/bank_codes.list", "r") as file:
     bank_codes = file.read().splitlines()
 
-cars = load_json("/resources/data_augmentation/cars.json")
+with open("/resources/data-augmentation/nationalities.list", "r") as file:
+    nationalities = file.read().splitlines()
+
+cars = load_json("/resources/data-augmentation/cars.json")
+localidades = pd.read_csv("/resources/data-augmentation/localidades.csv")
 
 
 class CarProvider(BaseProvider):
@@ -80,6 +82,18 @@ class DatePlaceProvider(BaseProvider):
 
         return re.sub(r"\n.+$", "", faker.address())
 
+    def location(self) -> str:
+        sample = localidades.sample().dropna().values[0]
+        levels = randint(1, 4)
+
+        if levels == 1:
+            return sample[0]
+
+        if levels == 2:
+            return ", ".join(sample[0:2])
+
+        return ", ".join(sample)
+
 
 class JudicialProvider(BaseProvider):
     def exp(self) -> str:
@@ -108,6 +122,17 @@ class JudicialProvider(BaseProvider):
 
 
 class NumberProvider(BaseProvider):
+    def _insert_dots_or_spaces(self, register: str, fmt: str) -> str:
+        reversed_register = register[::-1]
+
+        if fmt == "spaced":
+            reversed_register = reversed_register[:3] + " " + reversed_register[3:]
+        else:
+            reversed_register = reversed_register[:3] + "." + reversed_register[3:]
+
+        register = reversed_register[::-1]
+        return register
+
     def cuit_cuil(self) -> str:
         prefix = choice([20, 23, 24, 25, 26, 27, 30])
         eight_digits = "".join(randint(0, 10, size=8).astype(str))
@@ -120,7 +145,41 @@ class NumberProvider(BaseProvider):
         return f"{bank_code}{nineteen_digits}"
 
     def phone(self) -> str:
-        return re.sub(r"\+54 (?:9 )?", "", faker.phone_number())
+        phone_number = faker.phone_number()
+
+        remove_prefix = choice([0, 1], p=[0.05, 0.95])
+        if remove_prefix:
+            phone_number = re.sub(r"\+54 (?:9 )?", "", phone_number)
+
+        formats = ["numeric", "dashed", "spaced"]
+        fmt = choice(formats, p=[0.4, 0.4, 0.2])
+
+        if fmt == "numeric":
+            return re.sub(r"\s+", "", phone_number)
+
+        if fmt == "dashed":
+            return re.sub(r"\s+", "-", phone_number)
+
+        return phone_number
+
+    def register(self) -> str:
+        n_digits = choice([5, 6])
+        digits = "".join(randint(0, 10, size=n_digits).astype(str))
+
+        formats = ["dotted", "numeric", "spaced"]
+        fmt = choice(formats, p=[0.7, 0.2, 0.1])
+
+        if fmt in ("dotted", "spaced"):
+            digits = self._insert_dots_or_spaces(digits, fmt)
+
+        return digits
+
+    def savings_account(self) -> str:
+        prefix = "".join(randint(0, 10, size=2).astype(str))
+        account_type = choice(["0200", "0210"])
+        nine_digits = "".join(randint(0, 10, size=9).astype(str))
+        three_digits = "".join(randint(0, 10, size=3).astype(str))
+        return f"{prefix}{account_type}{nine_digits}{three_digits}"
 
 
 class PersonProvider(Provider):
@@ -155,13 +214,19 @@ class PersonProvider(Provider):
         return name
 
     def age(self) -> str:
-        return str(randint(0, 100))
+        years = choice([0, 1], p=[0.2, 0.8])
+
+        if not years:
+            months = randint(1, 12)
+            return f"{months} meses" if months > 1 else f"{months} mes"
+
+        return str(randint(1, 100))
 
     def dni(self) -> str:
-        dni = str(randint(low=9_000_000, high=100_000_000))
+        dni = str(randint(low=1_000_000, high=100_000_000))
 
         formats = ["dotted", "numeric", "spaced"]
-        fmt = choice(formats, p=[0.6, 0.3, 0.1])
+        fmt = choice(formats, p=[0.7, 0.2, 0.1])
 
         if fmt in ("dotted", "spaced"):
             dni = self._insert_dots_or_spaces(dni, fmt)
@@ -184,11 +249,6 @@ faker.add_provider(NumberProvider)
 faker.add_provider(PersonProvider)
 
 
-# FIXME función auxiliar para las etiquetas a eliminar
-def blank():
-    return "<BLANK>"
-
-
 augmentation_functions = {
     "PER": faker.name,
     "EDAD": faker.age,
@@ -196,9 +256,9 @@ augmentation_functions = {
     "NACIONALIDAD": faker.nationality,
     "ESTUDIOS": faker.studies,
     "PASAPORTE": faker.passport_number,
+    "NUM_MATRICULA": faker.register,
     "DIRECCION": faker.direction,
-    # TODO ampliar con información geográfica más detallada, consultar https://datosgobar.github.io/georef-ar-api/
-    "LOC": faker.municipality,
+    "LOC": faker.location,
     "FECHA": faker.formatted_date,
     "NUM_EXPEDIENTE": faker.exp,
     "CUIJ": faker.cuij,
@@ -210,9 +270,9 @@ augmentation_functions = {
     "IP": faker.ipv4,
     "CUIT_CUIL": faker.cuit_cuil,
     "TELEFONO": faker.phone,
-    "CBU": faker.cbu,
     "BANCO": faker.bank,
+    "CBU": faker.cbu,
+    "NUM_CAJA_AHORRO": faker.savings_account,
     "MARCA_AUTOMOVIL": faker.car_model,
     "PATENTE_DOMINIO": faker.plate,
-    "TEXTO_ANONIMIZAR": blank,
 }
