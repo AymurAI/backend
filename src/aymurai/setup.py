@@ -35,7 +35,6 @@ setup(
         "pydantic>=1.8.2",
         "httpx>=0.24.1",
         "faker==18.11.2",
-        "pytesseract==0.3.10",
         "xmltodict==0.13.0",
     ],
     extras_require={
