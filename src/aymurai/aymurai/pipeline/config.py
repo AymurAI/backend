@@ -14,7 +14,7 @@ class PipeNotFoundError(Exception):
     pass
 
 
-def resolve_obj(func_path):
+def resolve_obj(func_path: str):
     """
     Resolve a string path to a callable object
 
@@ -27,6 +27,9 @@ def resolve_obj(func_path):
     Returns:
         Callable: Callable object
     """
+    if not isinstance(func_path, str):
+        raise ModuleNotFoundError(f"module `{func_path}` not found")
+
     # else func is a string
     module_name = ".".join(func_path.split(".")[:-1])
 
@@ -62,6 +65,7 @@ def json2config(config: str) -> ConfigSchema:
                     func_ = resolve_obj(value)
                     if callable(func_):
                         kwargs[key] = func_
+                # except ModuleNotFoundError:
                 except Exception:
                     pass
 

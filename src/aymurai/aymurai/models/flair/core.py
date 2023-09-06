@@ -8,7 +8,6 @@ import numpy as np
 from flair.data import Sentence
 from more_itertools import collapse
 from flair.models import SequenceTagger
-from flair.tokenization import SpaceTokenizer
 
 from aymurai.utils.misc import is_url
 from aymurai.logging import get_logger
@@ -55,7 +54,6 @@ class FlairModel(TrainModule):
             model_path = basepath
         logger.info(f"loading model from {model_path}")
         self.model = SequenceTagger.load(model_path)
-        self.tokenizer = SpaceTokenizer()
 
     @property
     def device(self):
@@ -92,7 +90,7 @@ class FlairModel(TrainModule):
 
         docs = [item["data"]["doc.text"] for item in data]
 
-        sentences = [Sentence(sent, use_tokenizer=self.tokenizer) for sent in docs]
+        sentences = [Sentence(sent) for sent in docs]
 
         self.model.predict(sentences)
         sentences = [sentence.get_spans("ner") for sentence in sentences]
@@ -183,7 +181,6 @@ class FlairModel(TrainModule):
         return [self.format_entity(sentence) for sentence in sentences]
 
     def predict_single(self, item: DataItem) -> DataItem:
-
         item = deepcopy(item)
 
         doc = item["data"]["doc.text"]
@@ -194,7 +191,7 @@ class FlairModel(TrainModule):
         n_tokens = [len(line.split()) for line in sentences]
         n_chars = [len(line) for line in sentences]
 
-        sentences = [Sentence(sent, use_tokenizer=self.tokenizer) for sent in sentences]
+        sentences = [Sentence(sent) for sent in sentences]
 
         self.model.predict(sentences)
         sentences = [sentence.get_spans("ner") for sentence in sentences]

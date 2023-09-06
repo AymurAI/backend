@@ -6,7 +6,7 @@ ENV DEBIAN_FRONTEND noninteractive
 ENV PATH=/usr/local/cuda/bin/:$PATH
 ENV LD_LIBRARY_PATH=/usr/local/cuda/lib64/:$LD_LIBRARY_PATH
 
-ENV PIP_VERSION=22.2.2
+ENV PIP_VERSION=23.2.1
 ENV PYTHON_VERSION=3.10
 
 
@@ -34,6 +34,7 @@ RUN apt update \
     python${PYTHON_VERSION} \
     python${PYTHON_VERSION}-dev \
     python${PYTHON_VERSION}-distutils \
+    # python3-pip \
     build-essential \
     && apt-get autoremove -y \
     && apt-get clean \
@@ -52,17 +53,14 @@ RUN wget https://github.com/pypa/pip/archive/refs/tags/${PIP_VERSION}.zip \
     && unzip ${PIP_VERSION}.zip \
     && cd pip-${PIP_VERSION} \
     && python setup.py install
+# RUN wget https://bootstrap.pypa.io/get-pip.py \
+#     && python get-pip.py
+
 
 # copy devs scripts
 COPY build/core/parse-deps.py /bin/
 RUN chmod +x /bin/parse-deps.py
 
-
-# Install Tesseract
-RUN apt update && apt install -y tesseract-ocr libtesseract-dev
-
-# Install spanish model
-RUN wget -c -P /usr/local/share/tessdata https://github.com/tesseract-ocr/tessdata/raw/main/spa.traineddata
 
 
 # install aymurai requirements
