@@ -6,7 +6,7 @@ ENV DEBIAN_FRONTEND noninteractive
 ENV PATH=/usr/local/cuda/bin/:$PATH
 ENV LD_LIBRARY_PATH=/usr/local/cuda/lib64/:$LD_LIBRARY_PATH
 
-ENV PIP_VERSION=22.2.2
+ENV PIP_VERSION=23.2.1
 ENV PYTHON_VERSION=3.10
 
 
@@ -34,6 +34,7 @@ RUN apt update \
     python${PYTHON_VERSION} \
     python${PYTHON_VERSION}-dev \
     python${PYTHON_VERSION}-distutils \
+    # python3-pip \
     build-essential \
     && apt-get autoremove -y \
     && apt-get clean \
@@ -52,10 +53,15 @@ RUN wget https://github.com/pypa/pip/archive/refs/tags/${PIP_VERSION}.zip \
     && unzip ${PIP_VERSION}.zip \
     && cd pip-${PIP_VERSION} \
     && python setup.py install
+# RUN wget https://bootstrap.pypa.io/get-pip.py \
+#     && python get-pip.py
+
 
 # copy devs scripts
 COPY build/core/parse-deps.py /bin/
 RUN chmod +x /bin/parse-deps.py
+
+
 
 # install aymurai requirements
 RUN --mount=type=bind,source=src/aymurai/setup.py,target=/root/aymurai/setup.py \
@@ -82,15 +88,6 @@ RUN apt update && apt install -y locales \
     && update-locale LANG=en_US.UTF-8
 ENV LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
 
-# # install redis
-# RUN curl -fsSL https://packages.redis.io/gpg | gpg --dearmor -o /usr/share/keyrings/redis-archive-keyring.gpg \
-#     && echo "deb [signed-by=/usr/share/keyrings/redis-archive-keyring.gpg] https://packages.redis.io/deb $(lsb_release -cs) main" | tee /etc/apt/sources.list.d/redis.list \
-#     && apt update \
-#     && apt install -y redis \
-#     && apt-get autoremove -y \
-#     && apt-get clean \
-#     && rm -rf /tmp/* /var/tmp/* \
-#     && rm -rf /var/lib/apt/lists/*
 
 # Install Redis.
 RUN \
@@ -110,6 +107,7 @@ RUN \
   sed -i 's/^\(logfile .*\)$/# \1/' /etc/redis/redis.conf && \
   sed -i 's/^\(# maxmemory .*\)$/maxmemory 30000000/' /etc/redis/redis.conf && \
   sed -i 's/^\(# maxmemory-policy .*\)$/maxmemory-policy volatile-lru/' /etc/redis/redis.conf
+
 
 # Define mountable directories.
 VOLUME ["/data"]

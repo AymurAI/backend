@@ -58,6 +58,11 @@ def get_pipeline_doc_extract():
     return AymurAIPipeline.load("/resources/pipelines/production/doc-extraction")
 
 
+@lru_cache(maxsize=1)
+def get_pipeline_anonymizer_flair():
+    return AymurAIPipeline.load("/resources/pipelines/production/flair-anonymizer")
+
+
 @api.on_event("startup")
 async def load_pipelines():
     get_pipeline()
@@ -102,7 +107,11 @@ def custom_openapi():
 api.openapi = custom_openapi
 
 
-@api.post("/predict", response_model=DocumentInformation, tags=["paragraphs"])
+@api.post(
+    "/datapublic/predict",
+    response_model=DocumentInformation,
+    tags=["datapublic"],
+)
 async def predict_over_text(
     request: TextRequest = Body({"text": " Buenos Aires, 17 de noviembre 2024"}),
     pipeline: AymurAIPipeline = Depends(get_pipeline),
@@ -124,7 +133,51 @@ async def predict_over_text(
 
 
 @api.post(
-    "/predict-batch", response_model=list[DocumentInformation], tags=["paragraphs"]
+    "/anonymizer/predict",
+    response_model=DocumentInformation,
+    tags=["anonymizer"],
+)
+async def anonymizer_flair_predict(
+    request: TextRequest = Body({"text": " Buenos Aires, 17 de noviembre 2024"}),
+    pipeline: AymurAIPipeline = Depends(get_pipeline_anonymizer_flair),
+) -> DocumentInformation:
+    logger.info("predict single")
+    item = [{"path": "dummy", "data": {"doc.text": request.text}}]
+
+    with pipeline_lock:
+        processed = pipeline.preprocess(item)
+        processed = pipeline.predict_single(processed[0])
+        processed = pipeline.postprocess([processed])
+
+    logger.info(processed)
+
+    return DocumentInformation(
+        document=get_element(processed[0], ["data", "doc.text"]) or "",
+        labels=get_element(processed[0], ["predictions", "entities"]) or [],
+    )
+
+
+@api.post(
+    "/predict",  # FIXME: to be deprecated
+    response_model=DocumentInformation,
+    response_class=RedirectResponse,
+    tags=["datapublic"],
+    deprecated=True,
+)
+async def datapublic_predict(
+    request: TextRequest = Body({"text": " Buenos Aires, 17 de noviembre 2024"}),
+    pipeline: AymurAIPipeline = Depends(get_pipeline),
+) -> DocumentInformation:
+    url = api.url_path_for("/datapublic/predict")
+    response = RedirectResponse(url=url)
+    return response
+
+
+@api.post(
+    "/predict-batch",
+    response_model=list[DocumentInformation],
+    tags=["public_dataset"],
+    deprecated=True,
 )
 async def predict_over_text_batch(
     request: list[TextRequest] = Body(
@@ -135,7 +188,6 @@ async def predict_over_text_batch(
     ),
     pipeline: AymurAIPipeline = Depends(get_pipeline),
 ) -> DocumentInformation:
-
     item = [{"path": "dummy", "data": {"doc.text": req.text}} for req in request]
     logger.info(item)
 
@@ -223,3 +275,4 @@ if __name__ == "__main__":
     logger.info("Loading pipelines and exit.")
     get_pipeline()
     get_pipeline_doc_extract()
+    get_pipeline_anonymizer_flair()

@@ -1,15 +1,21 @@
-import os
 import logging
+import os
+import unicodedata
+import zipfile
+from pathlib import Path
 from zipfile import BadZipFile
 
 import magic
 import textract
+import xmltodict
+from more_itertools import flatten
 from textract.exceptions import ShellError
 from textract.parsers import _get_available_extensions
 
 from aymurai.logging import get_logger
 from aymurai.meta.pipeline_interfaces import Transform
 from aymurai.utils.cache import cache_load, cache_save, get_cache_key
+from aymurai.utils.misc import get_element, get_recursively
 
 logger = get_logger(__file__)
 
@@ -61,7 +67,7 @@ class FulltextExtract(Transform):
             text = extract_document(item["path"], **self.kwargs) or ""
 
         if self.use_cache:
-            cache_save(text, key=cache_key)
+            cache_save(text, key=cache_key)  # type: ignore
 
         item["data"]["doc.text"] = text
         item["data"]["doc.valid"] = bool(len(text))
@@ -74,19 +80,84 @@ def get_extension(path: str) -> str:
     return MIMETYPE_EXTENSION_MAPPER.get(mimetype, mimetype)
 
 
+def _load_xml_from_odt(path: str, xmlfile: str = "styles.xml") -> str:
+    """load xml file inside an odt
+
+    Args:
+        path (str): path to odt file
+        xmlfile (str, optional): xml to open. Defaults to 'styles.xml'.
+
+    Returns:
+        str: xml content
+    """
+    with zipfile.ZipFile(path, "r") as odt:
+        if xmlfile not in odt.namelist():
+            return ""
+        with odt.open(xmlfile) as file:
+            content = file.read().decode("utf-8")
+
+    return content
+
+
+def get_header(path: str) -> list[str]:
+    """Extract header from styles.xml inside a ODT file
+
+    Args:
+        path (str): path to odt file
+
+    Returns:
+        list[str]: header lines
+    """
+    styles_xml_content = _load_xml_from_odt(path)
+    styles_dict = xmltodict.parse(styles_xml_content)
+
+    header_root = get_element(
+        styles_dict,
+        levels=[
+            "office:document-styles",
+            "office:master-styles",
+            "style:master-page",
+        ],
+    )
+
+    if not isinstance(header_root, list):
+        header_root = [header_root]
+
+    style_header = [
+        get_recursively(item, "style:header")
+        for item in header_root
+        if get_recursively(item, "style:header")
+    ]
+    style_header = list(flatten(style_header))
+
+    texts = [
+        get_recursively(item, "#text")
+        for item in style_header
+        if get_recursively(item, "#text")
+    ]
+    texts = list(flatten(texts))
+
+    if not texts:
+        return []
+
+    return texts
+
+
 def extract_document(
-    filename: str,
+    filename: str | Path,
     errors: str = "ignore",
     **kwargs,
-) -> str:
+) -> str | None:
     """extract text from document by path
 
     Args:
         filename (str): document path
         errors (str, optional): {'ignore', 'raise', 'coerce'}, default 'ignore'
         - If :const:`'raise'`, then invalid parsing will raise an exception.
-        - If :const:`'coerce'`, then invalid parsing will be set as :const:`NaN` and warn.
-        - If :const:`'ignore'`, then invalid parsing will be set as :const:`NaN` but not warn.
+        - If :const:`'coerce'`, then invalid parsing will be setas :const:`NaN`
+            and warn.
+        - If :const:`'ignore'`, then invalid parsing will be set as :const:`NaN`
+            but not warn.
         **kwargs: keyword arguments for textract.
 
     Raises:
@@ -96,10 +167,15 @@ def extract_document(
     Returns:
         str: extracted document text
     """
+    filename = str(filename)  # patch for pathlib
+
     if errors not in ERRORS:
         raise ValueError(f"errors argument must be in {ERRORS}")
 
     ext = get_extension(filename)
+
+    kwargs["extension"] = kwargs.get("extension", ext)
+    kwargs["output_encoding"] = kwargs.get("output_encoding", "utf-8")
 
     logger = get_logger(f"{__file__}.{__name__}")
 
@@ -122,6 +198,12 @@ def extract_document(
         if errors == "raise":
             raise
         logger.warn(f"skipping (corrupted): {filename}")
-        docu = None
+        return
 
+    # patch header loading in odt files
+    if ext == "odt":
+        header = "\n".join(get_header(filename))
+        docu = header + "\n\n" + docu
+
+    docu = unicodedata.normalize("NFKC", docu)
     return docu

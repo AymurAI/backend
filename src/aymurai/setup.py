@@ -1,4 +1,4 @@
-from setuptools import find_packages, setup
+from setuptools import setup, find_packages
 
 setup(
     name="aymurai",
@@ -34,6 +34,8 @@ setup(
         "python-multipart>=0.0.5",
         "pydantic>=1.8.2",
         "httpx>=0.24.1",
+        "pytesseract==0.3.10",
+        "xmltodict==0.13.0",
     ],
     extras_require={
         "": [
