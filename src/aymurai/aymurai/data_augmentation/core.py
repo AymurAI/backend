@@ -17,7 +17,7 @@ class DataAugmenter:
         tags[0] = self.label2code.get(f"B-{entity}")
         return tokens, tags
 
-    def augment(self, sample: dict) -> tuple[list, list]:
+    def augment_sample(self, sample: dict) -> tuple[list, list]:
         sample_tokens = sample["tokens"]
         sample_tags = sample["tags"]
         sample_labels = [
