@@ -26,12 +26,20 @@ class DataAugmenter:
         augmentation_functions: dict,
         random_state: int | None = None,
     ) -> None:
-        if random_state:
-            faker.seed_instance(random_state)
+        self.random_state = random_state
 
         self.augmentation_functions = augmentation_functions
         self.code2label = code2label
         self.label2code = {v: k for k, v in self.code2label.items()}
+
+    @property
+    def random_state(self):
+        return self._random_state
+
+    @random_state.setter
+    def random_state(self, value: int | None):
+        faker.seed_instance(value)
+        self._random_state = value
 
     def _get_tokens_and_tags(self, text: str, entity: str) -> tuple[list, list]:
         tokens = text.split()
@@ -92,20 +100,14 @@ class DataAugmenter:
         frac: float = 1.0,
         ignore_labels: list[str] = ["O", "PER", "FECHA"],
     ):
-        dataset["weight"] = 1
         if weighted:
             label_weights = compute_label_weights(
                 dataset=dataset,
                 code2label=self.code2label,
                 ignore_labels=ignore_labels,
-                label_weights=compute_label_weights(
-                    dataset=dataset,
-                    code2label=self.code2label,
-                    ignore_labels=ignore_labels,
-                ),
             )
 
-            def get_weight(self, example):
+            def get_weight(example):
                 labels = [self.code2label[code] for code in example["tags"]]
                 labels = [re.sub(r"[BI]-", "", label) for label in labels]
                 weights = [label_weights.get(label, 0) for label in labels]
@@ -114,9 +116,11 @@ class DataAugmenter:
                 return example
 
             dataset = dataset.map(get_weight)
+        else:
+            dataset = dataset.map(lambda sample: sample | {"weight": 1})
 
         # resample
-        if weighted or frac != 1:
+        if weighted:
             resampled = dataset.to_pandas().sample(
                 frac=frac,
                 weights=dataset["weight"],
@@ -130,6 +134,6 @@ class DataAugmenter:
         dataset = dataset.remove_columns(["weight"])
 
         # apply augment function
-        dataset = dataset.apply(self.augment)
+        dataset = dataset.map(self.augment_sample)
 
         return dataset
