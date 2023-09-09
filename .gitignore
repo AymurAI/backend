@@ -4,7 +4,7 @@ credentials
 *.pth
 *.ckpt
 *.odt
-lightning_logs 
+lightning_logs
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -110,7 +110,7 @@ resources
 *restricted*
 
 *.bin
-*.pt 
+*.pt
 *model_args.json
 config.json
 vocab.txt
@@ -124,3 +124,4 @@ cache
 cache_dir
 
 resources
+.env
