@@ -1,29 +1,35 @@
 import re
+from random import choice
 from itertools import groupby
 
 from joblib import hash
 from datasets import Dataset
 from more_itertools import unzip, flatten
 
-from aymurai.data_augmentation.anonymizer_entities import (
-    faker,
-    augmentation_functions as aymurai_aug_funcs,
-)
+from aymurai.data_augmentation.anonymizer_entities import faker
 
 from .utils import compute_label_weights
+
+FORMAT_FUNCTIONS = {
+    "same": lambda x: x,
+    "lower": str.lower,
+    "upper": str.upper,
+    "title": str.title,
+    "capitalize": str.capitalize,
+}
 
 
 class DataAugmenter:
     def __init__(
         self,
         code2label: dict,
-        augmentation_functions: dict = {},
+        augmentation_functions: dict,
         random_state: int | None = None,
     ) -> None:
         if random_state:
             faker.seed_instance(random_state)
 
-        self.augmentation_functions = aymurai_aug_funcs | augmentation_functions
+        self.augmentation_functions = augmentation_functions
         self.code2label = code2label
         self.label2code = {v: k for k, v in self.code2label.items()}
 
@@ -33,7 +39,7 @@ class DataAugmenter:
         tags[0] = self.label2code.get(f"B-{entity}")
         return tokens, tags
 
-    def augment(self, sample: dict) -> dict:
+    def augment_sample(self, sample: dict) -> tuple[list, list]:
         sample_tokens = sample["tokens"]
         sample_tags = sample["tags"]
         original_hash = sample["hash"]
@@ -63,6 +69,9 @@ class DataAugmenter:
 
         augmented_tokens = list(flatten(augmented_tokens))
         augmented_tags = list(flatten(augmented_tags))
+
+        format_function = FORMAT_FUNCTIONS.get(choice(list(FORMAT_FUNCTIONS.keys())))
+        augmented_tokens = list(map(format_function, augmented_tokens))
 
         n_labels = len([tag for tag in augmented_tags if tag > 0])
 
