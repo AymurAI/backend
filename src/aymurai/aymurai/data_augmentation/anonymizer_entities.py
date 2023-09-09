@@ -1,11 +1,11 @@
 import re
 import locale
 from datetime import datetime
+from collections import OrderedDict
 
 import pandas as pd
 from faker import Faker
 from faker.providers import BaseProvider
-from numpy.random import choice, randint
 from faker.providers.person.es_AR import Provider
 
 from aymurai.utils.json_data import load_json
@@ -24,11 +24,14 @@ localidades = pd.read_csv("/resources/data-augmentation/localidades.csv")
 
 
 class CarProvider(BaseProvider):
+    def random_bool(self, p: float = 0.5) -> bool:
+        return self.random_element(OrderedDict([(True, p), (False, 1 - p)]))
+
     def plate(self) -> str:
         license_plate = faker.license_plate()
         len_license_plate = len(license_plate)
 
-        spaced = choice([0, 1], p=[0.75, 0.25])
+        spaced = self.random_bool(p=0.25)
         if spaced:
             if len_license_plate > 6:
                 license_plate = (
@@ -44,11 +47,11 @@ class CarProvider(BaseProvider):
         return license_plate
 
     def car_model(self) -> str:
-        brand = choice(list(cars.keys()))
-        model = choice(cars.get(brand))
+        brand = self.random_element(list(cars.keys()))
+        model = self.random_element(cars.get(brand))
         brand_model = f"{brand} {model}"
 
-        named = choice([0, 1])
+        named = self.random_bool(p=0.5)
         if named:
             brand_model = f"{brand} modelo {model}"
 
@@ -56,6 +59,9 @@ class CarProvider(BaseProvider):
 
 
 class DatePlaceProvider(BaseProvider):
+    def random_bool(self, p: float = 0.5) -> bool:
+        return self.random_element(OrderedDict([(True, p), (False, 1 - p)]))
+
     def formatted_date(self) -> str:
         formats = [
             "%A %d de %B del %Y",
@@ -68,11 +74,13 @@ class DatePlaceProvider(BaseProvider):
             "%d/%m/%Y",
         ]
         dt = datetime.strptime(faker.date(), "%Y-%m-%d")
-        return dt.strftime(choice(formats))
+        fmt = self.random_element(formats)
+        return dt.strftime(fmt)
 
     def direction(self) -> str:
-        formats = ["address", "intersection", "street"]
-        fmt = choice(formats, p=[0.6, 0.3, 0.1])
+        fmt = self.random_element(
+            OrderedDict([["address", 0.6], ["intersection", 0.3], ["street", 0.1]])
+        )
 
         if fmt == "street":
             return faker.street_name()
@@ -83,8 +91,9 @@ class DatePlaceProvider(BaseProvider):
         return re.sub(r"\n.+$", "", faker.address())
 
     def location(self) -> str:
-        sample = localidades.sample().dropna().values[0]
-        levels = randint(1, 4)
+        sample = self.random_element(localidades.values)
+        sample = [element for element in sample if not pd.isna(element)]
+        levels = self.random_int(1, 4)
 
         if levels == 1:
             return sample[0]
@@ -96,32 +105,47 @@ class DatePlaceProvider(BaseProvider):
 
 
 class JudicialProvider(BaseProvider):
+    def random_bool(self, p: float = 0.5) -> bool:
+        return self.random_element(OrderedDict([(True, p), (False, 1 - p)]))
+
     def exp(self) -> str:
-        prefix = choice(["IPP", "CAU", "DEB", "INC"])
-        one_digit = str(randint(0, 10))
-        year = str(randint(1990, 2100))
-        three_six_digits = "".join(
-            randint(0, 10, size=choice(list(range(3, 7)))).astype(str)
-        )  # noqa
+        prefix = self.random_element(["IPP", "CAU", "DEB", "INC"])
+        one_digit = str(self.random_digit())
+        year = str(self.random_int(min=1990, max=2100))
+
+        size = self.random_int(3, 7)
+        three_six_digits = [str(self.random_digit()) for _ in range(size)]
+        three_six_digits = "".join(three_six_digits)
+
         return f"{prefix} {three_six_digits}/{year}-{one_digit}"
 
     def cuij(self) -> str:
-        prefix = choice(["IPP", "CAU", "DEB", "INC"])
-        one_digit = str(randint(0, 10))
-        two_digits = "".join(randint(0, 10, size=2).astype(str))
-        eight_digits = "".join(randint(0, 10, size=8).astype(str))
-        year = str(randint(1990, 2100))
+        prefix = self.random_element(["IPP", "CAU", "DEB", "INC"])
+
+        one_digit = str(self.random_digit())
+
+        two_digits = [str(self.random_digit()) for _ in range(2)]
+        two_digits = "".join(two_digits)
+
+        eight_digits = [str(self.random_digit()) for _ in range(8)]
+        eight_digits = "".join(eight_digits)
+
+        year = str(self.random_int(min=1990, max=2100))
         return f"{prefix} J-{two_digits}-{eight_digits}-{one_digit}/{year}-{one_digit}"
 
     def act(self) -> str:
-        year = str(randint(1990, 2100))
-        two_seven_digits = "".join(
-            randint(0, 10, size=choice(list(range(2, 8)))).astype(str)
-        )  # noqa
+        year = str(self.random_int(min=1990, max=2100))
+
+        size = self.random_int(2, 7)
+        two_seven_digits = [str(self.random_digit()) for _ in range(size)]
+        two_seven_digits = "".join(two_seven_digits)
         return f"{two_seven_digits}/{year}"
 
 
 class NumberProvider(BaseProvider):
+    def random_bool(self, p: float = 0.5) -> bool:
+        return self.random_element(OrderedDict([(True, p), (False, 1 - p)]))
+
     def _insert_dots_or_spaces(self, register: str, fmt: str) -> str:
         reversed_register = register[::-1]
 
@@ -134,25 +158,32 @@ class NumberProvider(BaseProvider):
         return register
 
     def cuit_cuil(self) -> str:
-        prefix = choice([20, 23, 24, 25, 26, 27, 30])
-        eight_digits = "".join(randint(0, 10, size=8).astype(str))
-        suffix = randint(0, 10)
-        return f"{prefix}-{eight_digits}-{suffix}"
+        prefix = self.random_element([20, 23, 24, 25, 26, 27, 30])
+        inner = self.random_int(min=int(1e7), max=int(1e9 - 1))
+        suffix = self.random_int(0, 10)
+
+        cuit_cuil = f"{prefix}-{inner}-{suffix}"
+        dashed = self.random_bool(p=0.1)
+        if dashed:
+            cuit_cuil = cuit_cuil.replace("-", "")
+
+        return cuit_cuil
 
     def cbu(self) -> str:
-        bank_code = choice(bank_codes)
-        nineteen_digits = "".join(randint(0, 10, size=19).astype(str))
-        return f"{bank_code}{nineteen_digits}"
+        bank_code = self.random_element(bank_codes)
+        nineteen_digits = [str(self.random_digit()) for _ in range(19)]
+        return f"{bank_code}{''.join(nineteen_digits)}"
 
     def phone(self) -> str:
         phone_number = faker.phone_number()
 
-        remove_prefix = choice([0, 1], p=[0.05, 0.95])
+        remove_prefix = self.random_bool(p=0.95)
         if remove_prefix:
             phone_number = re.sub(r"\+54 (?:9 )?", "", phone_number)
 
-        formats = ["numeric", "dashed", "spaced"]
-        fmt = choice(formats, p=[0.4, 0.4, 0.2])
+        fmt = self.random_element(
+            OrderedDict([["numeric", 0.4], ["dashed", 0.4], ["spaced", 0.2]])
+        )
 
         if fmt == "numeric":
             return re.sub(r"\s+", "", phone_number)
@@ -163,11 +194,13 @@ class NumberProvider(BaseProvider):
         return phone_number
 
     def register(self) -> str:
-        n_digits = choice([5, 6])
-        digits = "".join(randint(0, 10, size=n_digits).astype(str))
+        n_digits = self.random_int(5, 6)
+        digits = [str(self.random_digit()) for _ in range(n_digits)]
+        digits = "".join(digits)
 
-        formats = ["dotted", "numeric", "spaced"]
-        fmt = choice(formats, p=[0.7, 0.2, 0.1])
+        fmt = self.random_element(
+            OrderedDict([["dotted", 0.7], ["numeric", 0.2], ["spaced", 0.1]])
+        )
 
         if fmt in ("dotted", "spaced"):
             digits = self._insert_dots_or_spaces(digits, fmt)
@@ -175,14 +208,24 @@ class NumberProvider(BaseProvider):
         return digits
 
     def savings_account(self) -> str:
-        prefix = "".join(randint(0, 10, size=2).astype(str))
-        account_type = choice(["0200", "0210"])
-        nine_digits = "".join(randint(0, 10, size=9).astype(str))
-        three_digits = "".join(randint(0, 10, size=3).astype(str))
+        account_type = self.random_element(["0200", "0210"])
+
+        prefix = [str(self.random_digit()) for _ in range(2)]
+        prefix = "".join(prefix)
+
+        nine_digits = [str(self.random_digit()) for _ in range(9)]
+        nine_digits = "".join(nine_digits)
+
+        three_digits = [str(self.random_digit()) for _ in range(3)]
+        three_digits = "".join(three_digits)
+
         return f"{prefix}{account_type}{nine_digits}{three_digits}"
 
 
 class PersonProvider(Provider):
+    def random_bool(self, p: float = 0.5) -> bool:
+        return self.random_element(OrderedDict([(True, p), (False, 1 - p)]))
+
     def _insert_dots_or_spaces(self, dni: str, fmt: str) -> str:
         reversed_dni = dni[::-1]
 
@@ -199,46 +242,56 @@ class PersonProvider(Provider):
         return dni
 
     def name(self) -> str:
-        n_last_names = randint(1, 4)
+        n_last_names = self.random_int(1, 4)
         last_names = " ".join([faker.last_name() for i in range(n_last_names)])
 
         name = f"{faker.first_name_nonbinary()} {last_names}"
 
-        initials = choice([0, 1], p=[0.75, 0.25])
-        if initials:
-            name = "".join(x[0].upper() + "." for x in name.split(" "))
-            spaced = choice([0, 1], p=[0.75, 0.25])
-            if spaced:
-                name = ". ".join(name.split(".")).strip()
+        # initials
+        initials = self.random_bool(p=0.75)
+        if not initials:
+            return name
 
-        return name
+        words = name.split()
+        initials = [word[0] for word in words]
+
+        delimiter = self.random_element(OrderedDict([[".", 0.25], [". ", 0.75]]))
+
+        return delimiter.join(initials)
 
     def age(self) -> str:
-        years = choice([0, 1], p=[0.2, 0.8])
+        # TODO: add num2words to handle numbers in words
+        in_years = self.random_bool(p=0.8)
 
-        if not years:
-            months = randint(1, 12)
-            return f"{months} meses" if months > 1 else f"{months} mes"
+        if in_years:
+            age = self.random_int(min=1, max=100)
+            return str(age)
 
-        return str(randint(1, 100))
+        else:  # age in months
+            age = self.random_int(min=1, max=12)
+            return f"{age} meses" if age > 1 else f"{age} mes"
 
     def dni(self) -> str:
-        dni = str(randint(low=1_000_000, high=100_000_000))
+        dni = str(self.random_int(min=1_000_000, max=100_000_000))
 
-        formats = ["dotted", "numeric", "spaced"]
-        fmt = choice(formats, p=[0.7, 0.2, 0.1])
+        fmt = self.random_element(
+            OrderedDict([("dotted", 0.7), ("numeric", 0.2), ("spaced", 0.1)])
+        )
 
         if fmt in ("dotted", "spaced"):
             dni = self._insert_dots_or_spaces(dni, fmt)
         return dni
 
     def nationality(self) -> str:
-        return choice(nationalities)
+        return self.random_element(nationalities)
 
     def studies(self) -> str:
         levels = ["primarios", "secundarios", "terciarios", "universitarios"]
         status = ["completos", "incompletos", "en curso"]
-        return f"estudios {choice(levels)} {choice(status)}"
+
+        level = self.random_element(levels)
+        status = self.random_element(status)
+        return f"estudios {level} {status}"
 
 
 faker = Faker(locale="es_AR")
