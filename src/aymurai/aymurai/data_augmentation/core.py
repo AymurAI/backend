@@ -10,13 +10,13 @@ from aymurai.data_augmentation.anonymizer_entities import faker
 
 from .utils import compute_label_weights
 
-FORMAT_FUNCTIONS = {
-    "same": lambda x: x,
-    "lower": str.lower,
-    "upper": str.upper,
-    "title": str.title,
-    "capitalize": str.capitalize,
-}
+FORMAT_FUNCTIONS = [
+    lambda x: x,
+    str.lower,
+    str.upper,
+    str.title,
+    str.capitalize,
+]
 
 
 class DataAugmenter:
@@ -78,7 +78,7 @@ class DataAugmenter:
         augmented_tokens = list(flatten(augmented_tokens))
         augmented_tags = list(flatten(augmented_tags))
 
-        format_function = FORMAT_FUNCTIONS.get(choice(list(FORMAT_FUNCTIONS.keys())))
+        format_function = choice(FORMAT_FUNCTIONS)
         augmented_tokens = list(map(format_function, augmented_tokens))
 
         n_labels = len([tag for tag in augmented_tags if tag > 0])
