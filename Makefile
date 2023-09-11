@@ -1,5 +1,7 @@
 include .env
 export $(shell sed 's/=.*//' .env)
+include .env.common
+export $(shell sed 's/=.*//' .env.common)
 
 
 core-build:
