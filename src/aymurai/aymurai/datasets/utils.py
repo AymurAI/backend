@@ -46,7 +46,7 @@ def pandas_to_dataset(df: pd.DataFrame, label2code: dict[str, int]) -> Dataset:
             continue
         tokens = df[0].values
         labels = df[1].values.astype(int)
-        nlabels = (len(labels[labels > 0]),)
+        n_labels = len(labels[labels > 0])
 
         if any(np.isnan(labels)):
             continue
@@ -57,7 +57,7 @@ def pandas_to_dataset(df: pd.DataFrame, label2code: dict[str, int]) -> Dataset:
 
         items.append(
             {
-                "n_labels": nlabels,
+                "n_labels": n_labels,
                 "tokens": list(tokens),
                 "tags": labels,
             }
