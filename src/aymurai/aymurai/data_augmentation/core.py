@@ -3,22 +3,43 @@ from random import choice
 from itertools import groupby
 
 from joblib import hash
+from datasets import Dataset
 from more_itertools import unzip, flatten
 
-FORMAT_FUNCTIONS = {
-    "same": lambda x: x,
-    "lower": str.lower,
-    "upper": str.upper,
-    "title": str.title,
-    "capitalize": str.capitalize,
-}
+from aymurai.data_augmentation.anonymizer_entities import faker
+
+from .utils import compute_label_weights
+
+FORMAT_FUNCTIONS = [
+    lambda x: x,
+    str.lower,
+    str.upper,
+    str.title,
+    str.capitalize,
+]
 
 
 class DataAugmenter:
-    def __init__(self, augmentation_functions: dict, code2label: dict) -> None:
+    def __init__(
+        self,
+        code2label: dict,
+        augmentation_functions: dict,
+        random_state: int | None = None,
+    ) -> None:
+        self.random_state = random_state
+
         self.augmentation_functions = augmentation_functions
         self.code2label = code2label
         self.label2code = {v: k for k, v in self.code2label.items()}
+
+    @property
+    def random_state(self):
+        return self._random_state
+
+    @random_state.setter
+    def random_state(self, value: int | None):
+        faker.seed_instance(value)
+        self._random_state = value
 
     def _get_tokens_and_tags(self, text: str, entity: str) -> tuple[list, list]:
         tokens = text.split()
@@ -29,8 +50,9 @@ class DataAugmenter:
     def augment_sample(self, sample: dict) -> tuple[list, list]:
         sample_tokens = sample["tokens"]
         sample_tags = sample["tags"]
+        original_hash = sample["hash"]
         sample_labels = [
-            re.sub(r"^[BI]-", "", self.code2label.get(tag)) for tag in sample_tags
+            re.sub(r"^[BI]-", "", self.code2label.get(tag, "O")) for tag in sample_tags
         ]
 
         augmented_tokens = []
@@ -56,7 +78,7 @@ class DataAugmenter:
         augmented_tokens = list(flatten(augmented_tokens))
         augmented_tags = list(flatten(augmented_tags))
 
-        format_function = FORMAT_FUNCTIONS.get(choice(list(FORMAT_FUNCTIONS.keys())))
+        format_function = faker.random_element(FORMAT_FUNCTIONS)
         augmented_tokens = list(map(format_function, augmented_tokens))
 
         n_labels = len([tag for tag in augmented_tags if tag > 0])
@@ -65,7 +87,53 @@ class DataAugmenter:
             "n_labels": n_labels,
             "tokens": augmented_tokens,
             "tags": augmented_tags,
+            "original_hash": original_hash,
             "hash": hash(" ".join(augmented_tokens)),
         }
 
         return augmented_sample
+
+    def augment_dataset(
+        self,
+        dataset: Dataset,
+        weighted: bool = True,
+        frac: float = 1.0,
+        ignore_labels: list[str] = ["O", "PER", "FECHA"],
+    ):
+        if weighted:
+            label_weights = compute_label_weights(
+                dataset=dataset,
+                code2label=self.code2label,
+                ignore_labels=ignore_labels,
+            )
+
+            def get_weight(example):
+                labels = [self.code2label[code] for code in example["tags"]]
+                labels = [re.sub(r"[BI]-", "", label) for label in labels]
+                weights = [label_weights.get(label, 0) for label in labels]
+
+                example["weight"] = max(weights)
+                return example
+
+            dataset = dataset.map(get_weight)
+        else:
+            dataset = dataset.map(lambda sample: sample | {"weight": 1})
+
+        # resample
+        if weighted:
+            resampled = dataset.to_pandas().sample(
+                frac=frac,
+                weights=dataset["weight"],
+                replace=True,
+                random_state=self.random_state,
+            )
+            resampled = Dataset.from_pandas(resampled)
+            dataset = resampled.remove_columns(["__index_level_0__"])
+
+        # remove internal weight field
+        dataset = dataset.remove_columns(["weight"])
+
+        # apply augment function
+        dataset = dataset.map(self.augment_sample)
+
+        return dataset
