@@ -78,7 +78,7 @@ class DataAugmenter:
         augmented_tokens = list(flatten(augmented_tokens))
         augmented_tags = list(flatten(augmented_tags))
 
-        format_function = choice(FORMAT_FUNCTIONS)
+        format_function = faker.random_element(FORMAT_FUNCTIONS)
         augmented_tokens = list(map(format_function, augmented_tokens))
 
         n_labels = len([tag for tag in augmented_tags if tag > 0])
