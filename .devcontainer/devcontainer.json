@@ -15,7 +15,7 @@
 				"python.languageServer": "Pylance",
 				"editor.formatOnSave": true,
 				"python.formatting.provider": "none",
-				"python.formatting.blackArgs": [
+				"black-formatter.args": [
 					"--line-length=88"
 				],
 				"python.linting.enabled": true,
