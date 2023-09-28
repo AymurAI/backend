@@ -30,6 +30,9 @@ RUN apt update \
     libtool \
     libleptonica-dev \
     pkg-config \
+    libreoffice-writer \
+    libreoffice-common \
+    default-jre \
     python3-setuptools \
     python${PYTHON_VERSION} \
     python${PYTHON_VERSION}-dev \

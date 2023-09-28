@@ -3,13 +3,15 @@ import time
 import tempfile
 from threading import Lock
 from functools import lru_cache
+from subprocess import getoutput
 
 import torch
 from fastapi.testclient import TestClient
 from fastapi.staticfiles import StaticFiles
 from fastapi.openapi.utils import get_openapi
-from fastapi.responses import RedirectResponse
+from starlette.background import BackgroundTask
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, RedirectResponse
 from fastapi import Body, Depends, FastAPI, Request, UploadFile
 
 from aymurai.logging import get_logger
@@ -243,6 +245,23 @@ def create_upload_file(
         document=get_element(processed[0], ["data", "doc.text"], ""),
         labels=[],
     )
+
+
+@api.post("/docx-to-odt", tags=["documents"])
+def doc2odt(file: UploadFile):
+    with tempfile.NamedTemporaryFile(dir="/tmp", suffix=".docx") as temp:
+        temp.write(file.file.read())
+        temp.flush()
+        cmd = "libreoffice --headless --convert-to odt --outdir /tmp {file}"
+        getoutput(cmd.format(file=temp.name))
+        odt = temp.name.replace(".docx", ".odt")
+
+        return FileResponse(
+            odt,
+            background=BackgroundTask(os.remove, odt),
+            media_type="application/octet-stream",
+            filename=odt,
+        )
 
 
 client = TestClient(api)
