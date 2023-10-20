@@ -48,6 +48,8 @@ class DocumentInformation(BaseModel):
 
 class Document(BaseModel):
     document: str
+    header: list[str] | None
+    footer: list[str] | None
 
 
 class AymuraiRecord(BaseModel):

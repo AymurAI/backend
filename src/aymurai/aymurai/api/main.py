@@ -1,12 +1,10 @@
 import os
-import io
 import time
 import tempfile
 from threading import Lock
 from functools import lru_cache
 from subprocess import getoutput
 
-import mammoth
 import torch
 from fastapi.testclient import TestClient
 from fastapi.staticfiles import StaticFiles
@@ -19,8 +17,9 @@ from fastapi import Body, Depends, FastAPI, Request, UploadFile
 from aymurai.logging import get_logger
 from aymurai.utils.misc import get_element
 from aymurai.pipeline import AymurAIPipeline
+from aymurai.text.docx2html import docx2html
 from aymurai.text.extraction import MIMETYPE_EXTENSION_MAPPER
-from aymurai.meta.api_interfaces import TextRequest, DocumentInformation, Document
+from aymurai.meta.api_interfaces import Document, TextRequest, DocumentInformation
 
 logger = get_logger(__name__)
 
@@ -249,18 +248,21 @@ def plain_text_extractor(
     )
 
 
-@api.post("/document-extract/html", response_model=Document, tags=["documents"])
+@api.post("/document-extract/docx2html", response_model=Document, tags=["documents"])
 async def html_extractor(
     file: UploadFile,
 ) -> Document:
     logger.info(f"reciving => {file.filename}")
 
-    # read file content
-    binary_content = await file.read()
-    file = io.BytesIO(binary_content)  # make a file-like object
+    with tempfile.NamedTemporaryFile(dir="/tmp", suffix=".docx") as temp:
+        # read file content
+        binary_content = await file.read()
+        temp.write(binary_content)
+        temp.flush()
 
-    result = mammoth.convert_to_html(file)
-    return Document(document=result.value)
+        content = docx2html(temp.name)
+
+    return Document(**content)
 
 
 @api.post("/docx-to-odt", tags=["documents"])
