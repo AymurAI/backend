@@ -36,6 +36,8 @@ setup(
         "httpx>=0.24.1",
         "faker==18.11.2",
         "xmltodict==0.13.0",
+        "cachetools==5.3.2",
+        "diskcache==5.6.3",
     ],
     extras_require={
         "": [

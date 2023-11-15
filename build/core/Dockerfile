@@ -1,5 +1,5 @@
 ARG BASE_IMAGE
-FROM $BASE_IMAGE AS cuda-base
+FROM $BASE_IMAGE AS core
 
 ENV LANG=C.UTF-8 LC_ALL=C.UTF-8
 ENV DEBIAN_FRONTEND noninteractive
@@ -92,27 +92,27 @@ RUN apt update && apt install -y locales \
 ENV LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
 
 
-# Install Redis.
-RUN \
-  cd /tmp && \
-  wget http://download.redis.io/redis-stable.tar.gz && \
-  tar xvzf redis-stable.tar.gz && \
-  cd redis-stable && \
-  make && \
-  make install && \
-  cp -f src/redis-sentinel /usr/local/bin && \
-  mkdir -p /etc/redis && \
-  cp -f *.conf /etc/redis && \
-  rm -rf /tmp/redis-stable* && \
-  sed -i 's/^\(bind .*\)$/# \1/' /etc/redis/redis.conf && \
-  sed -i 's/^\(daemonize .*\)$/# \1/' /etc/redis/redis.conf && \
-  sed -i 's/^\(dir .*\)$/# \1\ndir \/data/' /etc/redis/redis.conf && \
-  sed -i 's/^\(logfile .*\)$/# \1/' /etc/redis/redis.conf && \
-  sed -i 's/^\(# maxmemory .*\)$/maxmemory 30000000/' /etc/redis/redis.conf && \
-  sed -i 's/^\(# maxmemory-policy .*\)$/maxmemory-policy volatile-lru/' /etc/redis/redis.conf
+# # Install Redis.
+# RUN \
+#   cd /tmp && \
+#   wget http://download.redis.io/redis-stable.tar.gz && \
+#   tar xvzf redis-stable.tar.gz && \
+#   cd redis-stable && \
+#   make && \
+#   make install && \
+#   cp -f src/redis-sentinel /usr/local/bin && \
+#   mkdir -p /etc/redis && \
+#   cp -f *.conf /etc/redis && \
+#   rm -rf /tmp/redis-stable* && \
+#   sed -i 's/^\(bind .*\)$/# \1/' /etc/redis/redis.conf && \
+#   sed -i 's/^\(daemonize .*\)$/# \1/' /etc/redis/redis.conf && \
+#   sed -i 's/^\(dir .*\)$/# \1\ndir \/data/' /etc/redis/redis.conf && \
+#   sed -i 's/^\(logfile .*\)$/# \1/' /etc/redis/redis.conf && \
+#   sed -i 's/^\(# maxmemory .*\)$/maxmemory 30000000/' /etc/redis/redis.conf && \
+#   sed -i 's/^\(# maxmemory-policy .*\)$/maxmemory-policy volatile-lru/' /etc/redis/redis.conf
 
 
-# Define mountable directories.
+# # Define mountable directories.
 VOLUME ["/data"]
 
 WORKDIR /root
