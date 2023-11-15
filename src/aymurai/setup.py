@@ -38,6 +38,7 @@ setup(
         "xmltodict==0.13.0",
         "cachetools==5.3.2",
         "diskcache==5.6.3",
+        "mammoth==1.6.0",
     ],
     extras_require={
         "": [

@@ -17,9 +17,10 @@ from fastapi import Body, Depends, FastAPI, Request, UploadFile
 from aymurai.logging import get_logger
 from aymurai.utils.misc import get_element
 from aymurai.pipeline import AymurAIPipeline
+from aymurai.text.docx2html import docx2html
 from aymurai.text.extraction import MIMETYPE_EXTENSION_MAPPER
-from aymurai.meta.api_interfaces import TextRequest, DocumentInformation
 from aymurai.utils.cache import is_cached, cache_load, cache_save, get_cache_key
+from aymurai.meta.api_interfaces import Document, TextRequest, DocumentInformation
 
 logger = get_logger(__name__)
 
@@ -236,7 +237,7 @@ async def datapublic_predict(
 
 
 @api.post("/document-extract", response_model=DocumentInformation, tags=["documents"])
-def create_upload_file(
+def plain_text_extractor(
     file: UploadFile,
     pipeline: AymurAIPipeline = Depends(get_pipeline_doc_extract),
 ) -> DocumentInformation:
@@ -271,6 +272,23 @@ def create_upload_file(
         document=get_element(processed[0], ["data", "doc.text"], ""),
         labels=[],
     )
+
+
+@api.post("/document-extract/docx2html", response_model=Document, tags=["documents"])
+async def html_extractor(
+    file: UploadFile,
+) -> Document:
+    logger.info(f"reciving => {file.filename}")
+
+    with tempfile.NamedTemporaryFile(dir="/tmp", suffix=".docx") as temp:
+        # read file content
+        binary_content = await file.read()
+        temp.write(binary_content)
+        temp.flush()
+
+        content = docx2html(temp.name)
+
+    return Document(**content)
 
 
 @api.post("/docx-to-odt", tags=["documents"])

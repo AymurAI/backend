@@ -46,6 +46,12 @@ class DocumentInformation(BaseModel):
     labels: List[DocLabel]
 
 
+class Document(BaseModel):
+    document: str
+    header: list[str] | None
+    footer: list[str] | None
+
+
 class AymuraiRecord(BaseModel):
     NRO_REGISTRO: str = Field("s/d")
     TOMO: str = Field("s/d")
