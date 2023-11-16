@@ -164,7 +164,7 @@ async def anonymizer_flair_predict(
     pipeline = load_pipeline("/resources/pipelines/production/flair-anonymizer")
 
     item = [{"path": "empty", "data": {"doc.text": request.text}}]
-    item_id = get_cache_key(item, context="datapublic")
+    item_id = get_cache_key(item, context="anonymizer")
 
     if is_cached(item_id):
         prediction = cache_load(item_id)
