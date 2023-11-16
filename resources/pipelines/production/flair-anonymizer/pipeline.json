@@ -15,8 +15,6 @@
             }
         ]
     ],
-    "postprocess": [
-
-    ],
-    "use_cache": true
+    "postprocess": [],
+    "use_cache": false
 }
