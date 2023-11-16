@@ -36,6 +36,7 @@ setup(
         "httpx>=0.24.1",
         "faker==18.11.2",
         "xmltodict==0.13.0",
+        "mammoth==1.6.0",
     ],
     extras_require={
         "": [

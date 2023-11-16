@@ -17,8 +17,9 @@ from fastapi import Body, Depends, FastAPI, Request, UploadFile
 from aymurai.logging import get_logger
 from aymurai.utils.misc import get_element
 from aymurai.pipeline import AymurAIPipeline
+from aymurai.text.docx2html import docx2html
 from aymurai.text.extraction import MIMETYPE_EXTENSION_MAPPER
-from aymurai.meta.api_interfaces import TextRequest, DocumentInformation
+from aymurai.meta.api_interfaces import Document, TextRequest, DocumentInformation
 
 logger = get_logger(__name__)
 
@@ -210,11 +211,11 @@ async def predict_over_text_batch(
 
 
 @api.post("/document-extract", response_model=DocumentInformation, tags=["documents"])
-def create_upload_file(
+def plain_text_extractor(
     file: UploadFile,
     pipeline: AymurAIPipeline = Depends(get_pipeline_doc_extract),
 ) -> DocumentInformation:
-    logger.info(f"reciving => {file.filename}")
+    logger.info(f"receiving => {file.filename}")
     extension = MIMETYPE_EXTENSION_MAPPER.get(file.content_type)
     logger.info(f"detection extension: {extension} ({file.content_type})")
 
@@ -245,6 +246,23 @@ def create_upload_file(
         document=get_element(processed[0], ["data", "doc.text"], ""),
         labels=[],
     )
+
+
+@api.post("/document-extract/docx2html", response_model=Document, tags=["documents"])
+async def html_extractor(
+    file: UploadFile,
+) -> Document:
+    logger.info(f"receiving => {file.filename}")
+
+    with tempfile.NamedTemporaryFile(dir="/tmp", suffix=".docx") as temp:
+        # read file content
+        binary_content = await file.read()
+        temp.write(binary_content)
+        temp.flush()
+
+        content = docx2html(temp.name)
+
+    return Document(**content)
 
 
 @api.post("/docx-to-odt", tags=["documents"])
