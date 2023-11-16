@@ -215,7 +215,7 @@ def plain_text_extractor(
     file: UploadFile,
     pipeline: AymurAIPipeline = Depends(get_pipeline_doc_extract),
 ) -> DocumentInformation:
-    logger.info(f"reciving => {file.filename}")
+    logger.info(f"receiving => {file.filename}")
     extension = MIMETYPE_EXTENSION_MAPPER.get(file.content_type)
     logger.info(f"detection extension: {extension} ({file.content_type})")
 
@@ -252,7 +252,7 @@ def plain_text_extractor(
 async def html_extractor(
     file: UploadFile,
 ) -> Document:
-    logger.info(f"reciving => {file.filename}")
+    logger.info(f"receiving => {file.filename}")
 
     with tempfile.NamedTemporaryFile(dir="/tmp", suffix=".docx") as temp:
         # read file content
