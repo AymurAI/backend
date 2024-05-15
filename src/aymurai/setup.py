@@ -37,6 +37,9 @@ setup(
         "faker==18.11.2",
         "xmltodict==0.13.0",
         "mammoth==1.6.0",
+        # HOTFIX deprecation issue
+        # https://github.com/flairNLP/flair/issues/3441#issuecomment-2039522867
+        "scipy<1.13.0",
     ],
     extras_require={
         "": [
