@@ -210,11 +210,11 @@ async def predict_over_text_batch(
     ]
 
 
-@api.post("/document-extract", response_model=DocumentInformation, tags=["documents"])
+@api.post("/document-extract", response_model=Document, tags=["documents"])
 def plain_text_extractor(
     file: UploadFile,
     pipeline: AymurAIPipeline = Depends(get_pipeline_doc_extract),
-) -> DocumentInformation:
+) -> Document:
     logger.info(f"receiving => {file.filename}")
     extension = MIMETYPE_EXTENSION_MAPPER.get(file.content_type)
     logger.info(f"detection extension: {extension} ({file.content_type})")
@@ -242,9 +242,9 @@ def plain_text_extractor(
 
     logger.info(f"removing file => {tmp_filename}")
     os.remove(tmp_filename)
-    return DocumentInformation(
-        document=get_element(processed[0], ["data", "doc.text"], ""),
-        labels=[],
+    doc_text = get_element(processed[0], ["data", "doc.text"], "")
+    return Document(
+        document=[text.strip() for text in doc_text.split("\n") if text],
     )
 
 
