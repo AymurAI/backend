@@ -1,6 +1,6 @@
 from typing import List, Optional
 
-from pydantic import BaseModel, Field, validator
+from pydantic import Field, BaseModel, validator
 
 from aymurai.utils.misc import get_sort_key
 
@@ -48,8 +48,14 @@ class DocumentInformation(BaseModel):
     labels: List[DocLabel]
 
 
-class ParagraphFragment(BaseModel):
-    """Datatype for a document paragraph fragment"""
+class Document(BaseModel):
+    document: list[str]
+    header: list[str] | None
+    footer: list[str] | None
+
+
+class XMLParagraphFragment(BaseModel):
+    """Datatype for a XML document paragraph fragment"""
 
     text: str
     normalized_text: str
@@ -59,31 +65,31 @@ class ParagraphFragment(BaseModel):
     paragraph_index: int
 
 
-class ParagraphMetadata(BaseModel):
-    """Datatype for a document paragraph metadata"""
+class XMLParagraphMetadata(BaseModel):
+    """Datatype for a XML document paragraph metadata"""
 
     start: int
     end: int
-    fragments: List[ParagraphFragment]
+    fragments: List[XMLParagraphFragment]
     xml_file: str
 
 
-class DocumentParagraph(BaseModel):
-    """Datatype for a document paragraph"""
+class XMLDocumentParagraph(BaseModel):
+    """Datatype for a XML docx paragraph"""
 
     plain_text: str
-    metadata: ParagraphMetadata
+    metadata: XMLParagraphMetadata
 
 
-class Document(BaseModel):
+class XMLDocument(BaseModel):
     """Datatype for a document"""
 
-    paragraphs: List[DocumentParagraph]
+    paragraphs: List[XMLDocumentParagraph]
 
     @validator("paragraphs")
     def paragraphs_validator(
-        cls, paragraphs: List[DocumentParagraph]
-    ) -> List[DocumentParagraph]:
+        cls, paragraphs: List[XMLDocumentParagraph]
+    ) -> List[XMLDocumentParagraph]:
         # Filter out empty paragraphs
         non_empty_paragraphs = [
             paragraph for paragraph in paragraphs if paragraph.plain_text.strip()

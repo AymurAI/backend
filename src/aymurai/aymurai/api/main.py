@@ -2,6 +2,7 @@ import os
 import time
 import tempfile
 from threading import Lock
+from typing import Optional
 from functools import lru_cache
 from subprocess import getoutput
 
@@ -22,8 +23,9 @@ from aymurai.text.extraction import MIMETYPE_EXTENSION_MAPPER
 from aymurai.meta.api_interfaces import (
     Document,
     TextRequest,
-    DocumentParagraph,
+    XMLDocument,
     DocumentInformation,
+    XMLDocumentParagraph,
 )
 
 logger = get_logger(__name__)
@@ -64,6 +66,11 @@ def get_pipeline():
 @lru_cache(maxsize=1)
 def get_pipeline_doc_extract():
     return AymurAIPipeline.load("/resources/pipelines/production/doc-extraction")
+
+
+@lru_cache(maxsize=1)
+def get_pipeline_docx_xml_extract():
+    return AymurAIPipeline.load("/resources/pipelines/production/docx-xml-extraction")
 
 
 @lru_cache(maxsize=1)
@@ -166,6 +173,29 @@ async def anonymizer_flair_predict(
 
 
 @api.post(
+    "/anonymizer/anonymize-document",
+    tags=["anonymizer"],
+)
+def anonymize_document(
+    file: UploadFile,
+    annotations: Optional[list[DocumentInformation]] = None,
+):
+    with tempfile.NamedTemporaryFile(dir="/tmp", suffix=".docx") as temp:
+        temp.write(file.file.read())
+        temp.flush()
+        cmd = "libreoffice --headless --convert-to odt --outdir /tmp {file}"
+        getoutput(cmd.format(file=temp.name))
+        odt = temp.name.replace(".docx", ".odt")
+
+        return FileResponse(
+            odt,
+            background=BackgroundTask(os.remove, odt),
+            media_type="application/octet-stream",
+            filename=odt,
+        )
+
+
+@api.post(
     "/predict",  # FIXME: to be deprecated
     response_model=DocumentInformation,
     response_class=RedirectResponse,
@@ -247,11 +277,9 @@ def plain_text_extractor(
 
     logger.info(f"removing file => {tmp_filename}")
     os.remove(tmp_filename)
-
-    paragraphs = processed[0]
-
+    doc_text = get_element(processed[0], ["data", "doc.text"], "")
     return Document(
-        paragraphs=[DocumentParagraph(**paragraph) for paragraph in paragraphs]
+        document=[text.strip() for text in doc_text.split("\n") if text],
     )
 
 
@@ -272,7 +300,7 @@ async def html_extractor(
     return Document(**content)
 
 
-@api.post("/docx-to-odt", tags=["documents"])
+@api.post("/docx2odt", tags=["documents"])
 def doc2odt(file: UploadFile):
     with tempfile.NamedTemporaryFile(dir="/tmp", suffix=".docx") as temp:
         temp.write(file.file.read())
@@ -287,6 +315,44 @@ def doc2odt(file: UploadFile):
             media_type="application/octet-stream",
             filename=odt,
         )
+
+
+@api.post("/document-extract/docx2xml", response_model=XMLDocument, tags=["documents"])
+def docx2xml(
+    file: UploadFile,
+    pipeline: AymurAIPipeline = Depends(get_pipeline_docx_xml_extract),
+) -> Document:
+    logger.info(f"receiving => {file.filename}")
+    extension = MIMETYPE_EXTENSION_MAPPER.get(file.content_type)
+    logger.info(f"detection extension: {extension} ({file.content_type})")
+
+    candidate = next(tempfile._get_candidate_names())
+    tmp_filename = f"/tmp/{candidate}.{extension}"
+    logger.info(f"saving temp file on local storage => {tmp_filename}")
+    with open(tmp_filename, "wb") as tmp_file:
+        data = file.file.read()
+        tmp_file.write(data)  # async write
+    logger.info(f"saved temp file on local storage => {tmp_filename}")
+
+    item = {
+        "path": tmp_filename,
+    }
+
+    logger.info("processing data item")
+    logger.info(f"{item}")
+    with pipeline_lock:
+        processed = pipeline.preprocess([item])
+
+    logger.info(f"{processed}")
+
+    logger.info(f"removing file => {tmp_filename}")
+    os.remove(tmp_filename)
+
+    paragraphs = processed[0]
+
+    return XMLDocument(
+        paragraphs=[XMLDocumentParagraph(**paragraph) for paragraph in paragraphs]
+    )
 
 
 client = TestClient(api)
