@@ -1,6 +1,8 @@
 from typing import List, Optional
 
-from pydantic import Field, BaseModel
+from pydantic import BaseModel, Field, validator
+
+from aymurai.utils.misc import get_sort_key
 
 
 class TextRequest(BaseModel):
@@ -46,7 +48,48 @@ class DocumentInformation(BaseModel):
     labels: List[DocLabel]
 
 
+class ParagraphFragment(BaseModel):
+    """Datatype for a document paragraph fragment"""
+
+    text: str
+    normalized_text: str
+    start: int
+    end: int
+    fragment_index: int
+    paragraph_index: int
+
+
+class ParagraphMetadata(BaseModel):
+    """Datatype for a document paragraph metadata"""
+
+    start: int
+    end: int
+    fragments: List[ParagraphFragment]
+    xml_file: str
+
+
+class DocumentParagraph(BaseModel):
+    """Datatype for a document paragraph"""
+
+    plain_text: str
+    metadata: ParagraphMetadata
+
+
 class Document(BaseModel):
-    document: str | list[str]
-    header: list[str] | None
-    footer: list[str] | None
+    """Datatype for a document"""
+
+    paragraphs: List[DocumentParagraph]
+
+    @validator("paragraphs")
+    def paragraphs_validator(
+        cls, paragraphs: List[DocumentParagraph]
+    ) -> List[DocumentParagraph]:
+        # Filter out empty paragraphs
+        non_empty_paragraphs = [
+            paragraph for paragraph in paragraphs if paragraph.plain_text.strip()
+        ]
+
+        # Sort paragraphs based on the xml_file type
+        sorted_paragraphs = sorted(non_empty_paragraphs, key=get_sort_key)
+
+        return sorted_paragraphs

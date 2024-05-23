@@ -19,7 +19,12 @@ from aymurai.utils.misc import get_element
 from aymurai.pipeline import AymurAIPipeline
 from aymurai.text.docx2html import docx2html
 from aymurai.text.extraction import MIMETYPE_EXTENSION_MAPPER
-from aymurai.meta.api_interfaces import Document, TextRequest, DocumentInformation
+from aymurai.meta.api_interfaces import (
+    Document,
+    TextRequest,
+    DocumentParagraph,
+    DocumentInformation,
+)
 
 logger = get_logger(__name__)
 
@@ -242,9 +247,11 @@ def plain_text_extractor(
 
     logger.info(f"removing file => {tmp_filename}")
     os.remove(tmp_filename)
-    doc_text = get_element(processed[0], ["data", "doc.text"], "")
+
+    paragraphs = processed[0]
+
     return Document(
-        document=[text.strip() for text in doc_text.split("\n") if text],
+        paragraphs=[DocumentParagraph(**paragraph) for paragraph in paragraphs]
     )
 
 

@@ -74,3 +74,19 @@ def get_recursively(search_dict: dict, field: str) -> list:
                         fields_found.append(another_result)
 
     return fields_found
+
+
+# Define the order for sorting based on xml_file
+# TODO: improve this function!!! This should be done parsing the XML rels
+def get_sort_key(paragraph: "DocumentParagraph") -> int:
+    xml_file = paragraph.metadata.xml_file
+    if "header" in xml_file:
+        return 1
+    elif "document" in xml_file:
+        return 2
+    elif "footnotes" in xml_file:
+        return 3
+    elif "footer" in xml_file:
+        return 4
+    else:
+        return 5

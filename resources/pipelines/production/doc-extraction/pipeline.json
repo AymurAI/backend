@@ -6,10 +6,6 @@
                 "errors": "ignore",
                 "use_cache": false
             }
-        ],
-        [
-            "aymurai.text.normalize.TextNormalize",
-            {}
         ]
     ],
     "models": [],
