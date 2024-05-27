@@ -1,0 +1,15 @@
+{
+    "preprocess": [
+        [
+            "aymurai.text.docx2xml.DocxXMLExtract",
+            {
+                "errors": "ignore",
+                "use_cache": false
+            }
+        ]
+    ],
+    "models": [],
+    "postprocess": [],
+    "multiprocessing": {},
+    "use_cache": false
+}
