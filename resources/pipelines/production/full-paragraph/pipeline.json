@@ -27,6 +27,10 @@
     ],
     "postprocess": [
         [
+            "aymurai.transforms.misc.punctuation_filter.PunctuationFilter",
+            {}
+        ],
+        [
             "aymurai.transforms.entity_subcategories.regex.RegexSubcategorizer",
             {}
         ],

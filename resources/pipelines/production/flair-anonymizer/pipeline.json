@@ -16,7 +16,10 @@
         ]
     ],
     "postprocess": [
-
+        [
+            "aymurai.transforms.misc.punctuation_filter.PunctuationFilter",
+            {}
+        ]
     ],
     "use_cache": true
 }
