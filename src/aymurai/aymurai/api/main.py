@@ -1,8 +1,8 @@
 import os
+import json
 import time
 import tempfile
 from threading import Lock
-from typing import Optional
 from functools import lru_cache
 from subprocess import getoutput
 
@@ -10,10 +10,10 @@ import torch
 from fastapi.testclient import TestClient
 from fastapi.staticfiles import StaticFiles
 from fastapi.openapi.utils import get_openapi
-from starlette.background import BackgroundTask
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, RedirectResponse
-from fastapi import Body, Depends, FastAPI, Request, UploadFile
+from starlette.background import BackgroundTask  # , BackgroundTasks
+from fastapi import Body, Form, Depends, FastAPI, Request, UploadFile
 
 from aymurai.logging import get_logger
 from aymurai.utils.misc import get_element
@@ -25,6 +25,7 @@ from aymurai.meta.api_interfaces import (
     Document,
     TextRequest,
     XMLDocument,
+    DocumentAnnotations,
     DocumentInformation,
     XMLDocumentParagraph,
 )
@@ -179,8 +180,9 @@ async def anonymizer_flair_predict(
 )
 def anonymize_document(
     file: UploadFile,
-    annotations: list[dict],
-):
+    # background_tasks: BackgroundTasks,
+    annotations: str = Form(...),
+) -> FileResponse:
     logger.info(f"receiving => {file.filename}")
     extension = MIMETYPE_EXTENSION_MAPPER.get(file.content_type)
     logger.info(f"detection extension: {extension} ({file.content_type})")
@@ -196,22 +198,39 @@ def anonymize_document(
         "path": tmp_filename,
     }
 
+    annotations = json.loads(annotations)
+    annotations = DocumentAnnotations(**annotations)
     logger.info(f"processing annotations => {annotations}")
+
     doc_anonymizer = DocAnonymizer()
-    doc_anonymizer(item, annotations, "/tmp")
+    doc_anonymizer(
+        item,
+        [document_information.dict() for document_information in annotations.data],
+        "/tmp",
+    )
     logger.info(f"saved temp file on local storage => {tmp_filename}")
 
     # Connvert to ODT
-    cmd = "libreoffice --headless --convert-to odt --outdir /tmp {file}"
-    getoutput(cmd.format(file=tmp_filename))
-    odt = tmp_filename.replace(".docx", ".odt")
+    with tempfile.NamedTemporaryFile(dir="/tmp", suffix=".docx") as temp:
+        with open(tmp_filename, "rb") as f:
+            temp.write(f.read())
 
-    return FileResponse(
-        odt,
-        background=BackgroundTask(os.remove, tmp_filename),
-        media_type="application/octet-stream",
-        filename=odt,
-    )
+        temp.flush()
+
+        cmd = "libreoffice --headless --convert-to odt --outdir /tmp {file}"
+        getoutput(cmd.format(file=temp.name))
+        odt = temp.name.replace(".docx", ".odt")
+
+        # background_tasks.add_task(os.remove, odt)
+        # background_tasks.add_task(os.remove, tmp_filename)
+        os.remove(tmp_filename)
+
+        return FileResponse(
+            odt,
+            background=BackgroundTask(os.remove, odt),
+            media_type="application/octet-stream",
+            filename=odt,
+        )
 
 
 @api.post(
@@ -302,7 +321,12 @@ def plain_text_extractor(
     )
 
 
-@api.post("/document-extract/docx2html", response_model=Document, tags=["documents"])
+@api.post(
+    "/document-extract/docx2html",
+    response_model=Document,
+    tags=["documents"],
+    deprecated=True,
+)
 async def html_extractor(
     file: UploadFile,
 ) -> Document:
@@ -336,7 +360,12 @@ def doc2odt(file: UploadFile):
         )
 
 
-@api.post("/document-extract/docx2xml", response_model=XMLDocument, tags=["documents"])
+@api.post(
+    "/document-extract/docx2xml",
+    response_model=XMLDocument,
+    tags=["documents"],
+    deprecated=True,
+)
 def docx2xml(
     file: UploadFile,
     pipeline: AymurAIPipeline = Depends(get_pipeline_docx_xml_extract),

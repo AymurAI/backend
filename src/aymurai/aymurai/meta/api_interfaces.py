@@ -17,13 +17,17 @@ class DocLabelAttributes(BaseModel):
 
     aymurai_label: str = Field(title="AymurAI label")
     aymurai_label_subclass: Optional[list[str]] = Field(
-        description="AymurAI label subcategory"
+        default=[], description="AymurAI label subcategory"
     )
     aymurai_alt_text: Optional[str] = Field(
-        description="alternative form for text formating (i.e. datetimes)"
+        default=None, description="alternative form for text formating (i.e. datetimes)"
     )
-    aymurai_method: Optional[str] = Field("method used on the prediction label")
-    aymurai_score: Optional[float] = Field("score for prediction")
+    aymurai_method: Optional[str] = Field(
+        default=None, description="method used on the prediction label"
+    )
+    aymurai_score: Optional[float] = Field(
+        default=None, description="score for prediction"
+    )
 
 
 class DocLabel(BaseModel):
@@ -44,6 +48,12 @@ class DocumentInformation(BaseModel):
 
     document: str = Field(description="processed text")
     labels: List[DocLabel]
+
+
+class DocumentAnnotations(BaseModel):
+    """Datatype for document annotations"""
+
+    data: List[DocumentInformation]
 
 
 class Document(BaseModel):
