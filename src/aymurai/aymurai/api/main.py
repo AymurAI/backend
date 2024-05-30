@@ -19,6 +19,7 @@ from aymurai.logging import get_logger
 from aymurai.utils.misc import get_element
 from aymurai.pipeline import AymurAIPipeline
 from aymurai.text.docx2html import docx2html
+from aymurai.text.anonymization import DocAnonymizer
 from aymurai.text.extraction import MIMETYPE_EXTENSION_MAPPER
 from aymurai.meta.api_interfaces import (
     Document,
@@ -178,21 +179,39 @@ async def anonymizer_flair_predict(
 )
 def anonymize_document(
     file: UploadFile,
-    annotations: Optional[list[DocumentInformation]] = None,
+    annotations: list[dict],
 ):
-    with tempfile.NamedTemporaryFile(dir="/tmp", suffix=".docx") as temp:
-        temp.write(file.file.read())
-        temp.flush()
-        cmd = "libreoffice --headless --convert-to odt --outdir /tmp {file}"
-        getoutput(cmd.format(file=temp.name))
-        odt = temp.name.replace(".docx", ".odt")
+    logger.info(f"receiving => {file.filename}")
+    extension = MIMETYPE_EXTENSION_MAPPER.get(file.content_type)
+    logger.info(f"detection extension: {extension} ({file.content_type})")
 
-        return FileResponse(
-            odt,
-            background=BackgroundTask(os.remove, odt),
-            media_type="application/octet-stream",
-            filename=odt,
-        )
+    tmp_filename = f"/tmp/{file.filename}"
+    logger.info(f"saving temp file on local storage => {tmp_filename}")
+    with open(tmp_filename, "wb") as tmp_file:
+        data = file.file.read()
+        tmp_file.write(data)
+    logger.info(f"saved temp file on local storage => {tmp_filename}")
+
+    item = {
+        "path": tmp_filename,
+    }
+
+    logger.info(f"processing annotations => {annotations}")
+    doc_anonymizer = DocAnonymizer()
+    doc_anonymizer(item, annotations, "/tmp")
+    logger.info(f"saved temp file on local storage => {tmp_filename}")
+
+    # Connvert to ODT
+    cmd = "libreoffice --headless --convert-to odt --outdir /tmp {file}"
+    getoutput(cmd.format(file=tmp_filename))
+    odt = tmp_filename.replace(".docx", ".odt")
+
+    return FileResponse(
+        odt,
+        background=BackgroundTask(os.remove, tmp_filename),
+        media_type="application/octet-stream",
+        filename=odt,
+    )
 
 
 @api.post(
@@ -279,7 +298,7 @@ def plain_text_extractor(
     os.remove(tmp_filename)
     doc_text = get_element(processed[0], ["data", "doc.text"], "")
     return Document(
-        document=[text.strip() for text in doc_text.split("\n") if text],
+        document=[text.strip() for text in doc_text.split("\n") if text.strip()],
     )
 
 

@@ -2,8 +2,6 @@ from typing import List, Optional
 
 from pydantic import Field, BaseModel, validator
 
-from aymurai.utils.misc import get_sort_key
-
 
 class TextRequest(BaseModel):
     """Datatype for a text span request"""
@@ -95,7 +93,4 @@ class XMLDocument(BaseModel):
             paragraph for paragraph in paragraphs if paragraph.plain_text.strip()
         ]
 
-        # Sort paragraphs based on the xml_file type
-        sorted_paragraphs = sorted(non_empty_paragraphs, key=get_sort_key)
-
-        return sorted_paragraphs
+        return non_empty_paragraphs
