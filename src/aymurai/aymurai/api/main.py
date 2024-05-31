@@ -116,7 +116,7 @@ api.openapi = custom_openapi
     tags=["datapublic"],
 )
 async def predict_over_text(
-    request: TextRequest = Body({"text": " Buenos Aires, 17 de noviembre 2024"}),
+    request: TextRequest = Body({"text": "Buenos Aires, 17 de noviembre 2024"}),
     pipeline: AymurAIPipeline = Depends(get_pipeline),
 ) -> DocumentInformation:
     logger.info("predict single")
@@ -141,7 +141,7 @@ async def predict_over_text(
     tags=["anonymizer"],
 )
 async def anonymizer_flair_predict(
-    request: TextRequest = Body({"text": " Buenos Aires, 17 de noviembre 2024"}),
+    request: TextRequest = Body({"text": "Acusado: Ramiro Marrón DNI 34.555.666."}),
     pipeline: AymurAIPipeline = Depends(get_pipeline_anonymizer_flair),
 ) -> DocumentInformation:
     logger.info("predict single")
