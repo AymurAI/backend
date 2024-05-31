@@ -28,8 +28,13 @@ RUN  --mount=type=cache,target=/root/.cache,id=pip \
 
 
 # COPY build/api/entrypoint.sh /entrypoint.sh
-CMD redis-server /etc/redis/redis.conf &\
-    if [ "$TEST_MODE" = "1" ]; \
+# CMD redis-server /etc/redis/redis.conf &\
+#     if [ "$TEST_MODE" = "1" ]; \
+#     then pytest --log-cli-level=ERROR --disable-warnings /usr/bin/main.py; \
+#     else \
+#         uvicorn --app-dir=/usr/bin main:api --reload --host=${API_HOST:-0.0.0.0} --port=${API_PORT:-8000}; \
+#     fi
+CMD if [ "$TEST_MODE" = "1" ]; \
     then pytest --log-cli-level=ERROR --disable-warnings /usr/bin/main.py; \
     else \
         uvicorn --app-dir=/usr/bin main:api --reload --host=${API_HOST:-0.0.0.0} --port=${API_PORT:-8000}; \

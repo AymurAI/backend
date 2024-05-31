@@ -17,9 +17,9 @@
     ],
     "postprocess": [
         [
-            "aymurai.transforms.misc.punctuation_filter.PunctuationFilter",
+            "aymurai.transforms.anonymization_postprocess.core.AnonymizationEntityCleaner",
             {}
         ]
     ],
-    "use_cache": true
+    "use_cache": false
 }

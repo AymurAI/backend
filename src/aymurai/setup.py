@@ -13,7 +13,6 @@ setup(
         "gdown>=4.6.0",
         "joblib>=1.1.0",
         "textract>=1.6.5",
-        # "spacy>=3.4.0",
         "spacy[transformers]==3.4.1",
         "es-core-news-sm @ https://github.com/explosion/spacy-models/releases/download/es_core_news_sm-3.4.0/es_core_news_sm-3.4.0-py3-none-any.whl",
         "spaczz>=0.5.4",
@@ -37,6 +36,8 @@ setup(
         "httpx>=0.24.1",
         "faker==18.11.2",
         "xmltodict==0.13.0",
+        "cachetools==5.3.2",
+        "diskcache==5.6.3",
         "mammoth==1.6.0",
         # HOTFIX deprecation issue
         # https://github.com/flairNLP/flair/issues/3441#issuecomment-2039522867

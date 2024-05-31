@@ -40,7 +40,7 @@ services:
             - ./resources/:/resources
 
     aymurai-api-prod:
-        image: ${API_IMAGE}:prod
+        image: ${API_IMAGE}-prod:latest
         container_name: aymurai-api-prod
         ports:
             - "8899:8899"
