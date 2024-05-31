@@ -1,5 +1,6 @@
 import re
 from copy import deepcopy
+from string import punctuation
 
 from aymurai.meta.pipeline_interfaces import Transform
 from aymurai.meta.types import DataItem
@@ -14,7 +15,7 @@ class AnonymizationEntityCleaner(Transform):
         """
         self.field = field
 
-    def process(self, ent):
+    def process(self, ent: dict) -> dict:
         """
         Post processing function to clear non-alphanumeric characters from prediction
         start and end
@@ -43,6 +44,9 @@ class AnonymizationEntityCleaner(Transform):
         item = deepcopy(item)
 
         ents = get_element(item, [self.field, "entities"]) or []
+
+        # Filter out predictions that are punctuation marks only
+        ents = [ent for ent in ents if ent["text"] not in punctuation]
         ents = [self.process(ent) for ent in ents]
 
         return item
