@@ -1,15 +1,19 @@
+import os
 import json
 import pickle
 from typing import Any, Optional
 
 import joblib
-from redis import Redis
+import diskcache
 
 from aymurai.logging import get_logger
 from aymurai.meta.types import DataItem
 from aymurai.utils.json_encoding import EnhancedJSONEncoder
 
-redis = Redis()
+logger = get_logger(__name__)
+
+DISKCACHE_ROOT = os.getenv("DISKCACHE_ROOT", "/resources/cache/diskcache")
+cache = diskcache.Cache(DISKCACHE_ROOT)
 
 
 def flatten_dict(current: dict, key: str = "", result: dict = {}) -> dict:
@@ -40,24 +44,24 @@ def cache_clear(keys: list[str]):
     Args:
         keys (list[str]): keys to be cleared
     """
-    redis.delete(*keys)
+    for key in keys:
+        cache.pop(key)
 
 
-def get_cache_key(obj: Any, context: Any = "") -> str:
+def get_cache_key(item: Any, context: Any = "") -> str:
     """
     Get cache key
 
     Args:
-        data (Data): Data to hash
-        context: context object to create hash
+        item (Any): Data to hash
+        context (Any): context object to create hash
 
     Returns:
         str: hash
     """
 
-    item = obj
     if type(item) in [dict]:
-        item = flatten_dict(obj)
+        item = flatten_dict(item)
         item = sorted(tuple(item.items()))
         item = json.dumps(item, cls=EnhancedJSONEncoder)
     item_hash = joblib.hash(item)
@@ -68,10 +72,13 @@ def get_cache_key(obj: Any, context: Any = "") -> str:
     return cache_key
 
 
+def is_cached(key: str):
+    return key in cache
+
+
 def cache_save(
     data_item: DataItem,
     key: str,
-    logger=None,
 ):
     """
     save data on cache
@@ -79,35 +86,29 @@ def cache_save(
     Args:
         data (Data): data to be cached
         key (str): key to store
-        logger (optional): logger
     """
-    logger = logger or get_logger(__name__)
 
-    data_string = pickle.dumps(data_item)
+    data = pickle.dumps(data_item)
 
     logger.debug(f"saving cache to key: {key}")
-    redis.mset({key: data_string})
+    cache.set(key, data)
 
 
-def cache_load(
-    key: str,
-    logger=None,
-) -> Optional[DataItem]:
+def cache_load(key: str) -> Optional[DataItem]:
     """
     load data from cache
 
     Args:
         key (str): key to load
-        logger (optional): logger
 
     Returns:
         Optional[Data]: loaded data
 
     """
-    logger = logger or get_logger(__name__)
 
-    if redis.exists(key):
-        logger.debug(f"founded cache key: {key}")
-        loaded_data = redis.get(key)
-        loaded_data = pickle.loads(loaded_data)
-        return loaded_data
+    if key in cache:
+        # Retrieve the serialized object from cache
+        data = cache.get(key)
+
+        # Deserialize the object
+        return pickle.loads(data)

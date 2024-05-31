@@ -6,7 +6,7 @@ from functools import lru_cache
 from subprocess import getoutput
 
 import torch
-from fastapi.testclient import TestClient
+import cachetools
 from fastapi.staticfiles import StaticFiles
 from fastapi.openapi.utils import get_openapi
 from starlette.background import BackgroundTask
@@ -19,18 +19,29 @@ from aymurai.utils.misc import get_element
 from aymurai.pipeline import AymurAIPipeline
 from aymurai.text.docx2html import docx2html
 from aymurai.text.extraction import MIMETYPE_EXTENSION_MAPPER
+from aymurai.utils.cache import is_cached, cache_load, cache_save, get_cache_key
 from aymurai.meta.api_interfaces import Document, TextRequest, DocumentInformation
 
 logger = get_logger(__name__)
 
-torch.set_num_threads = 100
+MEMORY_CACHE_MAXSIZE = int(os.getenv("MEMORY_CACHE_MAXSIZE", 1))
+MEMORY_CACHE_TTL = int(os.getenv("MEMORY_CACHE_TTL", 60))
+
+
+mem_cache = cachetools.TTLCache(
+    maxsize=MEMORY_CACHE_MAXSIZE,
+    ttl=MEMORY_CACHE_MAXSIZE,
+    getsizeof=lambda _: 0,
+)
+
+torch.set_num_threads = 100  # FIXME: polemic ?
 pipeline_lock = Lock()
 
 
 api = FastAPI(title="AymurAI API", version="0.5.0")
 
 # configure CORS
-origins = [
+CORS_ORIGINS_DEFAULT = [
     "http://localhost",
     "https://localhost",
     "http://localhost:8080",
@@ -38,6 +49,9 @@ origins = [
     "0.0.0.0:8899",
     "0.0.0.0:3000",
 ]
+CORS_ORIGINS = os.getenv("CORS_ORIGINS", "")
+CORS_ORIGINS = CORS_ORIGINS.split(",")
+origins = CORS_ORIGINS or CORS_ORIGINS_DEFAULT
 
 api.add_middleware(
     CORSMiddleware,
@@ -52,24 +66,13 @@ logger.info("Loading server ...")
 
 
 @lru_cache(maxsize=1)
-def get_pipeline():
-    return AymurAIPipeline.load("/resources/pipelines/production/full-paragraph")
-
-
-@lru_cache(maxsize=1)
 def get_pipeline_doc_extract():
     return AymurAIPipeline.load("/resources/pipelines/production/doc-extraction")
 
 
-@lru_cache(maxsize=1)
-def get_pipeline_anonymizer_flair():
-    return AymurAIPipeline.load("/resources/pipelines/production/flair-anonymizer")
-
-
-@api.on_event("startup")
-async def load_pipelines():
-    get_pipeline()
-    get_pipeline_doc_extract()
+@cachetools.cached(cache=mem_cache)
+def load_pipeline(path: str):
+    return AymurAIPipeline.load(path)
 
 
 @api.middleware("http")
@@ -117,22 +120,34 @@ api.openapi = custom_openapi
 )
 async def predict_over_text(
     request: TextRequest = Body({"text": " Buenos Aires, 17 de noviembre 2024"}),
-    pipeline: AymurAIPipeline = Depends(get_pipeline),
 ) -> DocumentInformation:
-    logger.info("predict single")
-    item = [{"path": "dummy", "data": {"doc.text": request.text}}]
+    logger.info("datapublic predict single")
+
+    # load datapublic pipeline
+    pipeline = load_pipeline("/resources/pipelines/production/full-paragraph")
+
+    item = [{"path": "empty", "data": {"doc.text": request.text}}]
+    item_id = get_cache_key(item, context="datapublic")
+
+    if is_cached(item_id):
+        prediction = cache_load(item_id)
+        logger.info(f"cache loaded from key: {item_id}")
+        logger.info(f"{prediction}")
+        return DocumentInformation(**prediction)
 
     with pipeline_lock:
         processed = pipeline.preprocess(item)
         processed = pipeline.predict_single(processed[0])
         processed = pipeline.postprocess([processed])
 
-    logger.info(processed)
-
-    return DocumentInformation(
+    prediction = DocumentInformation(
         document=get_element(processed[0], ["data", "doc.text"]) or "",
         labels=get_element(processed[0], ["predictions", "entities"]) or [],
     )
+    logger.info(f"saving in cache: {prediction}")
+    cache_save(prediction.dict(), key=item_id)
+
+    return prediction
 
 
 @api.post(
@@ -142,22 +157,34 @@ async def predict_over_text(
 )
 async def anonymizer_flair_predict(
     request: TextRequest = Body({"text": " Buenos Aires, 17 de noviembre 2024"}),
-    pipeline: AymurAIPipeline = Depends(get_pipeline_anonymizer_flair),
 ) -> DocumentInformation:
-    logger.info("predict single")
-    item = [{"path": "dummy", "data": {"doc.text": request.text}}]
+    logger.info("anonymization predict single")
+
+    # load datapublic pipeline
+    pipeline = load_pipeline("/resources/pipelines/production/flair-anonymizer")
+
+    item = [{"path": "empty", "data": {"doc.text": request.text}}]
+    item_id = get_cache_key(item, context="anonymizer")
+
+    if is_cached(item_id):
+        prediction = cache_load(item_id)
+        logger.info(f"cache loaded from key: {item_id}")
+        logger.info(f"{prediction}")
+        return DocumentInformation(**prediction)
 
     with pipeline_lock:
         processed = pipeline.preprocess(item)
         processed = pipeline.predict_single(processed[0])
         processed = pipeline.postprocess([processed])
 
-    logger.info(processed)
-
-    return DocumentInformation(
+    prediction = DocumentInformation(
         document=get_element(processed[0], ["data", "doc.text"]) or "",
         labels=get_element(processed[0], ["predictions", "entities"]) or [],
     )
+    logger.info(f"saving in cache: {prediction}")
+    cache_save(prediction.dict(), key=item_id)
+
+    return prediction
 
 
 @api.post(
@@ -169,45 +196,44 @@ async def anonymizer_flair_predict(
 )
 async def datapublic_predict(
     request: TextRequest = Body({"text": " Buenos Aires, 17 de noviembre 2024"}),
-    pipeline: AymurAIPipeline = Depends(get_pipeline),
 ) -> DocumentInformation:
     url = api.url_path_for("/datapublic/predict")
     response = RedirectResponse(url=url)
     return response
 
 
-@api.post(
-    "/predict-batch",
-    response_model=list[DocumentInformation],
-    tags=["public_dataset"],
-    deprecated=True,
-)
-async def predict_over_text_batch(
-    request: list[TextRequest] = Body(
-        [
-            {"text": " Buenos Aires, 17 de noviembre 2024"},
-            {"text": " Hora de inicio: 11.00"},
-        ]
-    ),
-    pipeline: AymurAIPipeline = Depends(get_pipeline),
-) -> DocumentInformation:
-    item = [{"path": "dummy", "data": {"doc.text": req.text}} for req in request]
-    logger.info(item)
+# @api.post(
+#     "/predict-batch",
+#     response_model=list[DocumentInformation],
+#     tags=["public_dataset"],
+#     deprecated=True,
+# )
+# async def predict_over_text_batch(
+#     request: list[TextRequest] = Body(
+#         [
+#             {"text": " Buenos Aires, 17 de noviembre 2024"},
+#             {"text": " Hora de inicio: 11.00"},
+#         ]
+#     ),
+#     pipeline: AymurAIPipeline = Depends(get_pipeline),
+# ) -> DocumentInformation:
+#     item = [{"path": "dummy", "data": {"doc.text": req.text}} for req in request]
+#     logger.info(item)
 
-    with pipeline_lock:
-        processed = pipeline.preprocess(item)
-        processed = pipeline.predict(processed)
-        processed = pipeline.postprocess(processed)
+#     with pipeline_lock:
+#         processed = pipeline.preprocess(item)
+#         processed = pipeline.predict(processed)
+#         processed = pipeline.postprocess(processed)
 
-    logger.info(processed)
+#     logger.info(processed)
 
-    return [
-        DocumentInformation(
-            document=get_element(result, ["data", "doc.text"]) or "",
-            labels=get_element(result, ["predictions", "entities"]) or [],
-        )
-        for result in processed
-    ]
+#     return [
+#         DocumentInformation(
+#             document=get_element(result, ["data", "doc.text"]) or "",
+#             labels=get_element(result, ["predictions", "entities"]) or [],
+#         )
+#         for result in processed
+#     ]
 
 
 @api.post("/document-extract", response_model=DocumentInformation, tags=["documents"])
@@ -282,34 +308,9 @@ def doc2odt(file: UploadFile):
         )
 
 
-client = TestClient(api)
-
-
-def test_read_main():
-    input_ = {"text": " Buenos Aires, 21 de febrero de 2017"}
-    output_ = {
-        "document": " Buenos Aires, 21 de febrero de 2017",
-        "labels": [
-            {
-                "text": "21 de febrero de 2017",
-                "start_char": 15,
-                "end_char": 36,
-                "attrs": {
-                    "aymurai_label": "FECHA_RESOLUCION",
-                    "aymurai_label_subclass": None,
-                    "aymurai_alt_text": None,
-                },
-            }
-        ],
-    }
-
-    response = client.post("/predict", json=input_)
-    assert response.status_code == 200
-    assert response.json() == output_
-
-
 if __name__ == "__main__":
+    # download the necessary data
     logger.info("Loading pipelines and exit.")
-    get_pipeline()
-    get_pipeline_doc_extract()
-    get_pipeline_anonymizer_flair()
+    AymurAIPipeline.load("/resources/pipelines/production/doc-extraction")
+    AymurAIPipeline.load("/resources/pipelines/production/flair-anonymizer")
+    AymurAIPipeline.load("/resources/pipelines/production/full-paragraph")

@@ -13,8 +13,7 @@ setup(
         "gdown>=4.6.0",
         "joblib>=1.1.0",
         "textract>=1.6.5",
-        # "spacy>=3.4.0",
-        "spacy[transformers]>=3.4.1",
+        "spacy[transformers]==3.4.1",
         "spaczz>=0.5.4",
         "datetime_matcher @ git+https://github.com/jedzill4/datetime_matcher",
         "scikit-learn>=1.1.2",
@@ -36,6 +35,8 @@ setup(
         "httpx>=0.24.1",
         "faker==18.11.2",
         "xmltodict==0.13.0",
+        "cachetools==5.3.2",
+        "diskcache==5.6.3",
         "mammoth==1.6.0",
     ],
     extras_require={
