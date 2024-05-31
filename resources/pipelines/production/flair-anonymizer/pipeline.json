@@ -16,7 +16,10 @@
         ]
     ],
     "postprocess": [
-
+        [
+            "aymurai.transforms.anonymization_postprocess.core.AnonymizationEntityCleaner",
+            {}
+        ]
     ],
-    "use_cache": true
+    "use_cache": false
 }

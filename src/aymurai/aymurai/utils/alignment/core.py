@@ -1,7 +1,7 @@
 import re
-from difflib import Differ, SequenceMatcher
 from pathlib import Path
 from typing import Callable
+from difflib import Differ, SequenceMatcher
 
 import numpy as np
 import pandas as pd
@@ -59,7 +59,7 @@ def align_text(
             diff = list(diff)
             left = [t[2:].strip() for t in diff if t.startswith(("-", " "))]
             right = [t[2:].strip() for t in diff if t.startswith("+")]
-            right_agg = "|".join(right)
+            right_agg = " ".join(right)
 
             _aux = pd.DataFrame({"source": left})
             _aux["target"] = right_agg

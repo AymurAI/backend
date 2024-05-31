@@ -1,5 +1,6 @@
 import json
 import importlib
+from typing import Any
 from copy import deepcopy
 
 import srsly
@@ -14,21 +15,18 @@ class PipeNotFoundError(Exception):
     pass
 
 
-def resolve_obj(func_path: str):
+def resolve_obj(func_path: Any):
     """
     Resolve a string path to a callable object
 
     Args:
         func_path (str): String path to the callable object
 
-    Raises:
-        ModuleNotFoundError: Pipe or model is not valid
-
     Returns:
         Callable: Callable object
     """
     if not isinstance(func_path, str):
-        raise ModuleNotFoundError(f"module `{func_path}` not found")
+        return func_path
 
     # else func is a string
     module_name = ".".join(func_path.split(".")[:-1])

@@ -12,6 +12,7 @@
 	"customizations": {
 		"vscode": {
 			"settings": {
+				"extensions.verifySignature": false,
 				"python.languageServer": "Pylance",
 				"editor.formatOnSave": true,
 				"python.formatting.provider": "none",
