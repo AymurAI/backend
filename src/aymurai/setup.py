@@ -1,4 +1,4 @@
-from setuptools import setup, find_packages
+from setuptools import find_packages, setup
 
 setup(
     name="aymurai",
@@ -14,7 +14,6 @@ setup(
         "joblib>=1.1.0",
         "textract>=1.6.5",
         "spacy[transformers]==3.4.1",
-        "es-core-news-sm @ https://github.com/explosion/spacy-models/releases/download/es_core_news_sm-3.4.0/es_core_news_sm-3.4.0-py3-none-any.whl",
         "spaczz>=0.5.4",
         "datetime_matcher @ git+https://github.com/jedzill4/datetime_matcher",
         "scikit-learn>=1.1.2",
