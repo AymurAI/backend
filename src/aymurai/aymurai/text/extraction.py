@@ -1,7 +1,7 @@
-import logging
 import os
-import unicodedata
+import logging
 import zipfile
+import unicodedata
 from pathlib import Path
 from zipfile import BadZipFile
 
@@ -14,8 +14,8 @@ from textract.parsers import _get_available_extensions
 
 from aymurai.logging import get_logger
 from aymurai.meta.pipeline_interfaces import Transform
-from aymurai.utils.cache import cache_load, cache_save, get_cache_key
 from aymurai.utils.misc import get_element, get_recursively
+from aymurai.utils.cache import cache_load, cache_save, get_cache_key
 
 logger = get_logger(__file__)
 

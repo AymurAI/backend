@@ -1,4 +1,5 @@
 import os
+import json
 import time
 import tempfile
 from threading import Lock
@@ -12,15 +13,21 @@ from fastapi.openapi.utils import get_openapi
 from starlette.background import BackgroundTask
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, RedirectResponse
-from fastapi import Body, Depends, FastAPI, Request, UploadFile
+from fastapi import Body, Form, Depends, FastAPI, Request, UploadFile
 
 from aymurai.logging import get_logger
 from aymurai.utils.misc import get_element
 from aymurai.pipeline import AymurAIPipeline
 from aymurai.text.docx2html import docx2html
+from aymurai.text.anonymization import DocAnonymizer
 from aymurai.text.extraction import MIMETYPE_EXTENSION_MAPPER
 from aymurai.utils.cache import is_cached, cache_load, cache_save, get_cache_key
-from aymurai.meta.api_interfaces import Document, TextRequest, DocumentInformation
+from aymurai.meta.api_interfaces import (
+    Document,
+    TextRequest,
+    DocumentAnnotations,
+    DocumentInformation,
+)
 
 logger = get_logger(__name__)
 
@@ -188,6 +195,62 @@ async def anonymizer_flair_predict(
 
 
 @api.post(
+    "/anonymizer/anonymize-document",
+    tags=["anonymizer"],
+)
+def anonymize_document(
+    file: UploadFile,
+    annotations: str = Form(...),
+) -> FileResponse:
+    logger.info(f"receiving => {file.filename}")
+    extension = MIMETYPE_EXTENSION_MAPPER.get(file.content_type)
+    logger.info(f"detection extension: {extension} ({file.content_type})")
+
+    tmp_filename = f"/tmp/{file.filename}"
+    logger.info(f"saving temp file on local storage => {tmp_filename}")
+    with open(tmp_filename, "wb") as tmp_file:
+        data = file.file.read()
+        tmp_file.write(data)
+    logger.info(f"saved temp file on local storage => {tmp_filename}")
+
+    item = {
+        "path": tmp_filename,
+    }
+
+    annotations = json.loads(annotations)
+    annotations = DocumentAnnotations(**annotations)
+    logger.info(f"processing annotations => {annotations}")
+
+    doc_anonymizer = DocAnonymizer()
+    doc_anonymizer(
+        item,
+        [document_information.dict() for document_information in annotations.data],
+        "/tmp",
+    )
+    logger.info(f"saved temp file on local storage => {tmp_filename}")
+
+    # Connvert to ODT
+    with tempfile.NamedTemporaryFile(dir="/tmp", suffix=".docx") as temp:
+        with open(tmp_filename, "rb") as f:
+            temp.write(f.read())
+
+        temp.flush()
+
+        cmd = "libreoffice --headless --convert-to odt --outdir /tmp {file}"
+        getoutput(cmd.format(file=temp.name))
+        odt = temp.name.replace(".docx", ".odt")
+
+        os.remove(tmp_filename)
+
+        return FileResponse(
+            odt,
+            background=BackgroundTask(os.remove, odt),
+            media_type="application/octet-stream",
+            filename=f"{os.path.splitext(os.path.basename(tmp_filename))[0]}.odt",
+        )
+
+
+@api.post(
     "/predict",  # FIXME: to be deprecated
     response_model=DocumentInformation,
     response_class=RedirectResponse,
@@ -236,11 +299,11 @@ async def datapublic_predict(
 #     ]
 
 
-@api.post("/document-extract", response_model=DocumentInformation, tags=["documents"])
+@api.post("/document-extract", response_model=Document, tags=["documents"])
 def plain_text_extractor(
     file: UploadFile,
     pipeline: AymurAIPipeline = Depends(get_pipeline_doc_extract),
-) -> DocumentInformation:
+) -> Document:
     logger.info(f"receiving => {file.filename}")
     extension = MIMETYPE_EXTENSION_MAPPER.get(file.content_type)
     logger.info(f"detection extension: {extension} ({file.content_type})")
@@ -268,13 +331,18 @@ def plain_text_extractor(
 
     logger.info(f"removing file => {tmp_filename}")
     os.remove(tmp_filename)
-    return DocumentInformation(
-        document=get_element(processed[0], ["data", "doc.text"], ""),
-        labels=[],
+    doc_text = get_element(processed[0], ["data", "doc.text"], "")
+    return Document(
+        document=[text.strip() for text in doc_text.split("\n") if text.strip()],
     )
 
 
-@api.post("/document-extract/docx2html", response_model=Document, tags=["documents"])
+@api.post(
+    "/document-extract/docx2html",
+    response_model=Document,
+    tags=["documents"],
+    deprecated=True,
+)
 async def html_extractor(
     file: UploadFile,
 ) -> Document:
@@ -291,7 +359,7 @@ async def html_extractor(
     return Document(**content)
 
 
-@api.post("/docx-to-odt", tags=["documents"])
+@api.post("/docx2odt", tags=["documents"])
 def doc2odt(file: UploadFile):
     with tempfile.NamedTemporaryFile(dir="/tmp", suffix=".docx") as temp:
         temp.write(file.file.read())

@@ -1,4 +1,4 @@
-from setuptools import setup, find_packages
+from setuptools import find_packages, setup
 
 setup(
     name="aymurai",
@@ -38,6 +38,9 @@ setup(
         "cachetools==5.3.2",
         "diskcache==5.6.3",
         "mammoth==1.6.0",
+        # HOTFIX deprecation issue
+        # https://github.com/flairNLP/flair/issues/3441#issuecomment-2039522867
+        "scipy<1.13.0",
     ],
     extras_require={
         "": [
