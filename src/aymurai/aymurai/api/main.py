@@ -200,7 +200,6 @@ async def anonymizer_flair_predict(
 )
 def anonymize_document(
     file: UploadFile,
-    # background_tasks: BackgroundTasks,
     annotations: str = Form(...),
 ) -> FileResponse:
     logger.info(f"receiving => {file.filename}")
@@ -241,8 +240,6 @@ def anonymize_document(
         getoutput(cmd.format(file=temp.name))
         odt = temp.name.replace(".docx", ".odt")
 
-        # background_tasks.add_task(os.remove, odt)
-        # background_tasks.add_task(os.remove, tmp_filename)
         os.remove(tmp_filename)
 
         return FileResponse(

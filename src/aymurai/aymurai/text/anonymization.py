@@ -126,7 +126,8 @@ class DocAnonymizer(Transform):
 
         Args:
             paragraphs (list[dict]): A list of dictionaries representing the paragraphs.
-            predictions (list[dict]): A list of dictionaries representing the predictions.
+            predictions (list[dict]): A list of dictionaries representing
+                the predictions.
 
         Returns:
             list[dict]: A list of dictionaries representing
@@ -378,10 +379,7 @@ class DocAnonymizer(Transform):
 
         return tokens
 
-    def normalize_document(
-        self,
-        xml_content: str,
-    ) -> str:
+    def normalize_document(self, xml_content: str) -> str:
         """
         Normalizes the XML document by removing extra spaces
             and preserving line breaks.
