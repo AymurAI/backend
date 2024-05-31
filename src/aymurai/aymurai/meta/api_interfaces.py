@@ -1,6 +1,6 @@
 from typing import List, Optional
 
-from pydantic import Field, BaseModel, validator
+from pydantic import Field, BaseModel
 
 
 class TextRequest(BaseModel):
