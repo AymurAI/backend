@@ -10,9 +10,9 @@ import torch
 import cachetools
 from fastapi.staticfiles import StaticFiles
 from fastapi.openapi.utils import get_openapi
+from starlette.background import BackgroundTask
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, RedirectResponse
-from starlette.background import BackgroundTask
 from fastapi import Body, Form, Depends, FastAPI, Request, UploadFile
 
 from aymurai.logging import get_logger
@@ -25,8 +25,8 @@ from aymurai.utils.cache import is_cached, cache_load, cache_save, get_cache_key
 from aymurai.meta.api_interfaces import (
     Document,
     TextRequest,
-    DocumentInformation,
     DocumentAnnotations,
+    DocumentInformation,
 )
 
 logger = get_logger(__name__)
@@ -249,7 +249,7 @@ def anonymize_document(
             odt,
             background=BackgroundTask(os.remove, odt),
             media_type="application/octet-stream",
-            filename=odt,
+            filename=f"{os.path.splitext(os.path.basename(tmp_filename))[0]}.odt",
         )
 
 
