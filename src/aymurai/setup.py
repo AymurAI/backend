@@ -23,7 +23,7 @@ setup(
         "redis>=4.3.4",
         "unidecode>=1.3.4",
         "sentencepiece>=0.1.95",
-        "flair @ git+https://github.com/flairNLP/flair",
+        "flair @ git+https://github.com/flairNLP/flair@v0.13.1",
         "pytorch-lightning==1.8.3.post1",
         "torchtext==0.13.1",
         "tensorflow_hub>=0.12.0",
