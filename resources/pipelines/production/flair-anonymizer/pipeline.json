@@ -11,7 +11,8 @@
             {
                 "basepath": "aymurai/anonymizer-beto-cased-flair",
                 "split_doc": true,
-                "device": "cpu"
+                "device": "cpu",
+                "use_tokenizer": false
             }
         ]
     ],

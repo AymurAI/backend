@@ -27,7 +27,7 @@ class FlairModel(TrainModule):
         basepath: str,
         split_doc: bool = False,
         device: str = "cpu",
-        context_n_tokens: int = 10,
+        use_tokenizer: bool = False,
     ):
         """
         Flair NER model module
@@ -36,11 +36,12 @@ class FlairModel(TrainModule):
             basepath (str): parent directory to load model
             split_doc (bool, optional): split document on sentences. Defaults to False.
             device (str, optional): device where load model. Defaults to "cpu".
-            context_n_tokens(int, optional): number of tokens to capture before and after prediction
-        """
+            use_tokenizer(bool, optional): whether to use custom tokenizer. Defaults to False.
+        """  # noqa
         self.basepath = basepath
         self.split_doc = split_doc
         self.device = device
+        self.use_tokenizer = use_tokenizer
         self.offset = 10
 
         # load model
@@ -90,7 +91,7 @@ class FlairModel(TrainModule):
 
         docs = [item["data"]["doc.text"] for item in data]
 
-        sentences = [Sentence(sent) for sent in docs]
+        sentences = [Sentence(sent, use_tokenizer=self.use_tokenizer) for sent in docs]
 
         self.model.predict(sentences)
         sentences = [sentence.get_spans("ner") for sentence in sentences]
@@ -191,7 +192,13 @@ class FlairModel(TrainModule):
         n_tokens = [len(line.split()) for line in sentences]
         n_chars = [len(line) for line in sentences]
 
-        sentences = [Sentence(sent) for sent in sentences]
+        sentences = [
+            Sentence(
+                sent,
+                use_tokenizer=self.use_tokenizer,
+            )
+            for sent in sentences
+        ]
 
         self.model.predict(sentences)
         sentences = [sentence.get_spans("ner") for sentence in sentences]
