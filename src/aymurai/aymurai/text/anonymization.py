@@ -222,20 +222,26 @@ class DocAnonymizer(Transform):
 
         # Iterate over labels
         for label in labels:
+            # Get attributes
+            text = label["attrs"]["aymurai_alt_text"] or label["text"]
+            start_char = label["attrs"]["aymurai_alt_start_char"] or label["start_char"]
+            end_char = label["attrs"]["aymurai_alt_end_char"] or label["end_char"]
+            aymurai_label = label["attrs"]["aymurai_label"]
+
             if current_group is None:
                 # Start a new group with the current label
                 current_group = {
-                    "text": label["text"],
-                    "start_char": label["start_char"],
-                    "end_char": label["end_char"],
-                    "aymurai_label": label["attrs"]["aymurai_label"],
+                    "text": text,
+                    "start_char": start_char,
+                    "end_char": end_char,
+                    "aymurai_label": aymurai_label,
                 }
             elif (
-                current_group["aymurai_label"] == label["attrs"]["aymurai_label"]
-                and (label["start_char"] - current_group["end_char"]) <= 1
+                current_group["aymurai_label"] == aymurai_label
+                and (start_char - current_group["end_char"]) <= 1
             ):
                 # Extend the current group with the current label
-                current_group["end_char"] = label["end_char"]
+                current_group["end_char"] = end_char
             else:
                 # Finish the current group and start a new one
                 current_group["text"] = document[
@@ -243,10 +249,10 @@ class DocAnonymizer(Transform):
                 ]
                 unified_labels.append(current_group)
                 current_group = {
-                    "text": label["text"],
-                    "start_char": label["start_char"],
-                    "end_char": label["end_char"],
-                    "aymurai_label": label["attrs"]["aymurai_label"],
+                    "text": text,
+                    "start_char": start_char,
+                    "end_char": end_char,
+                    "aymurai_label": aymurai_label,
                 }
 
         # Finish the last group
