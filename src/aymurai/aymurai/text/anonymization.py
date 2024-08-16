@@ -208,9 +208,14 @@ class DocAnonymizer(Transform):
         Returns:
             list[dict]: A list of dictionaries representing the unified labels.
         """
+        sample = deepcopy(sample)
+
         # Extract labels and document text
         labels = sample["labels"]
         document = sample[text_key]
+
+        # Reorder labels based on start indices
+        labels = sorted(labels, key=lambda x: x["start_char"])
 
         unified_labels = []
         current_group = None
@@ -516,11 +521,6 @@ class DocAnonymizer(Transform):
         Raises:
             ValueError: If the document has an extension other than `.docx`.
         """
-        item_path = item["path"]
-
-        if not os.path.splitext(item_path)[-1] == ".docx":
-            raise ValueError("Only `.docx` extension is allowed.")
-
         item_path = item["path"]
 
         if not os.path.splitext(item_path)[-1] == ".docx":
