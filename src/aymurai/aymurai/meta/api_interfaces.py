@@ -24,6 +24,14 @@ class DocLabelAttributes(BaseModel):
         default=None,
         description="alternative form for text formating (i.e. datetimes)",
     )
+    aymurai_alt_start_char: Optional[int] = Field(
+        default=None,
+        description="start character of the alternative span in relation of the full text",  # noqa
+    )
+    aymurai_alt_end_char: Optional[int] = Field(
+        default=None,
+        description="last character of the alternative span in relation of the full text",  # noqa
+    )
     aymurai_method: Optional[str] = Field(
         default=None,
         description="method used on the prediction label",
