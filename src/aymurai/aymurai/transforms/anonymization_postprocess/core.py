@@ -2,9 +2,9 @@ import re
 from copy import deepcopy
 from string import punctuation
 
-from aymurai.meta.pipeline_interfaces import Transform
 from aymurai.meta.types import DataItem
 from aymurai.utils.misc import get_element
+from aymurai.meta.pipeline_interfaces import Transform
 
 
 class AnonymizationEntityCleaner(Transform):
@@ -18,7 +18,7 @@ class AnonymizationEntityCleaner(Transform):
     def process(self, ent: dict) -> dict:
         """
         Post processing function to clear non-alphanumeric characters from prediction
-        start and end
+        start and end, update alternative text, and adjust start and end indices.
 
         Args:
             ent (dict): entity to process
@@ -26,11 +26,30 @@ class AnonymizationEntityCleaner(Transform):
         Returns:
             dict: processed entity
         """
-
+        # Define the regex pattern
         pattern = re.compile(r"^\W+|\W+$")
 
-        text = ent["text"]
-        ent["attrs"]["aymurai_alt_text"] = pattern.sub("", text)
+        # Get the original text and start and end indices
+        original_text = ent["text"]
+        start_char = ent["start_char"]
+        end_char = ent["end_char"]
+
+        # Match leading and trailing non-alphanumeric characters
+        leading_match = re.match(r"^\W+", original_text)
+        trailing_match = re.search(r"\W+$", original_text)
+
+        # Calculate the number of characters to remove
+        leading_chars_removed = len(leading_match.group()) if leading_match else 0
+        trailing_chars_removed = len(trailing_match.group()) if trailing_match else 0
+
+        # Clean the text
+        cleaned_text = pattern.sub("", original_text)
+
+        # Update the entity's alt text and indices
+        ent["attrs"]["aymurai_alt_text"] = cleaned_text
+        ent["attrs"]["aymurai_alt_start_char"] = start_char + leading_chars_removed
+        ent["attrs"]["aymurai_alt_end_char"] = end_char - trailing_chars_removed
+
         return ent
 
     def __call__(self, item: DataItem) -> DataItem:
