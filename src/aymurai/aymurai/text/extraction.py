@@ -2,6 +2,7 @@ import os
 import logging
 import zipfile
 import unicodedata
+from typing import Any
 from pathlib import Path
 from zipfile import BadZipFile
 
@@ -100,12 +101,12 @@ def _load_xml_from_odt(path: str, xmlfile: str = "styles.xml") -> str:
     return content
 
 
-def _load_xml_from_docx(path: str, xml_file: str) -> str | None:
+def _load_xml_from_docx(path: str, xmlfile: str = "word/footnotes.xml") -> Any | None:
     """Extract XML content from a specific file inside a .docx."""
-    with zipfile.ZipFile(path, "r") as z:
-        if not os.path.exists(xml_file):
+    with zipfile.ZipFile(path, "r") as docx:
+        if xmlfile not in docx.namelist():
             return
-        with z.open(xml_file) as f:
+        with docx.open(xmlfile) as f:
             return etree.parse(f)
 
 
@@ -162,7 +163,7 @@ def get_footnotes(path: str) -> list[str] | None:
     Returns:
         list[str]: Footnote texts.
     """
-    footnotes_tree = _load_xml_from_docx(path, "word/footnotes.xml")
+    footnotes_tree = _load_xml_from_docx(path)
     if not footnotes_tree:
         return
 
