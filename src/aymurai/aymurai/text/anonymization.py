@@ -12,6 +12,7 @@ import numpy as np
 import pandas as pd
 from jiwer import cer
 from lxml import etree
+from joblib import hash
 from more_itertools import flatten
 
 from aymurai.logging import get_logger
