@@ -100,9 +100,11 @@ def _load_xml_from_odt(path: str, xmlfile: str = "styles.xml") -> str:
     return content
 
 
-def _load_xml_from_docx(path: str, xml_file: str) -> str:
+def _load_xml_from_docx(path: str, xml_file: str) -> str | None:
     """Extract XML content from a specific file inside a .docx."""
     with zipfile.ZipFile(path, "r") as z:
+        if not os.path.exists(xml_file):
+            return
         with z.open(xml_file) as f:
             return etree.parse(f)
 
@@ -151,7 +153,7 @@ def get_header(path: str) -> list[str]:
     return texts
 
 
-def get_footnotes(path: str) -> list[str]:
+def get_footnotes(path: str) -> list[str] | None:
     """Extract footnotes from footnotes.xml inside a DOCX file.
 
     Args:
@@ -161,6 +163,9 @@ def get_footnotes(path: str) -> list[str]:
         list[str]: Footnote texts.
     """
     footnotes_tree = _load_xml_from_docx(path, "word/footnotes.xml")
+    if not footnotes_tree:
+        return
+
     footnotes_root = footnotes_tree.getroot()
 
     # Define the namespace map
@@ -240,7 +245,8 @@ def extract_document(
 
     # patch footnotes loading in docx files
     if ext == "docx":
-        footnotes = "\n".join(get_footnotes(filename))
+        footnotes = get_footnotes(filename) or []
+        footnotes = "\n".join(footnotes)
         if footnotes.strip():
             docu = docu + "\n\n" + footnotes
 
