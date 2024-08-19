@@ -8,6 +8,7 @@ from zipfile import BadZipFile
 import magic
 import textract
 import xmltodict
+from lxml import etree
 from more_itertools import flatten
 from textract.exceptions import ShellError
 from textract.parsers import _get_available_extensions
@@ -99,6 +100,13 @@ def _load_xml_from_odt(path: str, xmlfile: str = "styles.xml") -> str:
     return content
 
 
+def _load_xml_from_docx(path: str, xml_file: str) -> str:
+    """Extract XML content from a specific file inside a .docx."""
+    with zipfile.ZipFile(path, "r") as z:
+        with z.open(xml_file) as f:
+            return etree.parse(f)
+
+
 def get_header(path: str) -> list[str]:
     """Extract header from styles.xml inside a ODT file
 
@@ -141,6 +149,31 @@ def get_header(path: str) -> list[str]:
         return []
 
     return texts
+
+
+def get_footnotes(path: str) -> list[str]:
+    """Extract footnotes from footnotes.xml inside a DOCX file.
+
+    Args:
+        path (str): Path to the DOCX file.
+
+    Returns:
+        list[str]: Footnote texts.
+    """
+    footnotes_tree = _load_xml_from_docx(path, "word/footnotes.xml")
+    footnotes_root = footnotes_tree.getroot()
+
+    # Define the namespace map
+    ns = {"w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main"}
+
+    # Extract footnote texts in order
+    footnotes_texts = []
+    for footnote in footnotes_root.findall("w:footnote", namespaces=ns):
+        texts = footnote.xpath(".//w:t/text()", namespaces=ns)
+        if texts:
+            footnotes_texts.append("".join(texts))
+
+    return footnotes_texts
 
 
 def extract_document(
@@ -204,6 +237,12 @@ def extract_document(
     if ext == "odt":
         header = "\n".join(get_header(filename))
         docu = header + "\n\n" + docu
+
+    # patch footnotes loading in docx files
+    if ext == "docx":
+        footnotes = "\n".join(get_footnotes(filename))
+        if footnotes.strip():
+            docu = docu + "\n\n" + footnotes
 
     docu = unicodedata.normalize("NFKC", docu)
     return docu
