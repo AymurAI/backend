@@ -20,7 +20,7 @@ AymurAI is a tool designed to address the lack of available data in the judicial
 
 AymurAI is still a prototype and is currently only implemented in Criminal Court N°10 in the City of Buenos Aires, Argentina. Its capabilities are limited to semi-automated data collection and analysis. The quality, consistency, and availability of the data, as well as cooperation from court officials and the broader cultural and political context, may affect its results.
 
-The models were trained using closed datasets from an Argentine criminal court and are specifically tailored to extract relevant information from GBV-related rulings. The domain-specific training ensures the models' accuracy within this legal and cultural context, though it may not be applicable to other regions with different legal systems or cultural norms.
+The models were trained using closed datasets from an Argentine criminal court and are specifically tailored to extract relevant information from GBV-related rulings. The domain-specific training ensures the models' accuracy within this legal and cultural context, though they may not be applicable to other regions with different legal systems or cultural norms.
 
 
 ## Deployment
