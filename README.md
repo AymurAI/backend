@@ -34,7 +34,8 @@ registry.gitlab.com/collective.ai/datagenero-public/aymurai-api-prod
 To deploy a production-ready instance of the API, run:
 
 ```bash
-docker run -p 8899:8899 -h -d registry.gitlab.com/collective.ai/datagenero-public/aymurai-api-prod:latest
+docker run -d -p 8899:8899 \
+registry.gitlab.com/collective.ai/datagenero-public/aymurai-api-prod:latest
 ```
 
 This command will start the API on port `8899` on your local machine. You can access the API documentation through OpenAPI at:
@@ -49,7 +50,8 @@ Once it' i's deployed, it doesn't require an internet connection to work.
 If you need to deploy in an environment without internet access, export the Docker image by running:
 
 ```bash
-docker image save registry.gitlab.com/collective.ai/datagenero-public/aymurai-api-prod:latest -o aymurai-api.tar
+docker image save \
+registry.gitlab.com/collective.ai/datagenero-public/aymurai-api-prod:latest -o aymurai-api.tar
 ```
 
 Transfer the image to the target machine and load it:
