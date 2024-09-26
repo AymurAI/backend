@@ -1,3 +1,97 @@
+[build-system]
+requires = [
+    "setuptools>=42",
+    # "setuptools_scm>=8"
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aymurai"
+requires-python = ">=3.10"
+version = "1.1.0"
+dynamic = ["dependencies"]
+# dynamic = ["version", "dependencies"]
+authors = [
+    { name = "datagenero.org", email = "aymurai@datagenero.org" },
+    { name = "collective.ai", email = "info@collectiveai.io" },
+]
+maintainers = [
+    { name = "jedzill4", email = "r@collectiveai.io" },
+    { name = "jansaldo", email = "juli@collectiveai.io" },
+
+]
+description = "The backend API and machine learning models of AymurAI."
+readme = "README.md"
+license = { file = "LICENSE.md" }
+# homepage = "https://github.com/AymurAI/backend"
+keywords = [
+    "api",
+    "deep-learning",
+    "gender-equality",
+    "justice",
+    "document-analisys",
+    "openjustice",
+    "gender-data",
+    "platform",
+]
+classifiers = [
+    # How mature is this project? Common values are
+    #   3 - Alpha
+    #   4 - Beta
+    #   5 - Production/Stable
+    "Development Status :: 5 - Stable",
+
+    # Indicate who your project is intended for
+    "Intended Audience :: Developers",
+    "Intended Audience :: Lawyers",
+    "Intended Audience :: ONGs",
+
+    # Pick your license as you wish (see also "license" above)
+    "License :: OSI Approved :: MIT License",
+
+    # Specify the Python versions you support here.
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+]
+
+[project.urls]
+Homepage = "https://www.aymurai.info/"
+Repository = "https://github.com/aymurAI/backend"
+Issues = "https://github.com/AymurAI/backend/issues"
+
+[tool.setuptools.dynamic]
+dependencies = { file = ["requirements.txt"] }
+
+[project.optional-dependencies]
+gpu = [
+    "torch @ https://download.pytorch.org/whl/cu113/torch-1.12.1%2Bcu113-cp310-cp310-linux_x86_64.whl",
+    "spacy[cuda113]==3.4.1",
+]
+dev = [
+    "tensorboard==2.10.0",
+    "jupyterlab==3.4.3",
+    "ipywidgets==8.0.1",
+    "matplotlib==3.5.2",
+    "seaborn==0.11.2",
+    "plotly==5.9.0",
+]
+
+[tool.setuptools.packages.find]
+include = ["aymurai"]
+
+[project.scripts]
+aymurai-api = "aymurai.api.main:main"
+
+
+[tool.setuptools.package-data]
+"*" = ["*.yml", "*.yaml", "*.csv"]
+
+# [tool.setuptools_scm]
+# version_scheme = "guess-next-dev"
+# local_scheme = "node-and-date"
+
+
 [tool.pylint.messages_control]
 disable = "C0330, C0326"
 

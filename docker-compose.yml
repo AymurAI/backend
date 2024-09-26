@@ -1,7 +1,6 @@
-version: "3.8"
 services:
     aymurai-core:
-        image: ${CORE_IMAGE_CUDA}:latest
+        image: aymurai-core-gpu
         container_name: aymurai-core
         build:
             context: .
@@ -10,7 +9,7 @@ services:
                 - BASE_IMAGE=nvidia/cuda:11.8.0-cudnn8-runtime-ubuntu22.04
 
     aymurai-core-cpu:
-        image: ${CORE_IMAGE_CPU}:latest
+        image: aymurai-core-cpu
         container_name: aymurai-core
         build:
             context: .
@@ -28,7 +27,7 @@ services:
             dockerfile: ./build/api/Dockerfile
             args:
                 - BASE_IMAGE=${CORE_IMAGE_CPU}:latest
-            target: api-base
+            target: aymurai-api
         env_file:
             - .env
             - .env.common
@@ -49,4 +48,4 @@ services:
             dockerfile: ./build/api/Dockerfile
             args:
                 - BASE_IMAGE=${CORE_IMAGE_CPU}:latest
-            target: api-prod
+            target: aymurai-prod

@@ -1,0 +1,38 @@
+more-itertools==10.5.0
+odfpy==1.4.1
+gdown==4.6.0
+joblib==1.4.2
+textract==1.6.5
+spacy[transformers]==3.4.1
+spaczz==0.6.1
+datetime_matcher @ git+https://github.com/jedzill4/datetime_matcher
+scikit-learn==1.5.2
+jiwer==3.0.4
+datasets==3.0.0
+python-magic==0.4.27
+redis==5.0.8
+unidecode==1.3.8
+sentencepiece==0.2.0
+flair @ git+https://github.com/flairNLP/flair@v0.13.1
+pytorch-lightning==1.8.3.post1
+torchtext==0.13.1
+tensorflow_text>=2.10.0,<2.11.0
+fastapi==0.115.0
+uvicorn==0.30.6
+python-multipart==0.0.10
+pydantic==1.9.2
+httpx==0.27.2
+faker==18.11.2
+xmltodict==0.13.0
+cachetools==5.3.2
+diskcache==5.6.3
+mammoth==1.6.0
+scipy<1.13.0
+torch==1.12.1
+rich==12.6.0
+
+# api deps
+# protobuf==3.20.1
+# pytest==7.1.2
+# pytest-subtests==0.8.0
+# aiofiles==22.1.0
