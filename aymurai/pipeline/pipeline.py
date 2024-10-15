@@ -121,15 +121,15 @@ class AymurAIPipeline(object):
 
         # save config file
         json_config = config2json(self.config)
-        logger.info(f"saving pipeline on: {path}/pipeline.json")
-        with open(f"{path}/pipeline.json", "w") as file:
+        logger.info(f"saving pipeline on: {os.path.join(path, 'pipeline.json')}")
+        with open(os.path.join(path, "pipeline.json"), "w") as file:
             print(json_config, file=file)
 
     @classmethod
     def load(cls, path: str, print_config: bool = True):
-        logger.info(f"loading pipeline from: {path}/pipeline.json")
+        logger.info(f"loading pipeline from: {os.path.join(path, 'pipeline.json')}")
 
-        with open(f"{path}/pipeline.json", "r") as file:
+        with open(os.path.join(path, "pipeline.json"), "r") as file:
             json_config = file.read()
         config = json2config(json_config)
         obj = cls(config=config, print_config=print_config)
