@@ -4,14 +4,12 @@ from copy import deepcopy
 
 import numpy as np
 import tensorflow as tf
-
 from aymurai.logging import get_logger
 from aymurai.meta.types import DataItem
 from aymurai.models.usem.core import USEMQA
 from aymurai.utils.download import download
 from aymurai.utils.misc import is_url, get_element
 from aymurai.meta.pipeline_interfaces import Transform
-from aymurai.meta.environment import AYMURAI_CACHE_BASEPATH
 
 from .utils import filter_by_category
 
@@ -44,7 +42,8 @@ class USEMSubcategorizer(Transform):
         self.category = category
 
         CACHE_PATH = os.path.join(
-            os.getenv("AYMURAI_CACHE_BASEPATH", AYMURAI_CACHE_BASEPATH), self.__name__
+            os.getenv("AYMURAI_CACHE_BASEPATH", "/resources/cache/aymurai"),
+            self.__name__,
         )
 
         logger.info(f"load usem options from {subcategories_path}")

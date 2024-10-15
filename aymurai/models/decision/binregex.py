@@ -9,14 +9,12 @@ from copy import deepcopy
 import regex
 import torch
 from unidecode import unidecode
-
 from aymurai.logging import get_logger
 from aymurai.utils.download import download
 from aymurai.meta.types import DataItem, DataBlock
 from aymurai.utils.misc import is_url, get_element
 from aymurai.models.decision.tokenizer import Tokenizer
 from aymurai.meta.pipeline_interfaces import TrainModule
-from aymurai.meta.environment import AYMURAI_CACHE_BASEPATH
 from aymurai.models.decision.conv1d import Conv1dTextClassifier
 from aymurai.meta.api_interfaces import DocLabel, DocLabelAttributes
 
@@ -42,7 +40,7 @@ class DecisionConv1dBinRegex(TrainModule):
 
         # download if needed
         # tokenizer
-        basepath = os.getenv("AYMURAI_CACHE_BASEPATH", AYMURAI_CACHE_BASEPATH)
+        basepath = os.getenv("AYMURAI_CACHE_BASEPATH", "/resources/cache/aymurai")
         if is_url(url := self._tokenizer_path):
             output = f"{basepath}/{self.__name__}/tokenizer.pth"
             logger.info(f"downloading tokenizer on {output}")
