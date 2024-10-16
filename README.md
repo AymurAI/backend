@@ -44,7 +44,7 @@ This command will start the API on port `8899` on your local machine. You can ac
 http://localhost:8899/docs
 ```
 
-Once it' i's deployed, it doesn't require an internet connection to work.
+Once it is deployed, it doesn't require an internet connection to work.
 
 ### Running on a Closed Network
 If you need to deploy in an environment without internet access, export the Docker image by running:
