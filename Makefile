@@ -52,3 +52,7 @@ api-prod-push:
 	docker push ${API_IMAGE}-prod:${shell date +%F}
 api-prod-pull:
 	docker pull ${API_IMAGE}-prod
+
+
+stress-test:
+	locust -f locustfile.py --host http://localhost:8899
