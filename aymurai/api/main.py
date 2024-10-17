@@ -15,6 +15,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, RedirectResponse
 from fastapi import Body, Form, Depends, FastAPI, Request, UploadFile
 
+from aymurai.api import stats
 from aymurai.logging import get_logger
 from aymurai.utils.misc import get_element
 from aymurai.pipeline import AymurAIPipeline
@@ -119,6 +120,25 @@ def custom_openapi():
 
 api.openapi = custom_openapi
 
+################################################################################
+# MARK: API ENDPOINTS
+################################################################################
+
+
+#############################
+# MARK: Server Stats
+#############################
+@api.get("/server/healthcheck", status_code=200, tags=["server"])
+def healthcheck():
+    return {"status": "ok"}
+
+
+api.include_router(stats.router, prefix="/server/stats", tags=["server"])
+
+#############################
+# MARK: DataPublic
+#############################
+
 
 @api.post(
     "/datapublic/predict",
@@ -157,6 +177,9 @@ async def predict_over_text(
     return prediction
 
 
+#############################
+# MARK: Anonymizer
+#############################
 @api.post(
     "/anonymizer/predict",
     response_model=DocumentInformation,
@@ -265,40 +288,9 @@ async def datapublic_predict(
     return response
 
 
-# @api.post(
-#     "/predict-batch",
-#     response_model=list[DocumentInformation],
-#     tags=["public_dataset"],
-#     deprecated=True,
-# )
-# async def predict_over_text_batch(
-#     request: list[TextRequest] = Body(
-#         [
-#             {"text": " Buenos Aires, 17 de noviembre 2024"},
-#             {"text": " Hora de inicio: 11.00"},
-#         ]
-#     ),
-#     pipeline: AymurAIPipeline = Depends(get_pipeline),
-# ) -> DocumentInformation:
-#     item = [{"path": "dummy", "data": {"doc.text": req.text}} for req in request]
-#     logger.info(item)
-
-#     with pipeline_lock:
-#         processed = pipeline.preprocess(item)
-#         processed = pipeline.predict(processed)
-#         processed = pipeline.postprocess(processed)
-
-#     logger.info(processed)
-
-#     return [
-#         DocumentInformation(
-#             document=get_element(result, ["data", "doc.text"]) or "",
-#             labels=get_element(result, ["predictions", "entities"]) or [],
-#         )
-#         for result in processed
-#     ]
-
-
+#############################
+# MARK:Documents
+#############################
 @api.post("/document-extract", response_model=Document, tags=["documents"])
 def plain_text_extractor(
     file: UploadFile,
