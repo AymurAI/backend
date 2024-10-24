@@ -5,9 +5,12 @@ import tempfile
 from threading import Lock
 from functools import lru_cache
 from subprocess import getoutput
+from contextlib import asynccontextmanager
 
 import torch
 import cachetools
+from alembic import command
+from alembic.config import Config
 from fastapi.staticfiles import StaticFiles
 from fastapi.openapi.utils import get_openapi
 from starlette.background import BackgroundTask
@@ -16,11 +19,14 @@ from fastapi.responses import FileResponse, RedirectResponse
 from fastapi import Body, Form, Depends, FastAPI, Request, UploadFile
 
 from aymurai.api import stats
+from aymurai.settings import settings
 from aymurai.logging import get_logger
 from aymurai.utils.misc import get_element
 from aymurai.pipeline import AymurAIPipeline
 from aymurai.text.docx2html import docx2html
+from aymurai.api.endpoints.v1 import api as api_v1
 from aymurai.text.anonymization import DocAnonymizer
+from aymurai.api.startup.database import check_db_connection
 from aymurai.text.extraction import MIMETYPE_EXTENSION_MAPPER
 from aymurai.utils.cache import is_cached, cache_load, cache_save, get_cache_key
 from aymurai.meta.api_interfaces import (
@@ -46,24 +52,31 @@ torch.set_num_threads = 100  # FIXME: polemic ?
 pipeline_lock = Lock()
 
 
-api = FastAPI(title="AymurAI API", version="0.5.0")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    logger.info("> Initializing service")
+    logger.info(f">> Checking DB connection: `{settings.SQLALCHEMY_DATABASE_URI}`")
+    try:
+        check_db_connection()
+        logger.info(">> Running Alembic migrations")
+        alembic_cfg = Config(str(settings.ALEMBIC_INI_PATH))
+        command.upgrade(alembic_cfg, "head")
+    except Exception as error:
+        logger.error("Error while starting up:", error)
+
+    yield
+
+
+api = FastAPI(
+    title="AymurAI API",
+    version="0.5.0",
+    lifespan=lifespan,
+)
 
 # configure CORS
-CORS_ORIGINS_DEFAULT = [
-    "http://localhost",
-    "https://localhost",
-    "http://localhost:8080",
-    "http://localhost:3000",
-    "0.0.0.0:8899",
-    "0.0.0.0:3000",
-]
-CORS_ORIGINS = os.getenv("CORS_ORIGINS", "")
-CORS_ORIGINS = CORS_ORIGINS.split(",")
-origins = CORS_ORIGINS or CORS_ORIGINS_DEFAULT
-
 api.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=settings.CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -125,9 +138,8 @@ api.openapi = custom_openapi
 ################################################################################
 
 
-#############################
 # MARK: Server Stats
-#############################
+# ==================
 @api.get("/server/healthcheck", status_code=200, tags=["server"])
 def healthcheck():
     return {"status": "ok"}
@@ -135,9 +147,14 @@ def healthcheck():
 
 api.include_router(stats.router, prefix="/server/stats", tags=["server"])
 
-#############################
+
+# MARK: api v1
+# ============
+
+
 # MARK: DataPublic
-#############################
+# ================
+api.include_router(api_v1.router, prefix="/api/v1", tags=["v1"])
 
 
 @api.post(

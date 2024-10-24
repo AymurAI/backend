@@ -3,7 +3,7 @@ odfpy==1.4.1
 gdown==4.6.0
 joblib==1.4.2
 textract==1.6.5
-spacy[transformers]==3.4.1
+spacy[transformers]==3.8.0
 spaczz==0.6.1
 datetime_matcher @ git+https://github.com/jedzill4/datetime_matcher
 scikit-learn==1.5.2
@@ -20,7 +20,8 @@ tensorflow_text>=2.10.0,<2.11.0
 fastapi==0.115.0
 uvicorn==0.30.6
 python-multipart==0.0.10
-pydantic==1.9.2
+pydantic==2.9.2
+pydantic_settings==2.6.0
 httpx==0.27.2
 faker==18.11.2
 xmltodict==0.13.0
@@ -31,6 +32,12 @@ scipy<1.13.0
 torch==1.12.1
 rich==12.6.0
 psutil==6.0.0
+
+# database deps
+sqlmodel==0.0.22
+alembic==1.13.3
+tenacity==9.0.0
+python-dotenv==1.0.1
 
 # api deps
 # protobuf==3.20.1
