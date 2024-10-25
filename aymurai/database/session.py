@@ -3,7 +3,6 @@ from typing import Generator
 from sqlmodel import Session, create_engine
 
 from aymurai.settings import settings
-from aymurai.database.schema import Datapublic  # noqa: F401
 
 
 def get_engine(echo: bool = False):
@@ -12,7 +11,7 @@ def get_engine(echo: bool = False):
     )
 
 
-def get_db_session(echo: bool = False) -> Generator:
+def get_session(echo: bool = False) -> Generator:
     engine = get_engine(echo=echo)
     session = Session(engine)
     try:

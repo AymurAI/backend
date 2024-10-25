@@ -1,1 +1,6 @@
-from .meta.datapublic import Datapublic
+from .meta.datapublic.model import (
+    DataPublic,
+    DataPublicRead,
+    DataPublicCreate,
+    DataPublicUpdate,
+)

@@ -4,7 +4,7 @@ from sqlmodel import select
 from tenacity import retry, after_log, before_log, wait_fixed, stop_after_attempt
 
 from aymurai.settings import settings
-from aymurai.database.session import get_db_session
+from aymurai.database.session import get_session
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +21,7 @@ wait_seconds = 1
 def check_db_connection():
     logger.info(f"Checking database connection to {settings.SQLALCHEMY_DATABASE_URI}")
     try:
-        session = next(get_db_session())
+        session = next(get_session())
         session.exec(select(1))
 
     except Exception as e:
