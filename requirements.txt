@@ -30,6 +30,7 @@ mammoth==1.6.0
 scipy<1.13.0
 torch==1.12.1
 rich==12.6.0
+psutil==6.0.0
 
 # api deps
 # protobuf==3.20.1
