@@ -53,7 +53,7 @@ class Settings(BaseSettings):
 
         return [i.strip() for i in v.split(",")]
 
-    SQLALCHEMY_DATABASE_URI: SQLiteDNS = "sqlite:///./datapublic.db"
+    SQLALCHEMY_DATABASE_URI: SQLiteDNS = "sqlite:////resources/cache/sqlite/database.db"
 
     # Alembic Config for running migrations
     ALEMBIC_INI_PATH: FilePath = PARENT / "alembic.ini"

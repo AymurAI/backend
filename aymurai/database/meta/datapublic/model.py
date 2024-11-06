@@ -179,7 +179,7 @@ class DataPublicBase(SQLModel):
     )
 
 
-class DataPublic(DataPublicBase):
+class DataPublic(DataPublicBase, table=True):
     id: int | None = Field(
         None,
         primary_key=True,

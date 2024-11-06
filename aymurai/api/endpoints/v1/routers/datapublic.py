@@ -2,12 +2,12 @@ import tempfile
 
 import pandas as pd
 from fastapi import Depends
-from pydantic import BaseModel
 from sqlmodel import Session, select
 from fastapi.routing import APIRouter
 from fastapi.responses import FileResponse
 
 from aymurai.database.session import get_session
+from aymurai.meta.api_interfaces import SuccessResponse
 from aymurai.api.endpoints.v1.meta.database import ExportFormat
 from aymurai.database.schema import (
     DataPublic,
@@ -16,12 +16,7 @@ from aymurai.database.schema import (
     DataPublicUpdate,
 )
 
-router = APIRouter(prefix="/datapublic")
-
-
-class SuccessResponse(BaseModel):
-    id: int | None = None
-    msg: str | None = None
+router = APIRouter()
 
 
 @router.get("/export")
@@ -49,7 +44,7 @@ async def database_export(
         )
 
 
-@router.post("/items/", response_model=SuccessResponse)
+@router.post("/items/add", response_model=SuccessResponse)
 async def item_add(
     data: DataPublicCreate,
     session: Session = Depends(get_session),

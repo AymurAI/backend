@@ -1,6 +1,12 @@
+import uuid
 from typing import List, Optional
 
 from pydantic import Field, BaseModel
+
+
+class SuccessResponse(BaseModel):
+    id: int | uuid.UUID | None = None
+    msg: str | None = None
 
 
 class TextRequest(BaseModel):
@@ -60,6 +66,10 @@ class DocumentInformation(BaseModel):
 
     document: str = Field(description="processed text")
     labels: List[DocLabel]
+
+    # text: str
+    # document_id: str
+    # labels: list[DocLabel]
 
 
 class DocumentAnnotations(BaseModel):

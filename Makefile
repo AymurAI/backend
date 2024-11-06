@@ -56,3 +56,10 @@ api-prod-pull:
 
 stress-test:
 	locust -f locustfile.py --host http://localhost:8899
+
+alembic-regenerate:
+	rm -rvf resources/cache/sqlite/* && \
+	rm -rvf aymurai/database/versions/* && \
+	cd aymurai && \
+	alembic revision --autogenerate -m "Create database" && \
+	alembic upgrade head
