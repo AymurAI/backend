@@ -52,5 +52,5 @@ services:
         deploy:
             resources:
                 limits:
-                    memory: 3g
+                    memory: 4g
                     cpus: "4.0"
