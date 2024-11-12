@@ -5,7 +5,6 @@ import tempfile
 from glob import glob
 import xml.sax.saxutils
 from copy import deepcopy
-from collections import Counter
 from unicodedata import normalize
 
 import numpy as np
@@ -356,16 +355,14 @@ class DocAnonymizer(Transform):
             tokenized_text = tokenize(text)
             paragraph_index = fragment["paragraph_index"]
 
-            counter = Counter()
-            for j, token in enumerate(tokenized_text):
-                counter.update([token])
+            # Use re.finditer to locate each instance of tokens in the text
+            token_matches = list(
+                re.finditer(r"\S+", text)
+            )  # \S+ matches any non-whitespace sequence
 
-                splits = text.split(token)
-                left, right = (splits[: counter[token]], splits[counter[token] :])
-                left = "".join(left)
-                right = "".join(right)
-
-                start = sample["metadata"]["start"] + fragment["start"] + len(left)
+            # Loop over tokenized text and token_matches in parallel
+            for j, (token, match) in enumerate(zip(tokenized_text, token_matches)):
+                start = sample["metadata"]["start"] + fragment["start"] + match.start()
                 end = start + len(token)
 
                 tokens.append((xml_file, paragraph_index, i, j, token, start, end))
@@ -393,8 +390,8 @@ class DocAnonymizer(Transform):
 
     def normalize_document(self, xml_content: str) -> str:
         """
-        Normalizes the XML document by removing extra spaces
-            and preserving line breaks.
+        Normalizes the XML document by removing extra spaces, preserving line breaks,
+        and removing hyperlinks while preserving text content.
 
         Args:
             xml_content (str): The XML content to be normalized.
@@ -402,12 +399,23 @@ class DocAnonymizer(Transform):
         Returns:
             str: The normalized XML content.
         """
-        # Parse the XML content with lxml
+        # Parse the XML content
         parser = etree.XMLParser(ns_clean=True)
         root = etree.fromstring(xml_content.encode("utf-8"), parser)
 
         # Extract namespaces
         namespaces = {k: v for k, v in root.nsmap.items() if k}
+
+        # Remove hyperlinks but preserve the text content
+        for hyperlink in root.xpath("//w:hyperlink", namespaces=namespaces):
+            parent = hyperlink.getparent()
+            index = list(parent).index(hyperlink)
+
+            # Move all text-containing children (e.g., w:r elements) outside the hyperlink tag
+            for child in hyperlink:
+                parent.insert(index, child)
+                index += 1
+            parent.remove(hyperlink)  # Remove the <w:hyperlink> element itself
 
         # Process each paragraph
         for wp in root.xpath("//w:p", namespaces=namespaces):

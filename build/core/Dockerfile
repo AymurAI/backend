@@ -44,7 +44,6 @@ RUN apt update \
     python${PYTHON_VERSION} \
     python${PYTHON_VERSION}-dev \
     python${PYTHON_VERSION}-distutils \
-    # python3-pip \
     build-essential \
     && apt-get autoremove -y \
     && apt-get clean \
@@ -56,6 +55,7 @@ RUN apt update \
 RUN update-alternatives --install /usr/bin/python python /usr/bin/python${PYTHON_VERSION} 1 \
     && update-alternatives --install /usr/bin/python3 python3 /usr/bin/python${PYTHON_VERSION} 1
 
+
 WORKDIR /tmp
 
 # install pip
@@ -63,8 +63,6 @@ RUN wget https://github.com/pypa/pip/archive/refs/tags/${PIP_VERSION}.zip \
     && unzip ${PIP_VERSION}.zip \
     && cd pip-${PIP_VERSION} \
     && python setup.py install
-# RUN wget https://bootstrap.pypa.io/get-pip.py \
-#     && python get-pip.py
 
 
 # copy devs scripts
@@ -77,36 +75,6 @@ COPY requirements.txt /tmp/requirements.txt
 RUN --mount=type=cache,target=/root/.cache,id=pip \
     pip install Cython wheel \
     && pip install -r requirements.txt --target=/packages/core
-
-# # # install spacy models
-# RUN --mount=type=cache,target=/root/.cache,id=pip \
-#     python -m spacy download es_core_news_sm
-
-# FIXME: force install gdown 4.6.0 even when flair dependence is gdown==4.4.0
-# RUN  --mount=type=cache,target=/root/.cache,id=pip \
-#     pip install -U gdown==4.6.0
-
-
-
-
-# # Install Redis.
-# RUN \
-#   cd /tmp && \
-#   wget http://download.redis.io/redis-stable.tar.gz && \
-#   tar xvzf redis-stable.tar.gz && \
-#   cd redis-stable && \
-#   make && \
-#   make install && \
-#   cp -f src/redis-sentinel /usr/local/bin && \
-#   mkdir -p /etc/redis && \
-#   cp -f *.conf /etc/redis && \
-#   rm -rf /tmp/redis-stable* && \
-#   sed -i 's/^\(bind .*\)$/# \1/' /etc/redis/redis.conf && \
-#   sed -i 's/^\(daemonize .*\)$/# \1/' /etc/redis/redis.conf && \
-#   sed -i 's/^\(dir .*\)$/# \1\ndir \/data/' /etc/redis/redis.conf && \
-#   sed -i 's/^\(logfile .*\)$/# \1/' /etc/redis/redis.conf && \
-#   sed -i 's/^\(# maxmemory .*\)$/maxmemory 30000000/' /etc/redis/redis.conf && \
-#   sed -i 's/^\(# maxmemory-policy .*\)$/maxmemory-policy volatile-lru/' /etc/redis/redis.conf
 
 
 # # Define mountable directories.
