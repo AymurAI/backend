@@ -13,43 +13,37 @@
 		"vscode": {
 			"settings": {
 				"extensions.verifySignature": false,
-				"python.languageServer": "Pylance",
-				"editor.formatOnSave": true,
-				"python.formatting.provider": "none",
-				"black-formatter.args": [
-					"--line-length=88"
-				],
-				"python.linting.enabled": true,
-				"python.linting.flake8Path": "/usr/local/bin/flake8",
-				"python.linting.pylintArgs": [
-					"--generate-members"
-				],
-				"[python]": {
-					"editor.defaultFormatter": "ms-python.black-formatter",
-					"editor.formatOnSave": true,
-					"editor.codeActionsOnSave": {
-						"source.organizeImports": true
-					}
-				},
-				"isort.args": [
-					"--profile",
-					"black"
-				],
 				"files.trimFinalNewlines": true,
 				"files.trimTrailingWhitespace": true,
 				"files.watcherExclude": {
 					"**/.git/objects/**": true,
 					"**/.git/subtree-cache/**": true
 				},
-				"notebook.formatOnSave.enabled": true
+				"editor.formatOnSave": true,
+				"notebook.formatOnSave.enabled": true,
+				"notebook.output.scrolling": true,
+				"notebook.codeActionsOnSave": {
+					"notebook.source.organizeImports": "explicit"
+				},
+				"[python]": {
+					"editor.defaultFormatter": "charliermarsh.ruff",
+					"editor.codeActionsOnSave": {
+						"source.fixAll": "never"
+					}
+				},
+				"isort.args": [
+					"--profile=black",
+					"--skip-gitignore",
+					"--length-sort-straight"
+				]
 			},
 			// Add the IDs of extensions you want installed when the container is created.
 			"extensions": [
 				"ms-python.python",
 				"magicstack.magicpython",
-				"ms-python.black-formatter",
 				"ms-python.isort",
 				"eamodio.gitlens",
+				"charliermarsh.ruff",
 				"ms-toolsai.jupyter",
 				"GitHub.vscode-pull-request-github",
 				"njpwerner.autodocstring",

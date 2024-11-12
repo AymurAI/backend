@@ -16,7 +16,7 @@ services:
             context: ..
             dockerfile: .devcontainer/Dockerfile
             args:
-                - CORE_IMAGE_CUDA=aymurai-core-gpu
+                - CORE_IMAGE=aymurai-core-gpu
                 - AYMURAI_EXTRA_PACKAGE=dev,gpu
                 - USER_NAME=vscode
                 - USER_UID=1000
@@ -51,7 +51,7 @@ services:
             context: ..
             dockerfile: .devcontainer/Dockerfile
             args:
-                - CORE_IMAGE_CUDA=registry.gitlab.com/collective.ai/datagenero-public/aymurai-core
+                - CORE_IMAGE=aymurai-core-cpu
                 - AYMURAI_EXTRA_PACKAGE=dev
                 - USER_NAME=vscode
                 - USER_UID=1000

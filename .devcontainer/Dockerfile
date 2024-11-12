@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.3
 
-ARG CORE_IMAGE_CUDA
-FROM ${CORE_IMAGE_CUDA}
+ARG CORE_IMAGE
+FROM ${CORE_IMAGE}
 
 ENV EDITOR=vim
 
@@ -52,12 +52,14 @@ RUN apt update && apt install -y \
 # COPY .devcontainer/requirements.txt .devcontainer/entrypoint.sh /home/$USER_NAME/
 
 
-
 # coding dev packages
 RUN --mount=type=cache,target=/root/.cache,id=pip \
     --mount=type=bind,source=.devcontainer/requirements.txt,target=/root/dev-requirements.txt \
     pip install -r /root/dev-requirements.txt \
     && rm -rf /home/$USER_NAME/requirements.txt
+
+# Add /packages to the python path
+ENV PYTHONPATH=/packages/core:$PYTHONPATH
 
 # # install aymurai requirements
 # ARG AYMURAI_EXTRA_PACKAGE=dev
@@ -75,7 +77,6 @@ RUN chmod +x /entrypoint.sh
 USER $USER_NAME
 WORKDIR /tmp
 RUN sh -c "$(curl -fsSL https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
-
 
 
 # ENTRYPOINT ["/entrypoint.sh"]
