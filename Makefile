@@ -6,7 +6,6 @@ export $(shell sed 's/=.*//' .env.common)
 
 core-build:
 	docker compose build aymurai-core
-	docker tag ${CORE_IMAGE_CUDA}:latest aymurai-core-gpu:latest
 core-run:
 	docker compose run aymurai-core
 

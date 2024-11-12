@@ -41,7 +41,8 @@ services:
     aymurai-api-prod:
         image: registry.gitlab.com/collective.ai/datagenero-public/aymurai-api-prod
         container_name: aymurai-api-prod
-        network_mode: host
+        ports:
+            - "8899:8899"
         build:
             context: .
             dockerfile: ./build/api/Dockerfile
@@ -52,5 +53,5 @@ services:
         deploy:
             resources:
                 limits:
-                    memory: 3g
+                    memory: 4g
                     cpus: "4.0"

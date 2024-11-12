@@ -1,11 +1,9 @@
-# code style
-black==22.6.0
-isort==5.12.0
-ruff==0.0.272
-
 # precommit
-pre-commit==3.3.3
-nbstripout==0.6.1
+pre-commit==4.0.1
+nbstripout==0.8.0
 
 # utils
 pip-search==0.0.12
+
+# jupyter
+jupyter==1.1.1
