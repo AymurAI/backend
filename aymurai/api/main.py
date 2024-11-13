@@ -19,8 +19,8 @@ from fastapi.responses import FileResponse, RedirectResponse
 from fastapi import Body, Form, Depends, FastAPI, Request, UploadFile
 
 from aymurai.api import stats
+from aymurai.logger import get_logger
 from aymurai.settings import settings
-from aymurai.logging import get_logger
 from aymurai.utils.misc import get_element
 from aymurai.pipeline import AymurAIPipeline
 from aymurai.text.docx2html import docx2html
@@ -84,6 +84,7 @@ api.add_middleware(
 
 
 logger.info("Loading server ...")
+logger.info(f"CORS_ORIGINS: {settings.CORS_ORIGINS}")
 
 
 @lru_cache(maxsize=1)
@@ -150,11 +151,11 @@ api.include_router(stats.router, prefix="/server/stats", tags=["server"])
 
 # MARK: api v1
 # ============
+api.include_router(api_v1.router, prefix="/api/v1", tags=["api/v1"])
 
 
 # MARK: DataPublic
 # ================
-api.include_router(api_v1.router, prefix="/api/v1", tags=["v1"])
 
 
 @api.post(
@@ -235,8 +236,14 @@ async def anonymizer_flair_predict(
 
 
 @api.post(
+    "/api/v0/anonymizer/anonymize-document",
+    tags=["anonymizer", "v0"],
+    deprecated=True,
+)
+@api.post(
     "/anonymizer/anonymize-document",
     tags=["anonymizer"],
+    deprecated=True,
 )
 def anonymize_document(
     file: UploadFile,

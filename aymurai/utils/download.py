@@ -2,7 +2,7 @@ import os
 
 import gdown
 
-from aymurai.logging import get_logger
+from aymurai.logger import get_logger
 
 NO_DOWNLOAD_IF_EXISTS = os.getenv("NO_DOWNLOAD_IF_EXISTS", True)
 

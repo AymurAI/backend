@@ -75,7 +75,7 @@ class DocumentInformation(BaseModel):
 class DocumentAnnotations(BaseModel):
     """Datatype for document annotations"""
 
-    data: List[DocumentInformation]
+    data: list[DocumentInformation]
 
 
 class Document(BaseModel):
