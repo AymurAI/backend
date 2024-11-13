@@ -1,9 +1,13 @@
 import uuid
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from pydantic import BaseModel
-from sqlmodel import Field, SQLModel
+from sqlmodel import Field, SQLModel, Relationship
 from sqlalchemy import Column, DateTime, func, text
+
+if TYPE_CHECKING:
+    from aymurai.database.meta.anonymization.paragraph import AnonymizationParagraph
 
 
 class AnonymizationDocument(SQLModel, table=True):
@@ -17,6 +21,9 @@ class AnonymizationDocument(SQLModel, table=True):
     )
 
     name: str = Field(nullable=False)
+    # paragraphs: list["AnonymizationParagraph"] = Relationship(
+    #     link_model="AnonymizationDocumentParagraph"
+    # )
 
 
 class AnonymizationDocumentParagraph(SQLModel, table=True):
@@ -29,5 +36,7 @@ class AnonymizationDocumentParagraph(SQLModel, table=True):
     order: int | None = Field(nullable=True)
 
 
-class DocumentRead(BaseModel):
-    pass
+class AnonymizationDocumentRead(BaseModel):
+    id: uuid.UUID
+    name: str
+    paragraphs: list[uuid.UUID] | None

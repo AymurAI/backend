@@ -1,19 +1,19 @@
 """Create database
 
-Revision ID: 1d5e8cca3a9c
-Revises:
-Create Date: 2024-11-06 19:40:32.108669
+Revision ID: fbbf0625af14
+Revises: 
+Create Date: 2024-11-13 02:50:11.318043
 
 """
+from typing import Sequence, Union
 
-from typing import Union, Sequence
-
-import sqlmodel
-import sqlalchemy as sa
 from alembic import op
+import sqlalchemy as sa
+import sqlmodel
+
 
 # revision identifiers, used by Alembic.
-revision: str = "1d5e8cca3a9c"
+revision: str = "fbbf0625af14"
 down_revision: Union[str, None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -37,6 +37,9 @@ def upgrade() -> None:
     op.create_table(
         "anonymization_paragraph",
         sa.Column("id", sa.Uuid(), nullable=False),
+        sa.Column("text", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
+        sa.Column("prediction", sa.JSON(), nullable=True),
+        sa.Column("validation", sa.JSON(), nullable=True),
         sa.Column(
             "created_at",
             sa.DateTime(),
@@ -44,9 +47,6 @@ def upgrade() -> None:
             nullable=False,
         ),
         sa.Column("updated_at", sa.DateTime(), nullable=True),
-        sa.Column("text", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
-        sa.Column("prediction", sa.JSON(), nullable=True),
-        sa.Column("validation", sa.JSON(), nullable=True),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_table(

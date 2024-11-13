@@ -1,6 +1,5 @@
 import uuid
 from datetime import datetime
-from typing import TYPE_CHECKING
 
 from typing_extensions import Self
 from sqlmodel import Field, SQLModel
@@ -10,11 +9,21 @@ from sqlalchemy import JSON, Column, DateTime, func, text
 from aymurai.database.utils import text_to_uuid
 from aymurai.meta.api_interfaces import DocLabel
 
-if TYPE_CHECKING:
-    pass
+
+class AnonymizationParagraphBase(SQLModel):
+    id: uuid.UUID | None = Field(None, primary_key=True)
+
+    text: str = Field(nullable=False)
+    prediction: list[DocLabel] | None = Field(sa_column=Column(JSON))
+    validation: list[DocLabel] | None = Field(sa_column=Column(JSON))
+
+    @model_validator(mode="after")
+    def validate_text(self) -> Self:
+        self.id = text_to_uuid(self.text)
+        return self
 
 
-class AnonymizationParagraph(SQLModel, table=True):
+class AnonymizationParagraph(AnonymizationParagraphBase, table=True):
     __tablename__ = "anonymization_paragraph"
 
     # NOTE: SQLModel with table=True does not run validators
@@ -26,25 +35,9 @@ class AnonymizationParagraph(SQLModel, table=True):
         sa_column=Column(DateTime(), onupdate=func.now())
     )
 
-    text: str = Field(nullable=False)
-    prediction: list[DocLabel] | None = Field(sa_column=Column(JSON))
-    validation: list[DocLabel] | None = Field(sa_column=Column(JSON))
 
-    def _set_id(self):
-        self.id = text_to_uuid(self.text)
-
-
-class AnonymizationParagraphCreate(BaseModel):
-    id: uuid.UUID | None = None
-
-    text: str
-    prediction: list[DocLabel] | None = None
-    validation: list[DocLabel] | None = None
-
-    @model_validator(mode="after")
-    def validate_text(self) -> Self:
-        self.id = text_to_uuid(self.text)
-        return self
+class AnonymizationParagraphCreate(AnonymizationParagraphBase):
+    pass
 
 
 class AnonymizationParagraphUpdate(BaseModel):
