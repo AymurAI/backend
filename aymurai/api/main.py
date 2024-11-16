@@ -137,11 +137,10 @@ def healthcheck():
 
 api.include_router(stats.router, prefix="/server/stats", tags=["server"])
 
+
 #############################
 # MARK: DataPublic
 #############################
-
-
 @api.post(
     "/datapublic/predict",
     response_model=DocumentInformation,
@@ -279,21 +278,6 @@ def anonymize_document(
         )
 
 
-@api.post(
-    "/predict",  # FIXME: to be deprecated
-    response_model=DocumentInformation,
-    response_class=RedirectResponse,
-    tags=["datapublic"],
-    deprecated=True,
-)
-async def datapublic_predict(
-    request: TextRequest = Body({"text": " Buenos Aires, 17 de noviembre 2024"}),
-) -> DocumentInformation:
-    url = api.url_path_for("/datapublic/predict")
-    response = RedirectResponse(url=url)
-    return response
-
-
 #############################
 # MARK:Documents
 #############################
@@ -306,8 +290,6 @@ def plain_text_extractor(
     extension = MIMETYPE_EXTENSION_MAPPER.get(file.content_type)
     logger.info(f"detection extension: {extension} ({file.content_type})")
 
-    # md5 = hashlib.md5(data).hexdigest()
-    # tmp_filename = f"/tmp/{md5}.{extension}"
     candidate = next(tempfile._get_candidate_names())
     tmp_filename = f"/tmp/{candidate}.{extension}"
     logger.info(f"saving temp file on local storage => {tmp_filename}")
@@ -333,45 +315,6 @@ def plain_text_extractor(
     return Document(
         document=[text.strip() for text in doc_text.split("\n") if text.strip()],
     )
-
-
-@api.post(
-    "/document-extract/docx2html",
-    response_model=Document,
-    tags=["documents"],
-    deprecated=True,
-)
-async def html_extractor(
-    file: UploadFile,
-) -> Document:
-    logger.info(f"receiving => {file.filename}")
-
-    with tempfile.NamedTemporaryFile(dir="/tmp", suffix=".docx") as temp:
-        # read file content
-        binary_content = await file.read()
-        temp.write(binary_content)
-        temp.flush()
-
-        content = docx2html(temp.name)
-
-    return Document(**content)
-
-
-@api.post("/docx2odt", tags=["documents"])
-def doc2odt(file: UploadFile):
-    with tempfile.NamedTemporaryFile(dir="/tmp", suffix=".docx") as temp:
-        temp.write(file.file.read())
-        temp.flush()
-        cmd = "libreoffice --headless --convert-to odt --outdir /tmp {file}"
-        getoutput(cmd.format(file=temp.name))
-        odt = temp.name.replace(".docx", ".odt")
-
-        return FileResponse(
-            odt,
-            background=BackgroundTask(os.remove, odt),
-            media_type="application/octet-stream",
-            filename=odt,
-        )
 
 
 if __name__ == "__main__":
