@@ -312,6 +312,7 @@ def plain_text_extractor(
     logger.info(f"removing file => {tmp_filename}")
     os.remove(tmp_filename)
     doc_text = get_element(processed[0], ["data", "doc.text"], "")
+
     return Document(
         document=[text.strip() for text in doc_text.split("\n") if text.strip()],
     )
