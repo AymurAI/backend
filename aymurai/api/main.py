@@ -75,7 +75,9 @@ logger.info("Loading server ...")
 
 @lru_cache(maxsize=1)
 def get_pipeline_doc_extract():
-    return AymurAIPipeline.load("/resources/pipelines/production/doc-extraction")
+    return AymurAIPipeline.load(
+        os.path.join("resources", "pipelines", "production", "doc-extraction")
+    )
 
 
 @cachetools.cached(cache=mem_cache)
@@ -99,7 +101,7 @@ async def index():
 
 api.mount(
     "/static",
-    StaticFiles(directory="/resources/api/static"),
+    StaticFiles(directory=os.path.join("resources", "static")),
     name="static",
 )
 
@@ -151,7 +153,9 @@ async def predict_over_text(
     logger.info("datapublic predict single")
 
     # load datapublic pipeline
-    pipeline = load_pipeline("/resources/pipelines/production/full-paragraph")
+    pipeline = load_pipeline(
+        os.path.join("resources", "pipelines", "production", "full-paragraph")
+    )
 
     item = [{"path": "empty", "data": {"doc.text": request.text}}]
     item_id = get_cache_key(item, context="datapublic")
@@ -190,8 +194,10 @@ async def anonymizer_flair_predict(
 ) -> DocumentInformation:
     logger.info("anonymization predict single")
 
-    # load datapublic pipeline
-    pipeline = load_pipeline("/resources/pipelines/production/flair-anonymizer")
+    # load anonymizer pipeline
+    pipeline = load_pipeline(
+        os.path.join("resources", "pipelines", "production", "flair-anonymizer")
+    )
 
     item = [{"path": "empty", "data": {"doc.text": request.text}}]
     item_id = get_cache_key(item, context="anonymizer")
@@ -227,7 +233,7 @@ def anonymize_document(
 ) -> FileResponse:
     logger.info(f"receiving => {file.filename}")
     extension = MIMETYPE_EXTENSION_MAPPER.get(file.content_type)
-    logger.info(f"detection extension: {extension} ({file.content_type})")
+    logger.info(f"detected extension: {extension} ({file.content_type})")
 
     tmp_filename = f"/tmp/{file.filename}"
     logger.info(f"saving temp file on local storage => {tmp_filename}")
@@ -371,6 +377,12 @@ def doc2odt(file: UploadFile):
 if __name__ == "__main__":
     # download the necessary data
     logger.info("Loading pipelines and exit.")
-    AymurAIPipeline.load("/resources/pipelines/production/doc-extraction")
-    AymurAIPipeline.load("/resources/pipelines/production/flair-anonymizer")
-    AymurAIPipeline.load("/resources/pipelines/production/full-paragraph")
+    AymurAIPipeline.load(
+        os.path.join("resources", "pipelines", "production", "doc-extraction")
+    )
+    AymurAIPipeline.load(
+        os.path.join("resources", "pipelines", "production", "flair-anonymizer")
+    )
+    AymurAIPipeline.load(
+        os.path.join("resources", "pipelines", "production", "full-paragraph")
+    )
