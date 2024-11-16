@@ -287,7 +287,7 @@ def plain_text_extractor(
 ) -> Document:
     logger.info(f"receiving => {file.filename}")
     extension = MIMETYPE_EXTENSION_MAPPER.get(file.content_type)
-    logger.info(f"detection extension: {extension} ({file.content_type})")
+    logger.info(f"detected extension: {extension} ({file.content_type})")
 
     candidate = next(tempfile._get_candidate_names())
     tmp_filename = f"/tmp/{candidate}.{extension}"
