@@ -19,7 +19,6 @@ from aymurai.api import stats
 from aymurai.logging import get_logger
 from aymurai.utils.misc import get_element
 from aymurai.pipeline import AymurAIPipeline
-from aymurai.text.docx2html import docx2html
 from aymurai.text.anonymization import DocAnonymizer
 from aymurai.text.extraction import MIMETYPE_EXTENSION_MAPPER
 from aymurai.utils.cache import is_cached, cache_load, cache_save, get_cache_key
