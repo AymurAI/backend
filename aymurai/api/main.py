@@ -19,7 +19,6 @@ from aymurai.api import stats
 from aymurai.logging import get_logger
 from aymurai.utils.misc import get_element
 from aymurai.pipeline import AymurAIPipeline
-from aymurai.text.docx2html import docx2html
 from aymurai.text.anonymization import DocAnonymizer
 from aymurai.text.extraction import MIMETYPE_EXTENSION_MAPPER
 from aymurai.utils.cache import is_cached, cache_load, cache_save, get_cache_key
@@ -75,7 +74,9 @@ logger.info("Loading server ...")
 
 @lru_cache(maxsize=1)
 def get_pipeline_doc_extract():
-    return AymurAIPipeline.load("/resources/pipelines/production/doc-extraction")
+    return AymurAIPipeline.load(
+        os.path.join("resources", "pipelines", "production", "doc-extraction")
+    )
 
 
 @cachetools.cached(cache=mem_cache)
@@ -99,7 +100,7 @@ async def index():
 
 api.mount(
     "/static",
-    StaticFiles(directory="/resources/api/static"),
+    StaticFiles(directory=os.path.join("resources", "static")),
     name="static",
 )
 
@@ -135,11 +136,10 @@ def healthcheck():
 
 api.include_router(stats.router, prefix="/server/stats", tags=["server"])
 
+
 #############################
 # MARK: DataPublic
 #############################
-
-
 @api.post(
     "/datapublic/predict",
     response_model=DocumentInformation,
@@ -151,7 +151,9 @@ async def predict_over_text(
     logger.info("datapublic predict single")
 
     # load datapublic pipeline
-    pipeline = load_pipeline("/resources/pipelines/production/full-paragraph")
+    pipeline = load_pipeline(
+        os.path.join("resources", "pipelines", "production", "full-paragraph")
+    )
 
     item = [{"path": "empty", "data": {"doc.text": request.text}}]
     item_id = get_cache_key(item, context="datapublic")
@@ -190,8 +192,10 @@ async def anonymizer_flair_predict(
 ) -> DocumentInformation:
     logger.info("anonymization predict single")
 
-    # load datapublic pipeline
-    pipeline = load_pipeline("/resources/pipelines/production/flair-anonymizer")
+    # load anonymizer pipeline
+    pipeline = load_pipeline(
+        os.path.join("resources", "pipelines", "production", "flair-anonymizer")
+    )
 
     item = [{"path": "empty", "data": {"doc.text": request.text}}]
     item_id = get_cache_key(item, context="anonymizer")
@@ -227,7 +231,7 @@ def anonymize_document(
 ) -> FileResponse:
     logger.info(f"receiving => {file.filename}")
     extension = MIMETYPE_EXTENSION_MAPPER.get(file.content_type)
-    logger.info(f"detection extension: {extension} ({file.content_type})")
+    logger.info(f"detected extension: {extension} ({file.content_type})")
 
     tmp_filename = f"/tmp/{file.filename}"
     logger.info(f"saving temp file on local storage => {tmp_filename}")
@@ -273,21 +277,6 @@ def anonymize_document(
         )
 
 
-@api.post(
-    "/predict",  # FIXME: to be deprecated
-    response_model=DocumentInformation,
-    response_class=RedirectResponse,
-    tags=["datapublic"],
-    deprecated=True,
-)
-async def datapublic_predict(
-    request: TextRequest = Body({"text": " Buenos Aires, 17 de noviembre 2024"}),
-) -> DocumentInformation:
-    url = api.url_path_for("/datapublic/predict")
-    response = RedirectResponse(url=url)
-    return response
-
-
 #############################
 # MARK:Documents
 #############################
@@ -298,10 +287,8 @@ def plain_text_extractor(
 ) -> Document:
     logger.info(f"receiving => {file.filename}")
     extension = MIMETYPE_EXTENSION_MAPPER.get(file.content_type)
-    logger.info(f"detection extension: {extension} ({file.content_type})")
+    logger.info(f"detected extension: {extension} ({file.content_type})")
 
-    # md5 = hashlib.md5(data).hexdigest()
-    # tmp_filename = f"/tmp/{md5}.{extension}"
     candidate = next(tempfile._get_candidate_names())
     tmp_filename = f"/tmp/{candidate}.{extension}"
     logger.info(f"saving temp file on local storage => {tmp_filename}")
@@ -324,53 +311,21 @@ def plain_text_extractor(
     logger.info(f"removing file => {tmp_filename}")
     os.remove(tmp_filename)
     doc_text = get_element(processed[0], ["data", "doc.text"], "")
+
     return Document(
         document=[text.strip() for text in doc_text.split("\n") if text.strip()],
     )
 
 
-@api.post(
-    "/document-extract/docx2html",
-    response_model=Document,
-    tags=["documents"],
-    deprecated=True,
-)
-async def html_extractor(
-    file: UploadFile,
-) -> Document:
-    logger.info(f"receiving => {file.filename}")
-
-    with tempfile.NamedTemporaryFile(dir="/tmp", suffix=".docx") as temp:
-        # read file content
-        binary_content = await file.read()
-        temp.write(binary_content)
-        temp.flush()
-
-        content = docx2html(temp.name)
-
-    return Document(**content)
-
-
-@api.post("/docx2odt", tags=["documents"])
-def doc2odt(file: UploadFile):
-    with tempfile.NamedTemporaryFile(dir="/tmp", suffix=".docx") as temp:
-        temp.write(file.file.read())
-        temp.flush()
-        cmd = "libreoffice --headless --convert-to odt --outdir /tmp {file}"
-        getoutput(cmd.format(file=temp.name))
-        odt = temp.name.replace(".docx", ".odt")
-
-        return FileResponse(
-            odt,
-            background=BackgroundTask(os.remove, odt),
-            media_type="application/octet-stream",
-            filename=odt,
-        )
-
-
 if __name__ == "__main__":
     # download the necessary data
     logger.info("Loading pipelines and exit.")
-    AymurAIPipeline.load("/resources/pipelines/production/doc-extraction")
-    AymurAIPipeline.load("/resources/pipelines/production/flair-anonymizer")
-    AymurAIPipeline.load("/resources/pipelines/production/full-paragraph")
+    AymurAIPipeline.load(
+        os.path.join("resources", "pipelines", "production", "doc-extraction")
+    )
+    AymurAIPipeline.load(
+        os.path.join("resources", "pipelines", "production", "flair-anonymizer")
+    )
+    AymurAIPipeline.load(
+        os.path.join("resources", "pipelines", "production", "full-paragraph")
+    )
