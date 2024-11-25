@@ -100,7 +100,7 @@ async def index():
 
 api.mount(
     "/static",
-    StaticFiles(directory=os.path.join("resources", "static")),
+    StaticFiles(directory=os.path.join("resources", "api", "static")),
     name="static",
 )
 
