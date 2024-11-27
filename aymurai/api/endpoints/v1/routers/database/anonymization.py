@@ -1,12 +1,17 @@
-import uuid
-
+from pydantic import UUID5
 from fastapi import Body, Depends
 from sqlmodel import Session, select
-from fastapi.routing import APIRouter
+from fastapi.routing import APIRouter, HTTPException
 
 from aymurai.database.utils import text_to_uuid
 from aymurai.database.session import get_session
-from aymurai.meta.api_interfaces import SuccessResponse
+from aymurai.meta.api_interfaces import TextRequest, SuccessResponse
+from aymurai.database.crud.anonymization.paragraph import (
+    paragraph_read,
+    paragraph_create,
+    paragraph_delete,
+    paragraph_update,
+)
 from aymurai.database.schema import (
     AnonymizationParagraph,
     AnonymizationParagraphRead,
@@ -18,7 +23,7 @@ router = APIRouter()
 
 
 @router.post("/paragraph", response_model=AnonymizationParagraphRead)
-async def paragraph_add(
+async def api_paragraph_create(
     paragraph_in: AnonymizationParagraphCreate,
     session: Session = Depends(get_session),
 ):
@@ -26,27 +31,18 @@ async def paragraph_add(
     Add a new paragraph to the database
     """
 
-    paragraph = AnonymizationParagraph(**paragraph_in.model_dump())
-
-    session.add(paragraph)
-    session.commit()
-    session.refresh(paragraph)
-
+    paragraph = paragraph_create(paragraph_in, session)
     return paragraph
 
 
 @router.get("/paragraph", response_model=AnonymizationParagraphRead | None)
-async def paragraph_get_by_text(
-    text: str,
+async def paragraph_read_by_text(
+    data: TextRequest,
     session: Session = Depends(get_session),
 ) -> AnonymizationParagraphRead | None:
-    paragraph_id = text_to_uuid(text)
+    paragraph_id = text_to_uuid(data.text)
 
-    statement = select(AnonymizationParagraph).where(
-        AnonymizationParagraph.id == paragraph_id
-    )
-    data = session.exec(statement).first()
-    return data
+    return paragraph_read(paragraph_id, session)
 
 
 @router.post("/paragraph/text_to_uuid")
@@ -55,8 +51,8 @@ async def paragraph_get_uuid(text: str = Body(...)) -> str:
 
 
 @router.get("/paragraph/{paragraph_id}", response_model=AnonymizationParagraphRead)
-async def paragraph_get(
-    paragraph_id: uuid.UUID,
+async def api_paragraph_read(
+    paragraph_id: UUID5,
     session: Session = Depends(get_session),
 ) -> AnonymizationParagraphRead:
     statement = select(AnonymizationParagraph).where(
@@ -67,37 +63,27 @@ async def paragraph_get(
 
 
 @router.put("/paragraph/{paragraph_id}", response_model=AnonymizationParagraphRead)
-async def paragraph_update(
-    paragraph_id: uuid.UUID,
+async def api_paragraph_update(
+    paragraph_id: UUID5,
     data: AnonymizationParagraphUpdate,
     session: Session = Depends(get_session),
 ) -> AnonymizationParagraphRead:
-    statement = select(AnonymizationParagraph).where(
-        AnonymizationParagraph.id == paragraph_id
-    )
-    data_db = session.exec(statement).first()
-
-    for field, value in data.model_dump(exclude_unset=True).items():
-        setattr(data_db, field, value)
-
-    session.add(data_db)
-    session.commit()
-    session.refresh(data_db)
-
-    return data_db
+    try:
+        paragraph = paragraph_update(paragraph_id, data, session)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    return paragraph
 
 
 @router.delete("/paragraph/{paragraph_id}", response_model=SuccessResponse)
-async def paragraph_delete(
-    paragraph_id: uuid.UUID,
+async def api_paragraph_delete(
+    paragraph_id: UUID5,
     session: Session = Depends(get_session),
 ):
-    statement = select(AnonymizationParagraph).where(
-        AnonymizationParagraph.id == paragraph_id
-    )
-    data = session.exec(statement).first()
-    session.delete(data)
-    session.commit()
+    try:
+        paragraph_delete(paragraph_id, session)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
 
     return SuccessResponse(id=paragraph_id, msg="Item deleted")
 

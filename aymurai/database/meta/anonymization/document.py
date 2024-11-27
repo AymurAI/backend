@@ -6,13 +6,17 @@ from pydantic import BaseModel
 from sqlmodel import Field, SQLModel, Relationship
 from sqlalchemy import Column, DateTime, func, text
 
+from aymurai.database.meta.anonymization.document_paragraph import (
+    AnonymizationDocumentParagraph,
+)
+
 if TYPE_CHECKING:
     from aymurai.database.meta.anonymization.paragraph import AnonymizationParagraph
 
 
 class AnonymizationDocument(SQLModel, table=True):
     __tablename__ = "anonymization_document"
-    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    id: uuid.UUID | None = Field(None, primary_key=True)
     created_at: datetime = Field(
         sa_column_kwargs={"server_default": text("CURRENT_TIMESTAMP")}
     )
@@ -21,22 +25,21 @@ class AnonymizationDocument(SQLModel, table=True):
     )
 
     name: str = Field(nullable=False)
-    # paragraphs: list["AnonymizationParagraph"] = Relationship(
-    #     link_model="AnonymizationDocumentParagraph"
-    # )
-
-
-class AnonymizationDocumentParagraph(SQLModel, table=True):
-    __tablename__ = "anonymization_document_paragraph"
-    document_id: uuid.UUID = Field(
-        foreign_key="anonymization_document.id",
-        primary_key=True,
+    paragraphs: list["AnonymizationParagraph"] = Relationship(
+        back_populates="documents", link_model=AnonymizationDocumentParagraph
     )
-    paragraph_id: uuid.UUID = Field(foreign_key="anonymization_paragraph.id")
-    order: int | None = Field(nullable=True)
+
+
+class AnonymizationDocumentCreate(BaseModel):
+    name: str
+    # paragraphs: list["AnonymizationParagraph"]
+
+
+class AnonymizationDocumentUpdate(BaseModel):
+    name: str | None = None
 
 
 class AnonymizationDocumentRead(BaseModel):
     id: uuid.UUID
     name: str
-    paragraphs: list[uuid.UUID] | None
+    # paragraphs: list[uuid.UUID] | None

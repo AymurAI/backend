@@ -8,4 +8,8 @@ router = APIRouter()
 router.include_router(datapublic.router, prefix="/database/datapublic")
 router.include_router(anonymization.router, prefix="/database/anonymization")
 
-router.include_router(anonymizer.router, prefix="/anonymizer")
+router.include_router(
+    anonymizer.router,
+    prefix="/anonymizer",
+    tags=["api/v1/anonymization/model"],
+)

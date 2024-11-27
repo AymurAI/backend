@@ -125,3 +125,4 @@ cache_dir
 
 resources
 .env
+.xml*

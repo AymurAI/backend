@@ -1,21 +1,28 @@
 import uuid
 from datetime import datetime
 
-from typing_extensions import Self
-from sqlmodel import Field, SQLModel
 from pydantic import BaseModel, model_validator
+from typing_extensions import TYPE_CHECKING, Self
+from sqlmodel import Field, SQLModel, Relationship
 from sqlalchemy import JSON, Column, DateTime, func, text
 
 from aymurai.database.utils import text_to_uuid
 from aymurai.meta.api_interfaces import DocLabel
+
+if TYPE_CHECKING:
+    from aymurai.database.meta.anonymization.document import AnonymizationDocument
+
+from aymurai.database.meta.anonymization.document_paragraph import (
+    AnonymizationDocumentParagraph,
+)
 
 
 class AnonymizationParagraphBase(SQLModel):
     id: uuid.UUID | None = Field(None, primary_key=True)
 
     text: str = Field(nullable=False)
-    prediction: list[DocLabel] | None = Field(sa_column=Column(JSON))
-    validation: list[DocLabel] | None = Field(sa_column=Column(JSON))
+    prediction: list[DocLabel] | None = Field(None, sa_column=Column(JSON))
+    validation: list[DocLabel] | None = Field(None, sa_column=Column(JSON))
 
     @model_validator(mode="after")
     def validate_text(self) -> Self:
@@ -33,6 +40,10 @@ class AnonymizationParagraph(AnonymizationParagraphBase, table=True):
     )
     updated_at: datetime | None = Field(
         sa_column=Column(DateTime(), onupdate=func.now())
+    )
+    documents: list["AnonymizationDocument"] = Relationship(
+        back_populates="paragraphs",
+        link_model=AnonymizationDocumentParagraph,
     )
 
 

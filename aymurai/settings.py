@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+from functools import cached_property
 
 from dotenv import load_dotenv
 from pydantic_core import MultiHostUrl
@@ -55,10 +56,16 @@ class Settings(BaseSettings):
 
     SQLALCHEMY_DATABASE_URI: SQLiteDNS = "sqlite:////resources/cache/sqlite/database.db"
 
+    RESOURCES_BASEPATH: str = "/resources"
+
     # Alembic Config for running migrations
     ALEMBIC_INI_PATH: FilePath = PARENT / "alembic.ini"
 
     ENV: str | None = None
+
+    # Cachetools settings
+    MEMORY_CACHE_MAXSIZE: int = 1
+    MEMORY_CACHE_TTL: int = 60
 
 
 load_env()
