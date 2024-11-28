@@ -36,39 +36,6 @@ def document_create(
     session.commit()
     session.refresh(document)
 
-    # paragraph_links = [
-    #     AnonymizationDocumentParagraph(
-    #         document_id=document.id, paragraph_id=paragraph.id, order=i
-    #     )
-    #     for i, paragraph in enumerate(document_in.paragraphs)
-    # ]
-    # session.add_all(paragraph_links)
-    # session.commit()
-    # for i, paragraph in enumerate(document_in.paragraphs):
-    #     link = AnonymizationDocumentParagraph(
-    #         document_id=document.id, paragraph_id=paragraph.id, order=i
-    #     )
-    #     session.add(link)
-    #     session.commit()
-
-    # paragraph_links = []
-    # for i, paragraph_in in enumerate(document_in.paragraphs):
-    #     statement = (
-    #         select(AnonymizationDocumentParagraph)
-    #         .where(AnonymizationDocumentParagraph.document_id == document.id)
-    #         .where(AnonymizationDocumentParagraph.paragraph_id == paragraph_in.id)
-    #     )
-    #     link = session.exec(statement).first()
-    #     if not link:
-    #         link = AnonymizationDocumentParagraph(
-    #             document_id=document.id, paragraph_id=paragraph_in.id, order=i
-    #         )
-
-    #     paragraph_links.append(link)
-
-    # session.add_all(paragraph_links)
-    # session.commit()
-
     return document
 
 

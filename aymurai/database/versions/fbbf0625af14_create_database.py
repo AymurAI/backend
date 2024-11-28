@@ -1,16 +1,16 @@
 """Create database
 
 Revision ID: fbbf0625af14
-Revises: 
-Create Date: 2024-11-13 02:50:11.318043
+Revises:
+Create Date: 2024-11-27 18:51:21.220169
 
 """
-from typing import Sequence, Union
 
-from alembic import op
-import sqlalchemy as sa
+from typing import Union, Sequence
+
 import sqlmodel
-
+import sqlalchemy as sa
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "fbbf0625af14"
@@ -253,7 +253,7 @@ def upgrade() -> None:
             ["paragraph_id"],
             ["anonymization_paragraph.id"],
         ),
-        sa.PrimaryKeyConstraint("document_id"),
+        sa.PrimaryKeyConstraint("document_id", "paragraph_id"),
     )
     # ### end Alembic commands ###
 

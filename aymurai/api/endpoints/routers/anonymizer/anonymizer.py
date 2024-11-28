@@ -5,28 +5,30 @@ from threading import Lock
 from subprocess import getoutput
 
 import torch
-import cachetools
-from sqlmodel import Session, select
+from sqlmodel import Session
 from fastapi.routing import APIRouter
 from fastapi.responses import FileResponse
 from starlette.background import BackgroundTask
 from fastapi import Body, Form, Depends, UploadFile
 
 from aymurai.logger import get_logger
-from aymurai.settings import settings
 from aymurai.utils.misc import get_element
-from aymurai.pipeline import AymurAIPipeline
+from aymurai.api.utils import load_pipeline
 from aymurai.database.session import get_session
 from aymurai.text.anonymization import DocAnonymizer
 from aymurai.database.utils import data_to_uuid, text_to_uuid
 from aymurai.text.extraction import MIMETYPE_EXTENSION_MAPPER
 from aymurai.database.crud.anonymization.document import document_create
-from aymurai.utils.cache import is_cached, cache_load, cache_save, get_cache_key
 from aymurai.meta.api_interfaces import (
     DocLabel,
     TextRequest,
     DocumentAnnotations,
     DocumentInformation,
+)
+from aymurai.database.schema import (
+    AnonymizationParagraph,
+    AnonymizationParagraphCreate,
+    AnonymizationParagraphUpdate,
 )
 from aymurai.database.crud.anonymization.paragraph import (
     paragraph_read,
@@ -34,41 +36,19 @@ from aymurai.database.crud.anonymization.paragraph import (
     paragraph_update,
     paragraph_batch_create_update,
 )
-from aymurai.database.schema import (
-    AnonymizationDocument,
-    AnonymizationParagraph,
-    AnonymizationDocumentCreate,
-    AnonymizationParagraphCreate,
-    AnonymizationParagraphUpdate,
-)
 
 logger = get_logger(__name__)
 
 
-mem_cache = cachetools.TTLCache(
-    maxsize=settings.MEMORY_CACHE_MAXSIZE,
-    ttl=settings.MEMORY_CACHE_MAXSIZE,
-    getsizeof=lambda _: 0,
-)
-
 torch.set_num_threads = 100  # FIXME: polemic ?
 pipeline_lock = Lock()
-
-
-@cachetools.cached(cache=mem_cache)
-def load_pipeline(path: str):
-    return AymurAIPipeline.load(path)
 
 
 router = APIRouter()
 
 
 # MARK: Predict
-@router.post(
-    "/predict",
-    response_model=DocumentInformation,
-    tags=["anonymizer"],
-)
+@router.post("/predict", response_model=DocumentInformation)
 async def anonymizer_paragraph_predict(
     text_request: TextRequest = Body(
         {"text": "Acusado: Ramiro Marrón DNI 34.555.666."}
@@ -129,11 +109,7 @@ async def anonymizer_paragraph_predict(
 
 
 # MARK: Validate
-@router.post(
-    "/validation",
-    response_model=list[DocLabel] | None,
-    tags=["anonymizer"],
-)
+@router.post("/validation", response_model=list[DocLabel] | None)
 async def anonymizer_get_paragraph_validation(
     text_request: TextRequest = Body(
         {"text": "Acusado: Ramiro Marrón DNI 34.555.666."}
@@ -155,7 +131,7 @@ async def anonymizer_get_paragraph_validation(
 
 
 # MARK: Document Compilation
-@router.post("/compile")
+@router.post("/anonymize-document")
 async def anonymizer_compile_document(
     file: UploadFile,
     annotations: str = Form(...),
@@ -198,16 +174,10 @@ async def anonymizer_compile_document(
     ]
     paragraphs = paragraph_batch_create_update(paragraphs, session=session)
 
-    # Add document to the database
-    # document_in = AnonymizationDocumentCreate(
-    #     # id=data_to_uuid(data),
-    #     name=file.filename,
-    #     paragraphs=paragraphs,
-    # )
-    document = document_create(
+    document_create(
         id=data_to_uuid(data),
         name=file.filename,
-        paragraphs=paragraphs[:2],
+        paragraphs=paragraphs,
         session=session,
         override=True,
     )
