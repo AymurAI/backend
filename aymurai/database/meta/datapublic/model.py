@@ -1,5 +1,5 @@
-# ruff: noqa: E501
 from datetime import date, time
+import uuid
 
 from sqlmodel import Field, SQLModel
 
@@ -180,8 +180,8 @@ class DataPublicBase(SQLModel):
 
 
 class DataPublic(DataPublicBase, table=True):
-    id: int | None = Field(
-        None,
+    id: uuid.UUID | None = Field(
+        default_factory=uuid.uuid4,
         primary_key=True,
         description="Número único dentro del Set de Datos.",
     )

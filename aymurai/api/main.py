@@ -76,7 +76,7 @@ async def index():
 
 api.mount(
     "/static",
-    StaticFiles(directory=os.path.join("resources", "static")),
+    StaticFiles(directory=os.path.join(RESOURCES_BASEPATH, "static")),
     name="static",
 )
 
@@ -116,11 +116,11 @@ if __name__ == "__main__":
     # download the necessary data
     logger.info("Loading pipelines and exit.")
     AymurAIPipeline.load(
-        os.path.join("resources", "pipelines", "production", "doc-extraction")
+        os.path.join(RESOURCES_BASEPATH, "pipelines", "production", "doc-extraction")
     )
     AymurAIPipeline.load(
-        os.path.join("resources", "pipelines", "production", "flair-anonymizer")
+        os.path.join(RESOURCES_BASEPATH, "pipelines", "production", "flair-anonymizer")
     )
     AymurAIPipeline.load(
-        os.path.join("resources", "pipelines", "production", "full-paragraph")
+        os.path.join(RESOURCES_BASEPATH, "pipelines", "production", "full-paragraph")
     )

@@ -5,24 +5,24 @@ from sqlmodel import Session, select
 from aymurai.logger import get_logger
 from aymurai.database.utils import text_to_uuid
 from aymurai.database.schema import (
-    AnonymizationParagraph,
-    AnonymizationParagraphCreate,
-    AnonymizationParagraphUpdate,
+    DataPublicParagraph,
+    DataPublicParagraphCreate,
+    DataPublicParagraphUpdate,
 )
 
 logger = get_logger(__name__)
 
 
-def anonymization_paragraph_create(
-    paragraph_in: AnonymizationParagraphCreate,
+def datapublic_paragraph_create(
+    paragraph_in: DataPublicParagraphCreate,
     session: Session,
     override: bool = False,
-) -> AnonymizationParagraph:
-    paragraph = AnonymizationParagraph(**paragraph_in.model_dump())
+) -> DataPublicParagraph:
+    paragraph = DataPublicParagraph(**paragraph_in.model_dump())
 
     if override:
-        statement = select(AnonymizationParagraph).where(
-            AnonymizationParagraph.id == paragraph.id
+        statement = select(DataPublicParagraph).where(
+            DataPublicParagraph.id == paragraph.id
         )
         existing = session.exec(statement).first() or paragraph
 
@@ -35,24 +35,24 @@ def anonymization_paragraph_create(
     return paragraph
 
 
-def anonymization_paragraph_read(
+def datapublic_paragraph_read(
     paragraph_id: uuid.UUID,
     session: Session,
-) -> AnonymizationParagraph | None:
-    statement = select(AnonymizationParagraph).where(
-        AnonymizationParagraph.id == paragraph_id
+) -> DataPublicParagraph | None:
+    statement = select(DataPublicParagraph).where(
+        DataPublicParagraph.id == paragraph_id
     )
     data = session.exec(statement).first()
     return data
 
 
-def anonymization_paragraph_update(
+def datapublic_paragraph_update(
     paragraph_id: uuid.UUID,
-    paragraph_in: AnonymizationParagraphUpdate,
+    paragraph_in: DataPublicParagraphUpdate,
     session: Session,
-) -> AnonymizationParagraph:
-    statement = select(AnonymizationParagraph).where(
-        AnonymizationParagraph.id == paragraph_id
+) -> DataPublicParagraph:
+    statement = select(DataPublicParagraph).where(
+        DataPublicParagraph.id == paragraph_id
     )
     paragraph = session.exec(statement).first()
 
@@ -62,12 +62,12 @@ def anonymization_paragraph_update(
     for field, value in paragraph_in.model_dump(exclude_unset=True).items():
         setattr(paragraph, field, value)
 
-    return anonymization_paragraph_create(paragraph, session)
+    return datapublic_paragraph_create(paragraph, session)
 
 
-def anonymization_paragraph_delete(paragraph_id: uuid.UUID, session: Session):
-    statement = select(AnonymizationParagraph).where(
-        AnonymizationParagraph.id == paragraph_id
+def datapublic_paragraph_delete(paragraph_id: uuid.UUID, session: Session):
+    statement = select(DataPublicParagraph).where(
+        DataPublicParagraph.id == paragraph_id
     )
     paragraph = session.exec(statement).first()
 
@@ -80,27 +80,26 @@ def anonymization_paragraph_delete(paragraph_id: uuid.UUID, session: Session):
     return
 
 
-# FIXME: This can be CLEARLY optimized
-def anonymization_paragraph_batch_create_update(
-    paragraphs_in: list[AnonymizationParagraphCreate], session: Session
-) -> list[AnonymizationParagraph]:
+def datapublic_paragraph_batch_create_update(
+    paragraphs_in: list[DataPublicParagraphCreate], session: Session
+) -> list[DataPublicParagraph]:
     paragraphs = []
 
     for paragraph_in in paragraphs_in:
         paragraph_id = text_to_uuid(paragraph_in.text)
 
-        statement = select(AnonymizationParagraph).where(
-            AnonymizationParagraph.id == paragraph_id
+        statement = select(DataPublicParagraph).where(
+            DataPublicParagraph.id == paragraph_id
         )
         paragraph = session.exec(statement).first()
         if paragraph:
-            update = AnonymizationParagraphUpdate(**paragraph_in.model_dump())
+            update = DataPublicParagraphUpdate(**paragraph_in.model_dump())
 
             for field, value in update.model_dump(exclude_unset=True).items():
                 setattr(paragraph, field, value)
 
         else:
-            paragraph = AnonymizationParagraph(**paragraph_in.model_dump())
+            paragraph = DataPublicParagraph(**paragraph_in.model_dump())
 
         paragraphs.append(paragraph)
 

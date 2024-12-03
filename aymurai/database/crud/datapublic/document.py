@@ -4,26 +4,26 @@ from sqlmodel import Session, select
 
 from aymurai.logger import get_logger
 from aymurai.database.schema import (
-    AnonymizationDocument,
-    AnonymizationParagraph,
-    AnonymizationDocumentUpdate,
+    DataPublicDocument,
+    DataPublicParagraph,
+    DataPublicDocumentUpdate,
 )
 
 logger = get_logger(__name__)
 
 
-def anonymization_document_create(
+def datapublic_document_create(
     id: uuid.UUID,
     name: str,
-    paragraphs: list[AnonymizationParagraph],
+    paragraphs: list[DataPublicParagraph],
     session: Session,
     override: bool = False,
-) -> AnonymizationDocument:
-    document = AnonymizationDocument(id=id, name=name, paragraphs=paragraphs)
+) -> DataPublicDocument:
+    document = DataPublicDocument(id=id, name=name, paragraphs=paragraphs)
 
     if override:
-        statement = select(AnonymizationDocument).where(
-            AnonymizationDocument.id == document.id
+        statement = select(DataPublicDocument).where(
+            DataPublicDocument.id == document.id
         )
         existing = session.exec(statement).first()
 
@@ -37,25 +37,21 @@ def anonymization_document_create(
     return document
 
 
-def anonymization_document_read(
+def datapublic_document_read(
     document_id: uuid.UUID,
     session: Session,
-) -> AnonymizationDocument | None:
-    statement = select(AnonymizationDocument).where(
-        AnonymizationDocument.id == document_id
-    )
+) -> DataPublicDocument | None:
+    statement = select(DataPublicDocument).where(DataPublicDocument.id == document_id)
     data = session.exec(statement).first()
     return data
 
 
-def anonymization_document_update(
+def datapublic_document_update(
     document_id: uuid.UUID,
-    document_in: AnonymizationDocumentUpdate,
+    document_in: DataPublicDocumentUpdate,
     session: Session,
-) -> AnonymizationDocument:
-    statement = select(AnonymizationDocument).where(
-        AnonymizationDocument.id == document_id
-    )
+) -> DataPublicDocument:
+    statement = select(DataPublicDocument).where(DataPublicDocument.id == document_id)
     document = session.exec(statement).first()
 
     if not document:
@@ -64,13 +60,11 @@ def anonymization_document_update(
     for field, value in document_in.model_dump(exclude_unset=True).items():
         setattr(document, field, value)
 
-    return anonymization_document_create(document, session)
+    return datapublic_document_create(document, session)
 
 
-def anonymization_document_delete(document_id: uuid.UUID, session: Session):
-    statement = select(AnonymizationDocument).where(
-        AnonymizationDocument.id == document_id
-    )
+def datapublic_document_delete(document_id: uuid.UUID, session: Session):
+    statement = select(DataPublicDocument).where(DataPublicDocument.id == document_id)
     document = session.exec(statement).first()
 
     if not document:

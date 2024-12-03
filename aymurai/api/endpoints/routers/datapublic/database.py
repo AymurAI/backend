@@ -2,16 +2,19 @@ import os
 import tempfile
 
 import pandas as pd
+from pydantic import UUID5
 from sqlmodel import Session, select
 from fastapi.routing import APIRouter
-from fastapi import Depends, UploadFile
 from fastapi.responses import FileResponse
 from starlette.background import BackgroundTask
+from fastapi import Depends, UploadFile, HTTPException
 
 from aymurai.logger import get_logger
 from aymurai.database.schema import DataPublic
 from aymurai.database.session import get_session
+from aymurai.meta.api_interfaces import SuccessResponse
 from aymurai.api.endpoints.meta.database import ExportFormat
+from aymurai.database.meta.datapublic.model import DataPublicRead
 
 logger = get_logger(__name__)
 
@@ -35,7 +38,7 @@ async def database_export(
             data.to_json(temp.name, orient="records")
             extension = "json"
         else:
-            raise ValueError("Invalid export format")
+            raise HTTPException(status_code=400, detail="Invalid export format")
 
         export_filename = temp.name
 
@@ -47,9 +50,38 @@ async def database_export(
     )
 
 
-@router.post("/import")
+@router.post("/import", response_model=SuccessResponse)
 async def database_import(
     csv: UploadFile,
     session: Session = Depends(get_session),
-):
-    pass
+) -> SuccessResponse:
+    with tempfile.NamedTemporaryFile(suffix=".csv") as tmp:
+        data = csv.file.read()
+        tmp.write(data)
+
+        df = pd.read_csv(tmp.name)
+
+    try:
+        with session.begin():
+            for _, row in df.iterrows():
+                data = DataPublic(**row)
+                session.add(data)
+
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    return SuccessResponse(message="Data imported successfully")
+
+
+@router.get("/document/{document_id}", response_model=DataPublicRead)
+async def datapublic_get_row(
+    document_id: UUID5,
+    session: Session = Depends(get_session),
+) -> DataPublicRead:
+    statement = select(DataPublic).where(DataPublic.id == document_id)
+    data = session.exec(statement).first()
+
+    if not data:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    return DataPublicRead.model_validate(data)

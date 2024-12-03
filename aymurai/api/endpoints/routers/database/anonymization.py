@@ -6,17 +6,17 @@ from fastapi.routing import APIRouter, HTTPException
 from aymurai.database.utils import text_to_uuid
 from aymurai.database.session import get_session
 from aymurai.meta.api_interfaces import TextRequest, SuccessResponse
-from aymurai.database.crud.anonymization.paragraph import (
-    paragraph_read,
-    paragraph_create,
-    paragraph_delete,
-    paragraph_update,
-)
 from aymurai.database.schema import (
     AnonymizationParagraph,
     AnonymizationParagraphRead,
     AnonymizationParagraphCreate,
     AnonymizationParagraphUpdate,
+)
+from aymurai.database.crud.anonymization.paragraph import (
+    anonymization_paragraph_read,
+    anonymization_paragraph_create,
+    anonymization_paragraph_delete,
+    anonymization_paragraph_update,
 )
 
 router = APIRouter()
@@ -31,7 +31,7 @@ async def api_paragraph_create(
     Add a new paragraph to the database
     """
 
-    paragraph = paragraph_create(paragraph_in, session)
+    paragraph = anonymization_paragraph_create(paragraph_in, session)
     return paragraph
 
 
@@ -42,7 +42,7 @@ async def paragraph_read_by_text(
 ) -> AnonymizationParagraphRead | None:
     paragraph_id = text_to_uuid(data.text)
 
-    return paragraph_read(paragraph_id, session)
+    return anonymization_paragraph_read(paragraph_id, session)
 
 
 @router.post("/paragraph/text_to_uuid")
@@ -69,7 +69,7 @@ async def api_paragraph_update(
     session: Session = Depends(get_session),
 ) -> AnonymizationParagraphRead:
     try:
-        paragraph = paragraph_update(paragraph_id, data, session)
+        paragraph = anonymization_paragraph_update(paragraph_id, data, session)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     return paragraph
@@ -81,7 +81,7 @@ async def api_paragraph_delete(
     session: Session = Depends(get_session),
 ):
     try:
-        paragraph_delete(paragraph_id, session)
+        anonymization_paragraph_delete(paragraph_id, session)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 

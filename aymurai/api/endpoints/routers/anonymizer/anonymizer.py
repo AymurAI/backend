@@ -12,13 +12,14 @@ from starlette.background import BackgroundTask
 from fastapi import Body, Form, Depends, UploadFile
 
 from aymurai.logger import get_logger
+from aymurai.settings import settings
 from aymurai.utils.misc import get_element
 from aymurai.api.utils import load_pipeline
 from aymurai.database.session import get_session
 from aymurai.text.anonymization import DocAnonymizer
 from aymurai.database.utils import data_to_uuid, text_to_uuid
 from aymurai.text.extraction import MIMETYPE_EXTENSION_MAPPER
-from aymurai.database.crud.anonymization.document import document_create
+from aymurai.database.crud.anonymization.document import anonymization_document_create
 from aymurai.meta.api_interfaces import (
     DocLabel,
     TextRequest,
@@ -31,15 +32,16 @@ from aymurai.database.schema import (
     AnonymizationParagraphUpdate,
 )
 from aymurai.database.crud.anonymization.paragraph import (
-    paragraph_read,
-    paragraph_create,
-    paragraph_update,
-    paragraph_batch_create_update,
+    anonymization_paragraph_read,
+    anonymization_paragraph_create,
+    anonymization_paragraph_update,
+    anonymization_paragraph_batch_create_update,
 )
 
 logger = get_logger(__name__)
 
 
+RESOURCES_BASEPATH = settings.RESOURCES_BASEPATH
 torch.set_num_threads = 100  # FIXME: polemic ?
 pipeline_lock = Lock()
 
@@ -71,7 +73,7 @@ async def anonymizer_paragraph_predict(
     text = text_request.text
     paragraph_id = text_to_uuid(text)
 
-    cached_prediction = paragraph_read(paragraph_id, session=session)
+    cached_prediction = anonymization_paragraph_read(paragraph_id, session=session)
     if cached_prediction and use_cache:
         logger.info(f"cache loaded from key: {paragraph_id}")
         logger.info(f"{cached_prediction}")
@@ -81,7 +83,9 @@ async def anonymizer_paragraph_predict(
 
     logger.info("Running prediction")
     item = [{"path": "empty", "data": {"doc.text": text_request.text}}]
-    pipeline = load_pipeline("/resources/pipelines/production/flair-anonymizer")
+    pipeline = load_pipeline(
+        os.path.join(RESOURCES_BASEPATH, "pipelines", "production", "flair-anonymizer")
+    )
 
     with pipeline_lock:
         processed = pipeline.preprocess(item)
@@ -92,18 +96,19 @@ async def anonymizer_paragraph_predict(
         document=get_element(processed[0], ["data", "doc.text"]) or "",
         labels=get_element(processed[0], ["predictions", "entities"]) or [],
     )
+
     logger.info(f"saving in cache: {new_prediction}")
     if use_cache:
         if not cached_prediction:
             paragraph = AnonymizationParagraphCreate(
                 text=new_prediction.document, prediction=new_prediction.labels or None
             )
-            paragraph_create(paragraph, session=session)
+            anonymization_paragraph_create(paragraph, session=session)
         else:
             update = AnonymizationParagraphUpdate(
                 prediction=new_prediction.labels or None
             )
-            paragraph_update(update, session=session)
+            anonymization_paragraph_update(update, session=session)
 
     return new_prediction
 
@@ -114,7 +119,7 @@ async def anonymizer_get_paragraph_validation(
     text_request: TextRequest = Body(
         {"text": "Acusado: Ramiro Marrón DNI 34.555.666."}
     ),
-    db: Session = Depends(get_session),
+    session: Session = Depends(get_session),
 ) -> list[DocLabel] | None:
     """
     Get the validation labels for a given paragraph text.
@@ -123,7 +128,7 @@ async def anonymizer_get_paragraph_validation(
     text = text_request.text
     paragraph_id = text_to_uuid(text)
 
-    paragraph = paragraph_read(paragraph_id)
+    paragraph = anonymization_paragraph_read(paragraph_id, session=session)
     if not paragraph:
         return None
 
@@ -158,8 +163,8 @@ async def anonymizer_compile_document(
         tmp_file.write(data)
     logger.info(f"saved temp file on local storage => {tmp_filename}")
 
-    annots = json.loads(annotations)
-    annots = DocumentAnnotations(data=annots)
+    annots_json = json.loads(annotations)
+    annots = DocumentAnnotations.model_validate(annots_json)
     logger.info(f"processing annotations => {annots}")
 
     # Add paragraphs to the database
@@ -170,11 +175,13 @@ async def anonymizer_compile_document(
             text=paragraph.document,
             validation=paragraph.labels or [],
         )
-        for paragraph in annots.data
+        for paragraph in annots
     ]
-    paragraphs = paragraph_batch_create_update(paragraphs, session=session)
+    paragraphs = anonymization_paragraph_batch_create_update(
+        paragraphs, session=session
+    )
 
-    document_create(
+    anonymization_document_create(
         id=data_to_uuid(data),
         name=file.filename,
         paragraphs=paragraphs,
