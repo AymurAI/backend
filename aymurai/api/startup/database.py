@@ -1,3 +1,4 @@
+import os
 import logging
 
 from sqlmodel import select
@@ -20,6 +21,13 @@ wait_seconds = 1
 )
 def check_db_connection():
     logger.info(f"Checking database connection to {settings.SQLALCHEMY_DATABASE_URI}")
+
+    if (db_uri := str(settings.SQLALCHEMY_DATABASE_URI)).startswith("sqlite"):
+        db_file = db_uri.replace("sqlite:///", "")
+        if not os.path.exists(db_file):
+            logger.info(f"Creating SQLite database at {db_file}")
+            os.makedirs(os.path.dirname(db_file), exist_ok=True)
+
     try:
         session = next(get_session())
         session.exec(select(1))
