@@ -11,6 +11,7 @@ from aymurai.database.meta.datapublic.document_paragraph import (
 )
 
 if TYPE_CHECKING:
+    from aymurai.database.meta.datapublic.dataset import DataPublicDataset
     from aymurai.database.meta.datapublic.paragraph import DataPublicParagraph
 
 
@@ -29,6 +30,8 @@ class DataPublicDocument(SQLModel, table=True):
         back_populates="documents",
         link_model=DataPublicDocumentParagraph,
     )
+
+    dataset: "DataPublicDataset" = Relationship(back_populates="document")
 
 
 class DataPublicDocumentCreate(BaseModel):

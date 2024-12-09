@@ -2,7 +2,7 @@
 
 Revision ID: fbbf0625af14
 Revises:
-Create Date: 2024-12-09 00:51:12.342203
+Create Date: 2024-12-09 05:03:35.991097
 
 """
 
@@ -51,10 +51,11 @@ def upgrade() -> None:
     )
     op.create_table(
         "datapublic_dataset",
+        sa.Column("id", sa.Uuid(), nullable=False),
         sa.Column("nro_registro", sa.Integer(), nullable=True),
         sa.Column("fecha_resolucion", sa.Date(), nullable=True),
         sa.Column("n_expte_eje", sa.Integer(), nullable=True),
-        sa.Column("cuij", sa.Integer(), nullable=True),
+        sa.Column("cuij", sqlmodel.sql.sqltypes.AutoString(), nullable=True),
         sa.Column("firma", sqlmodel.sql.sqltypes.AutoString(), nullable=True),
         sa.Column(
             "materia",
@@ -241,7 +242,6 @@ def upgrade() -> None:
         sa.Column("hora_de_cierre", sa.Time(), nullable=True),
         sa.Column("duracion", sa.Interval(), nullable=True),
         sa.Column("link", sqlmodel.sql.sqltypes.AutoString(), nullable=True),
-        sa.Column("id", sa.Uuid(), nullable=False),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_table(

@@ -1,7 +1,8 @@
 import uuid
+from typing import TYPE_CHECKING
 from datetime import date, time, timedelta
 
-from sqlmodel import Field, SQLModel
+from sqlmodel import Field, SQLModel, Relationship
 from pydantic import field_validator, model_validator
 
 from aymurai.text.normalize import document_normalize
@@ -16,8 +17,11 @@ from .categories import (
     FrecuenciaEpisodios,
 )
 
+if TYPE_CHECKING:
+    from aymurai.database.meta.datapublic.document import DataPublicDocument
 
-class DataPublicBase(SQLModel):
+
+class DataPublicDatasetBase(SQLModel):
     id: uuid.UUID | None = Field(
         default_factory=uuid.uuid4,
         primary_key=True,
@@ -212,17 +216,19 @@ class DataPublicBase(SQLModel):
         return data
 
 
-class DataPublicDataset(DataPublicBase, table=True):
+class DataPublicDataset(DataPublicDatasetBase, table=True):
     __tablename__ = "datapublic_dataset"
 
+    document: "DataPublicDocument" = Relationship(back_populates="dataset")
 
-class DataPublicDatasetCreate(DataPublicBase):
+
+class DataPublicDatasetCreate(DataPublicDatasetBase):
     pass
 
 
-class DataPublicDatasetRead(DataPublicBase):
+class DataPublicDatasetRead(DataPublicDatasetBase):
     id: uuid.UUID | None
 
 
-class DataPublicDatasetUpdate(DataPublicBase):
+class DataPublicDatasetUpdate(DataPublicDatasetBase):
     pass

@@ -1,4 +1,4 @@
-from .meta.datapublic.model import (
+from .meta.datapublic.dataset import (
     DataPublicDataset,
     DataPublicDatasetRead,
     DataPublicDatasetCreate,
