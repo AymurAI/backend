@@ -18,14 +18,14 @@ class Violencia(str, Enum):
 
 
 class ModalidadViolencia(str, Enum):
-    DOMESTICA = "doméstica"
+    DOMESTICA = "domestica"
     INSTITUCIONAL = "institucional"
-    MEDIATICA = "mediática"
+    MEDIATICA = "mediatica"
     LABORAL = "laboral"
     CONTRA_LIBERTAD_REPRODUCTIVA = "contra la libertad reproductiva"
-    OBSTETRICA = "obstétrica"
-    ESPACIO_PUBLICO_PRIVADO = "en espacio público o privado"
-    POLITICA_PUBLICA = "política y pública"
+    OBSTETRICA = "obstetrica"
+    ESPACIO_PUBLICO_PRIVADO = "en espacio publico o privado"
+    POLITICA_PUBLICA = "politica y publica"
     DIGITAL = "digital"
 
 

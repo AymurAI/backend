@@ -1,8 +1,8 @@
 from .meta.datapublic.model import (
-    DataPublic,
-    DataPublicRead,
-    DataPublicCreate,
-    DataPublicUpdate,
+    DataPublicDataset,
+    DataPublicDatasetRead,
+    DataPublicDatasetCreate,
+    DataPublicDatasetUpdate,
 )
 from .meta.datapublic.paragraph import (
     DataPublicParagraph,

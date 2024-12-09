@@ -1,7 +1,10 @@
-from datetime import date, time
 import uuid
+from datetime import date, time, timedelta
 
 from sqlmodel import Field, SQLModel
+from pydantic import field_validator, model_validator
+
+from aymurai.text.normalize import document_normalize
 
 from .categories import (
     Genero,
@@ -15,6 +18,11 @@ from .categories import (
 
 
 class DataPublicBase(SQLModel):
+    id: uuid.UUID | None = Field(
+        default_factory=uuid.uuid4,
+        primary_key=True,
+        description="Número único dentro del Set de Datos.",
+    )
     nro_registro: int | None = Field(
         None, description="Número de registro interno del Juzgado para cada resolución."
     )
@@ -24,7 +32,7 @@ class DataPublicBase(SQLModel):
     n_expte_eje: int | None = Field(
         None, description="Número de expediente asignado en el sistema EJE."
     )
-    cuij: int | None = Field(None, description="Número asignado por el sistema EJE.")
+    cuij: str | None = Field(None, description="Número asignado por el sistema EJE.")
     firma: str | None = Field(None, description="Juez/a que firmó la resolución.")
     materia: Materia | None = Field(
         None, description="Competencia del Juzgado para intervenir en los casos."
@@ -46,6 +54,18 @@ class DataPublicBase(SQLModel):
         None,
         description="Indica si el hecho está en un contexto de violencia de género.",
     )
+
+    @field_validator("violencia_de_genero", mode="before")
+    @classmethod
+    def validate_violencia_de_genero(cls, v) -> bool:
+        if isinstance(v, str):
+            if v.lower() == "si":
+                return True
+            elif v.lower() == "no":
+                return False
+
+        return v
+
     v_fisica: Violencia | None = Field(
         None, description="Si hubo violencia física según la declaración de la víctima."
     )
@@ -78,13 +98,14 @@ class DataPublicBase(SQLModel):
     modalidad_de_la_violencia: ModalidadViolencia | None = Field(
         None, description="Modalidad en que se manifiesta la violencia."
     )
+
     frases_agresion: str | None = Field(
         None, description="Transcripción de frases de agresión verbal reportadas."
     )
     genero_acusado_a: Genero | None = Field(
         None, description="Género de la persona acusada."
     )
-    persona_acusada_no_determinada: bool | None = Field(
+    persona_acusada_no_determinada: str | None = Field(
         None,
         description="Indica si la persona acusada no está determinada o es una persona jurídica.",
     )
@@ -160,7 +181,7 @@ class DataPublicBase(SQLModel):
     detalle: str | None = Field(
         None, description="Detalle específico sobre la resolución."
     )
-    decision: bool | None = Field(None, description="Si se hizo lugar o no al planteo.")
+    decision: str | None = Field(None, description="Si se hizo lugar o no al planteo.")
     oral_escrita: OralEscrita | None = Field(
         None,
         description="Si la resolución fue dictada en audiencia (oral) o por escrito.",
@@ -171,29 +192,37 @@ class DataPublicBase(SQLModel):
     hora_de_cierre: time | None = Field(
         None, description="Hora de cierre de la audiencia."
     )
-    duracion: float | None = Field(
+    duracion: timedelta | None = Field(
         None, description="Duración de la audiencia en horas."
     )
     link: str | None = Field(
         None, description="Enlace a la resolución en formato abierto."
     )
 
+    @model_validator(mode="before")
+    @classmethod
+    def validate_fields(cls, data: dict) -> dict:
+        for key, value in data.items():
+            if isinstance(value, str):
+                data[key] = document_normalize(value)
 
-class DataPublic(DataPublicBase, table=True):
-    id: uuid.UUID | None = Field(
-        default_factory=uuid.uuid4,
-        primary_key=True,
-        description="Número único dentro del Set de Datos.",
-    )
+            if isinstance(value, str) and value in ["", "s/d", "no_corresponde"]:
+                data[key] = None
+
+        return data
 
 
-class DataPublicCreate(DataPublicBase):
+class DataPublicDataset(DataPublicBase, table=True):
+    __tablename__ = "datapublic_dataset"
+
+
+class DataPublicDatasetCreate(DataPublicBase):
     pass
 
 
-class DataPublicRead(DataPublicBase):
-    id: int | None
+class DataPublicDatasetRead(DataPublicBase):
+    id: uuid.UUID | None
 
 
-class DataPublicUpdate(DataPublicBase):
+class DataPublicDatasetUpdate(DataPublicBase):
     pass

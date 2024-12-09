@@ -82,5 +82,5 @@ class DocumentAnnotations(RootModel):
 class Document(BaseModel):
     document: list[str]
     document_id: UUID5
-    header: list[str] | None
-    footer: list[str] | None
+    header: list[str] | None = None
+    footer: list[str] | None = None

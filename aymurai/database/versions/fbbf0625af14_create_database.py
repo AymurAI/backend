@@ -2,7 +2,7 @@
 
 Revision ID: fbbf0625af14
 Revises:
-Create Date: 2024-12-02 20:28:45.508829
+Create Date: 2024-12-09 00:51:12.342203
 
 """
 
@@ -50,7 +50,7 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_table(
-        "datapublic",
+        "datapublic_dataset",
         sa.Column("nro_registro", sa.Integer(), nullable=True),
         sa.Column("fecha_resolucion", sa.Date(), nullable=True),
         sa.Column("n_expte_eje", sa.Integer(), nullable=True),
@@ -148,7 +148,11 @@ def upgrade() -> None:
             ),
             nullable=True,
         ),
-        sa.Column("persona_acusada_no_determinada", sa.Boolean(), nullable=True),
+        sa.Column(
+            "persona_acusada_no_determinada",
+            sqlmodel.sql.sqltypes.AutoString(),
+            nullable=True,
+        ),
         sa.Column(
             "nacionalidad_acusado_a", sqlmodel.sql.sqltypes.AutoString(), nullable=True
         ),
@@ -227,7 +231,7 @@ def upgrade() -> None:
             "objeto_de_la_resolucion", sqlmodel.sql.sqltypes.AutoString(), nullable=True
         ),
         sa.Column("detalle", sqlmodel.sql.sqltypes.AutoString(), nullable=True),
-        sa.Column("decision", sa.Boolean(), nullable=True),
+        sa.Column("decision", sqlmodel.sql.sqltypes.AutoString(), nullable=True),
         sa.Column(
             "oral_escrita",
             sa.Enum("ORAL", "ESCRITA", name="oralescrita"),
@@ -235,7 +239,7 @@ def upgrade() -> None:
         ),
         sa.Column("hora_de_inicio", sa.Time(), nullable=True),
         sa.Column("hora_de_cierre", sa.Time(), nullable=True),
-        sa.Column("duracion", sa.Float(), nullable=True),
+        sa.Column("duracion", sa.Interval(), nullable=True),
         sa.Column("link", sqlmodel.sql.sqltypes.AutoString(), nullable=True),
         sa.Column("id", sa.Uuid(), nullable=False),
         sa.PrimaryKeyConstraint("id"),
@@ -307,7 +311,7 @@ def downgrade() -> None:
     op.drop_table("anonymization_document_paragraph")
     op.drop_table("datapublic_paragraph")
     op.drop_table("datapublic_document")
-    op.drop_table("datapublic")
+    op.drop_table("datapublic_dataset")
     op.drop_table("anonymization_paragraph")
     op.drop_table("anonymization_document")
     # ### end Alembic commands ###

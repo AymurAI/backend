@@ -10,10 +10,10 @@ from aymurai.database.session import get_session
 from aymurai.meta.api_interfaces import SuccessResponse
 from aymurai.api.endpoints.meta.database import ExportFormat
 from aymurai.database.schema import (
-    DataPublic,
-    DataPublicRead,
-    DataPublicCreate,
-    DataPublicUpdate,
+    DataPublicDataset,
+    DataPublicDatasetRead,
+    DataPublicDatasetCreate,
+    DataPublicDatasetUpdate,
 )
 
 router = APIRouter()
@@ -24,7 +24,7 @@ async def database_export(
     format: ExportFormat = ExportFormat.CSV,
     session: Session = Depends(get_session),
 ) -> FileResponse:
-    statement = select(DataPublic)
+    statement = select(DataPublicDataset)
     data = pd.read_sql(statement, session.bind)
 
     with tempfile.NamedTemporaryFile(delete=False) as temp:
@@ -46,10 +46,10 @@ async def database_export(
 
 @router.post("/items/add", response_model=SuccessResponse)
 async def item_add(
-    data: DataPublicCreate,
+    data: DataPublicDatasetCreate,
     session: Session = Depends(get_session),
 ):
-    item = DataPublic.model_validate(data)
+    item = DataPublicDataset.model_validate(data)
 
     session.add(item)
     session.commit()
@@ -58,23 +58,23 @@ async def item_add(
     return SuccessResponse(id=item.id, msg="Item added")
 
 
-@router.get("/items/{item_id}", response_model=DataPublicRead)
+@router.get("/items/{item_id}", response_model=DataPublicDatasetRead)
 async def item_get(
     item_id: int,
     session: Session = Depends(get_session),
-) -> DataPublicRead:
-    statement = select(DataPublic).where(DataPublic.id == item_id)
+) -> DataPublicDatasetRead:
+    statement = select(DataPublicDataset).where(DataPublicDataset.id == item_id)
     data = session.exec(statement).first()
     return data
 
 
-@router.put("/items/{item_id}", response_model=DataPublicRead)
+@router.put("/items/{item_id}", response_model=DataPublicDatasetRead)
 async def item_update(
     item_id: int,
-    data: DataPublicUpdate,
+    data: DataPublicDatasetUpdate,
     session: Session = Depends(get_session),
-) -> DataPublicRead:
-    statement = select(DataPublic).where(DataPublic.id == item_id)
+) -> DataPublicDatasetRead:
+    statement = select(DataPublicDataset).where(DataPublicDataset.id == item_id)
     data_db = session.exec(statement).first()
 
     for field, value in data.model_dump(exclude_unset=True).items():
@@ -92,7 +92,7 @@ async def item_delete(
     item_id: int,
     session: Session = Depends(get_session),
 ):
-    statement = select(DataPublic).where(DataPublic.id == item_id)
+    statement = select(DataPublicDataset).where(DataPublicDataset.id == item_id)
     data = session.exec(statement).first()
     session.delete(data)
     session.commit()
