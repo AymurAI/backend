@@ -2,7 +2,7 @@
 
 Revision ID: fbbf0625af14
 Revises:
-Create Date: 2024-12-09 05:03:35.991097
+Create Date: 2024-12-09 17:47:56.276910
 
 """
 
@@ -242,6 +242,11 @@ def upgrade() -> None:
         sa.Column("hora_de_cierre", sa.Time(), nullable=True),
         sa.Column("duracion", sa.Interval(), nullable=True),
         sa.Column("link", sqlmodel.sql.sqltypes.AutoString(), nullable=True),
+        sa.Column("document_id", sa.Uuid(), nullable=True),
+        sa.ForeignKeyConstraint(
+            ["document_id"],
+            ["datapublic_document.id"],
+        ),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_table(

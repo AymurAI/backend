@@ -31,7 +31,10 @@ class DataPublicDocument(SQLModel, table=True):
         link_model=DataPublicDocumentParagraph,
     )
 
-    dataset: "DataPublicDataset" = Relationship(back_populates="document")
+    dataset: "DataPublicDataset" = Relationship(
+        back_populates="document",
+        sa_relationship_kwargs={"uselist": False},
+    )
 
 
 class DataPublicDocumentCreate(BaseModel):

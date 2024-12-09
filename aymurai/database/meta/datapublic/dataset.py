@@ -219,6 +219,10 @@ class DataPublicDatasetBase(SQLModel):
 class DataPublicDataset(DataPublicDatasetBase, table=True):
     __tablename__ = "datapublic_dataset"
 
+    document_id: uuid.UUID | None = Field(
+        default=None,
+        foreign_key="datapublic_document.id",
+    )
     document: "DataPublicDocument" = Relationship(back_populates="dataset")
 
 
