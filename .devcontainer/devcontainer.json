@@ -49,7 +49,8 @@
 				"njpwerner.autodocstring",
 				"GrapeCity.gc-excelviewer",
 				"tamasfe.even-better-toml",
-				"redhat.vscode-xml"
+				"redhat.vscode-xml",
+				"cweijan.vscode-database-client2"
 			]
 		}
 	},

@@ -1,9 +1,11 @@
 from fastapi.routing import APIRouter
 
-from .endpoints.routers.server import stats
+from .endpoints.routers.anonymizer import anonymizer
+from .endpoints.routers.anonymizer import database as anonymizer_database
+from .endpoints.routers.datapublic import datapublic
+from .endpoints.routers.datapublic import dataset as datapublic_dataset
 from .endpoints.routers.misc import document_extract
-from .endpoints.routers.datapublic import dataset as datapublic_dataset, datapublic
-from .endpoints.routers.anonymizer import database as anonymizer_database, anonymizer
+from .endpoints.routers.server import stats
 
 router = APIRouter()
 
@@ -31,12 +33,12 @@ router.include_router(
 router.include_router(
     datapublic.router,
     prefix="/datapublic",
-    tags=["/datapublic/model"],
+    tags=["datapublic/model"],
 )
 router.include_router(
     datapublic_dataset.router,
     prefix="/datapublic/dataset",
-    tags=["/datapublic/dataset"],
+    tags=["datapublic/dataset"],
 )
 
 # Misc
