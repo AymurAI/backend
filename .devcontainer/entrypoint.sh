@@ -1,12 +1,13 @@
 #!/bin/sh
 
+uv venv --python $PYTHON_VERSION .venv
+uv sync --frozen
+
 # configure precommit
-pre-commit install
+uv run pre-commit install
 chown $USER_NAME .git/hooks/pre-commit
 
 
-# install src packages
-sudo pip install --no-deps -e .
 # Run the CMD, as the main container process
 # exec "$@"
 $@
