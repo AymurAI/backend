@@ -15,36 +15,58 @@ concurrency:
 jobs:
   release:
     runs-on: ubuntu-latest
+    concurrency: release
+
+    permissions:
+      id-token: write
+      contents: write
 
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v3
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
+      # Note: we need to checkout the repository at the workflow sha in case during the workflow
+      # the branch was updated. To keep PSR working with the configured release branches,
+      # we force a checkout of the desired release branch but at the workflow sha HEAD.
+      - name: Setup | Checkout Repository at workflow sha
+        uses: actions/checkout@v4
         with:
-          python-version: "3.10"
+          fetch-depth: 0
+          ref: ${{ github.sha }}
 
-      - name: Configure Git User
+      - name: Setup | Force correct release branch on workflow sha
         run: |
-          git config user.name "GitHub Actions"
-          git config user.email "actions@github.com"
+          git checkout -B ${{ github.ref_name }} ${{ github.sha }}
 
-      - name: Install Dependencies
-        run: |
-          pip install python-semantic-release setuptools_scm
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
 
-      - name: Run Semantic Release
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: semantic-release publish
+      # - name: Install the project
+      #   run: uv sync --all-extras --dev
 
-      - name: Force Push Updated Tag (if required)
-        if: ${{ github.ref_name == 'feature/gh-actions' || github.ref_name == 'main' }}
-        run: |
-          latest_tag=$(git describe --tags --abbrev=0)
-          git tag -f "$latest_tag"
-          git push origin --tags --force
+      - name: Action | Semantic Version Release
+        id: release
+        # Adjust tag with desired version if applicable.
+        uses: python-semantic-release/python-semantic-release@v9.16.1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          git_committer_name: "github-actions"
+          git_committer_email: "actions@users.noreply.github.com"
+
+
+      # - name: Install Dependencies
+      #   run: |
+      #     pip install python-semantic-release setuptools_scm
+
+      # - name: Run Semantic Release
+      #   env:
+      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #   run: semantic-release publish
+
+      # - name: Force Push Updated Tag (if required)
+      #   if: ${{ github.ref_name == 'feature/gh-actions' || github.ref_name == 'main' }}
+      #   run: |
+      #     latest_tag=$(git describe --tags --abbrev=0)
+      #     git tag -f "$latest_tag"
+      #     git push origin --tags --force
 
   sync-dev:
     needs: release
@@ -56,8 +78,8 @@ jobs:
 
       - name: Configure Git User
         run: |
-          git config user.name "GitHub Actions"
-          git config user.email "actions@github.com"
+          git config user.name "github-actions"
+          git config user.email "actions@users.noreply.github.com"
 
       - name: Sync Dev Branch
         run: |
