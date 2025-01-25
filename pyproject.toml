@@ -100,6 +100,7 @@ dependencies = [
     "alembic==1.13.3",
     "tenacity==9.0.0",
     "python-dotenv==1.0.1",
+    "python-semantic-release>=9.16.1",
 ]
 
 
@@ -166,9 +167,18 @@ commit_parser = "emoji"         # Use Gitmoji for commit parsing
 changelog_file = "CHANGELOG.md" # Optional changelog generation
 upload_to_pypi = false
 
+
 [tool.semantic_release.hooks]
 post_version = "hooks.semantic_hooks:post_version"
 
+[tool.semantic_release.branches.main]
+match = "(main|master)"
+prerelease = false
+
+[tool.semantic_release.branches."feature/gh-actions"]
+match = "feature/gh-actions"
+prerelease = true
+prerelease_token = "test"
 
 #######################################################################################
 # Pylint configuration
