@@ -7,7 +7,7 @@ x-template: &template
     - ../resources/:/resources
     - ../test/:/test
     - $HOME/.ssh/:/home/ubuntu/.ssh
-    - $HOME/.gitconfig:/home/ubuntu/.gitconfig
+    - $HOME/.gitconfig:/tmp/.gitconfig
     - /var/run/docker.sock:/var/run/docker.sock
   env_file:
     - ../.env.common

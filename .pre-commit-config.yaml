@@ -14,3 +14,10 @@ repos:
     #   rev: v2.20.0
     #   hooks:
     #       - id: flake8
+    - repo: local
+      hooks:
+        - id: gitmoji-commit-msg
+          name: Gitmoji Commit Message Hook
+          entry: hooks/commit-msg-hook.sh
+          language: script
+          stages: [commit-msg]

@@ -1,5 +1,9 @@
 #!/bin/sh
 
+# Ensure the .gitconfig file is included in the global git configuration
+cp /tmp/.gitconfig ~/.gitconfig
+git config --global commit.template ~/.gitmessage
+
 uv venv --python $PYTHON_VERSION .venv
 uv sync --frozen
 
