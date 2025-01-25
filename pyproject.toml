@@ -2,6 +2,9 @@
 requires = ["setuptools>=64", "setuptools_scm>=8"]
 build-backend = "setuptools.build_meta"
 
+#######################################################################################
+# Project metadata
+#######################################################################################
 [project]
 name = "aymurai"
 requires-python = ">=3.10"
@@ -52,6 +55,9 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
 ]
 
+#######################################################################################
+# Dependencies
+#######################################################################################
 dependencies = [
     "requests==2.32.3",
     "numpy<2.0.0",
@@ -96,18 +102,15 @@ dependencies = [
     "python-dotenv==1.0.1",
 ]
 
-[project.urls]
-Homepage = "https://www.aymurai.info/"
-Repository = "https://github.com/aymurAI/backend"
-Issues = "https://github.com/AymurAI/backend/issues"
 
-# [project.optional-dependencies]
+#######################################################################################
+# Optional dependencies
+#######################################################################################
+[dependency-groups]
 # gpu = [
 #     "torch @ https://download.pytorch.org/whl/cu113/torch-1.12.1%2Bcu113-cp310-cp310-linux_x86_64.whl",
 #     "spacy[cuda113]==3.8.3",
 # ]
-
-[dependency-groups]
 dev = [
     "tensorboard==2.18.0",
     "matplotlib==3.10.0",
@@ -117,29 +120,66 @@ dev = [
     "nbstripout==0.8.0",
     "pip-search==0.0.12",
     "jupyter==1.1.1",
+    "python-semantic-release>=9.16.1",
 ]
 lint = ["ruff"]
 
+
+#######################################################################################
+# Project extra configuration
+#######################################################################################
+[project.urls]
+Homepage = "https://www.aymurai.info/"
+Repository = "https://github.com/aymurAI/backend"
+Issues = "https://github.com/AymurAI/backend/issues"
+
+# Package
+# =======
 [tool.setuptools.packages.find]
 include = ["aymurai"]
 
+# Scripts
+# =======
 [project.scripts]
 aymurai-api = "aymurai.api.main:main"
 
-
+# Package data
+# ============
 [tool.setuptools.package-data]
 "*" = ["*.yml", "*.yaml", "*.csv"]
 
+#######################################################################################
+# Setuptools-scm configuration
+#######################################################################################
 [tool.setuptools_scm]
 version_file = "aymurai/version.py"
 
 
-[tool.uv]
-python-preference = "system"
+#######################################################################################
+# Semantic-release configuration
+#######################################################################################
+[tool.semantic_release]
+version_source = "tag" # Semantic-release uses Git tags to determine versions
+# branch = "main"                 # Release from the main branch
+branch = "feature/gh-actions"   # Release from the main branch
+commit_parser = "emoji"         # Use Gitmoji for commit parsing
+changelog_file = "CHANGELOG.md" # Optional changelog generation
+upload_to_pypi = false
 
+[tool.semantic_release.hooks]
+post_version = "hooks.semantic_hooks:post_version"
+
+
+#######################################################################################
+# Pylint configuration
+#######################################################################################
 [tool.pylint.messages_control]
 disable = "C0330, C0326"
 
+
+#######################################################################################
+# Isort configuration
+#######################################################################################
 [tool.isort]
 profile = "black"
 length_sort = true

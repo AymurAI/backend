@@ -1,0 +1,68 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - feature/gh-actions # Trigger on push to this branch
+  pull_request:
+    branches:
+      - main # Trigger on PR merge to main
+
+concurrency:
+  group: release
+  cancel-in-progress: true
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.12"
+
+      - name: Configure Git User
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+
+      - name: Install Dependencies
+        run: |
+          pip install python-semantic-release setuptools_scm
+
+      - name: Run Semantic Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PYTHON_TOKEN: ${{ secrets.PYPI_TOKEN }} # Optional if uploading to PyPI
+        run: semantic-release publish
+
+      - name: Force Push Updated Tag (if required)
+        if: ${{ github.ref_name == 'feature/semantic-release' }}
+        run: |
+          latest_tag=$(git describe --tags --abbrev=0)
+          git tag -f "$latest_tag"
+          git push origin --tags --force
+
+  sync-dev:
+    needs: release
+    if: ${{ github.ref_name == 'main' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Configure Git User
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+
+      - name: Sync Dev Branch
+        run: |
+          git fetch origin
+          git checkout dev
+          git merge origin/main --no-edit
+          git push origin dev
