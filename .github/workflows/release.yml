@@ -1,12 +1,14 @@
 name: Release
 
+# BUGFIX: This workflow isnt working. skipping for now
 on:
   push:
     branches:
-      - feature/gh-actions # Trigger on push to this branch
-  pull_request:
-    branches:
-      - main # Trigger on PR merge to main
+      - __none__
+#       - feature/gh-actions # Trigger on push to this branch
+#   pull_request:
+#     branches:
+#       - main # Trigger on PR merge to main
 
 concurrency:
   group: release
