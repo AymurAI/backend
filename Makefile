@@ -6,7 +6,7 @@ export $(shell sed 's/=.*//' .env.common)
 
 
 api-build:
-	docker compose build aymurai-api
+	docker compose build aymurai-api-dev
 api-run:
 	docker compose run --service-ports aymurai-api-dev
 api-pull:
