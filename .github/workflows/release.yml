@@ -4,11 +4,10 @@ name: Release
 on:
   push:
     branches:
-      - __none__
-#       - feature/gh-actions # Trigger on push to this branch
-#   pull_request:
-#     branches:
-#       - main # Trigger on PR merge to main
+      - feature/gh-actions # Trigger on push to this branch
+  pull_request:
+    branches:
+      - main # Trigger on PR merge to main
 
 concurrency:
   group: release
@@ -38,12 +37,6 @@ jobs:
         run: |
           git checkout -B ${{ github.ref_name }} ${{ github.sha }}
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@v5
-
-      # - name: Install the project
-      #   run: uv sync --all-extras --dev
-
       - name: Action | Semantic Version Release
         id: release
         # Adjust tag with desired version if applicable.
@@ -53,22 +46,11 @@ jobs:
           git_committer_name: "github-actions"
           git_committer_email: "actions@users.noreply.github.com"
 
+      - name: Run Semantic Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: semantic-release publish || semantic-release version --patch && semantic-release publish
 
-      # - name: Install Dependencies
-      #   run: |
-      #     pip install python-semantic-release setuptools_scm
-
-      # - name: Run Semantic Release
-      #   env:
-      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      #   run: semantic-release publish
-
-      # - name: Force Push Updated Tag (if required)
-      #   if: ${{ github.ref_name == 'feature/gh-actions' || github.ref_name == 'main' }}
-      #   run: |
-      #     latest_tag=$(git describe --tags --abbrev=0)
-      #     git tag -f "$latest_tag"
-      #     git push origin --tags --force
 
   sync-dev:
     needs: release
