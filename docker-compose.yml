@@ -1,7 +1,6 @@
 services:
     aymurai-api:
-        image: aymurai-api:latest
-        container_name: aymurai-api
+        image: ghcr.io/aymurai/api:latest
         ports:
             - "8899:8899"
         build:
@@ -15,8 +14,7 @@ services:
             - ./resources/cache:/resources/cache
 
     aymurai-api-full:
-        image: aymurai-api:full
-        container_name: aymurai-api-prod
+        image: ghcr.io/aymurai/api:full
         ports:
             - "8899:8899"
         build:

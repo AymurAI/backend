@@ -28,13 +28,13 @@ jobs:
         run: |
           touch .env
           docker compose build aymurai-api-full
-          docker tag aymurai-api-full ghcr.io/aymurai/api:full
-          docker tag aymurai-api ghcr.io/aymurai/api:latest
-          docker tag aymurai-api-full ghcr.io/aymurai/api:${{ github.ref_name }}
+          docker tag ghcr.io/aymurai/api:full ghcr.io/aymurai/api:full-${{ github.ref_name }}
+          docker tag ghcr.io/aymurai/api:latest ghcr.io/aymurai/api:${{ github.ref_name }}
 
       # Step 4: Push the Docker image to GHCR
       - name: Push Docker Image
         run: |
-          docker push ghcr.io/aymurai/api:full
-          docker push ghcr.io/aymurai/api:latest
+          docker push ghcr.io/aymurai/api:full-${{ github.ref_name }}
           docker push ghcr.io/aymurai/api:${{ github.ref_name }}
+          docker push ghcr.io/aymurai/api:latest
+          docker push ghcr.io/aymurai/api:full
