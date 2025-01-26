@@ -153,6 +153,34 @@ version_file = "aymurai/version.py"
 
 
 #######################################################################################
+# Semantic-release configuration
+#######################################################################################
+[tool.semantic_release]
+version_source = "tag" # Semantic-release uses Git tags to determine versions
+# branch = "main"                 # Release from the main branch
+branch = "feature/gh-actions"   # Release from the main branch
+commit_parser = "emoji"         # Use Gitmoji for commit parsing
+changelog_file = "CHANGELOG.md" # Optional changelog generation
+upload_to_pypi = false
+
+
+[tool.semantic_release.hooks]
+post_version = "hooks.semantic_hooks:post_version"
+
+[tool.semantic_release.branches.main]
+match = "(main|master)"
+prerelease = false
+
+[tool.semantic_release.branches."feature/gh-actions"]
+match = "feature/gh-actions"
+prerelease = true
+prerelease_token = "test"
+
+[tool.semantic_release.parser]
+feat = ["feature"]
+fix = ["fix", "bugfix", "bug"] # Recognize "fix", "bugfix", and "bug" as fixes
+
+#######################################################################################
 # Pylint configuration
 #######################################################################################
 [tool.pylint.messages_control]
