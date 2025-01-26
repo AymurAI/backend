@@ -26,6 +26,7 @@ jobs:
       # Step 3: Build the Docker image
       - name: Build Docker Image
         run: |
+          touch .env
           docker compose build aymurai-api-full
           docker tag aymurai-api-full ghcr.io/aymurai/api:full
           docker tag aymurai-api ghcr.io/aymurai/api:latest
