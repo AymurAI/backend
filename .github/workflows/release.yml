@@ -9,14 +9,13 @@ on:
     branches:
       - main # Trigger on PR merge to main
 
-concurrency:
-  group: release
-  cancel-in-progress: true
 
 jobs:
   release:
     runs-on: ubuntu-latest
-    concurrency: release
+    concurrency:
+      group: release
+      cancel-in-progress: true
 
     permissions:
       id-token: write
@@ -54,7 +53,10 @@ jobs:
 
   sync-dev:
     needs: release
-    if: ${{ github.ref_name == 'main' }}
+    if: ${{ needs.release.result == 'success' && github.ref_name == 'main' }}
+    concurrency:
+      group: release-sync
+      cancel-in-progress: true
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
