@@ -76,4 +76,4 @@ COPY ./resources/api resources/api
 
 # copy pipelines & run app startup to download models
 COPY ./resources/pipelines/production resources/pipelines/production
-RUN python /packages/aymurai/api/main.py
+RUN uv run python /app/.venv/lib/python3.10/site-packages/aymurai/api/main.py
