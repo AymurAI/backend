@@ -1,27 +1,27 @@
 services:
-    aymurai-api-dev:
-        image: ${API_IMAGE}:dev
+    aymurai-api:
+        image: aymurai-api:latest
         container_name: aymurai-api
         ports:
-            - "8899:80"
+            - "8899:8899"
         build:
             context: .
-            dockerfile: ./build/api/Dockerfile
+            dockerfile: ./docker/api/Dockerfile
             target: aymurai-api
         env_file:
             - .env
             - .env.common
         volumes:
-            - ./resources/:/resources
+            - ./resources/cache:/resources/cache
 
-    aymurai-api-prod:
-        image: registry.gitlab.com/collective.ai/datagenero-public/aymurai-api-prod
+    aymurai-api-full:
+        image: aymurai-api:full
         container_name: aymurai-api-prod
         ports:
-            - "8899:80"
+            - "8899:8899"
         build:
             context: .
-            dockerfile: ./build/api/Dockerfile
+            dockerfile: ./docker/api/Dockerfile
             target: aymurai-api-full
         restart: always
         deploy:

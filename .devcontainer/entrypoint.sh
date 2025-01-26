@@ -4,8 +4,7 @@
 cp /tmp/.gitconfig ~/.gitconfig
 git config --global commit.template ~/.gitmessage
 
-uv venv --python $PYTHON_VERSION .venv
-uv sync --frozen
+uv sync --frozen --all-extras
 
 # configure precommit
 uv run pre-commit install
