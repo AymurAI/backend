@@ -38,6 +38,7 @@ RUN apt update \
     acl \
     zsh \
     htop \
+    make \
     vim \
     curl \
     sudo \
@@ -90,7 +91,6 @@ WORKDIR /tmp
 
 # Install UV & python
 COPY --from=astral-uv-source /uv /uvx /bin/
-RUN uv python install ${PYTHON_VERSION}
 
 # Install dependencies
 USER $DEVCONTAINER_USER

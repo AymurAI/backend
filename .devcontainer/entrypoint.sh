@@ -1,7 +1,10 @@
 #!/bin/sh
 
-uv venv --python $PYTHON_VERSION .venv
-uv sync --frozen
+# Ensure the .gitconfig file is included in the global git configuration
+cp /tmp/.gitconfig ~/.gitconfig
+git config --global commit.template ~/.gitmessage
+
+uv sync --frozen --all-extras
 
 # configure precommit
 uv run pre-commit install

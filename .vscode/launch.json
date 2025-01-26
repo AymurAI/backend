@@ -15,8 +15,7 @@
                 "aymurai.api.main:api",
                 "--timeout-keep-alive",
                 "10", // Increase the timeout to 10 seconds
-                // "--port=8899"
-                // "--reload"
+                "--port=8999"
             ],
             "subProcess": false,
             "envFile": "${workspaceFolder}/.env"
