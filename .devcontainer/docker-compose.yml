@@ -1,73 +1,43 @@
+x-template: &template
+  network_mode: host
+  shm_size: "8gb"
+  volumes:
+    - ..:/workspace:cached
+    - ../notebooks/:/notebooks
+    - ../resources/:/resources
+    - ../test/:/test
+    - $HOME/.ssh/:/home/ubuntu/.ssh
+    - $HOME/.gitconfig:/home/ubuntu/.gitconfig
+    - /var/run/docker.sock:/var/run/docker.sock
+  env_file:
+    - ../.env.common
+    - ../.env
+  command: /bin/sh -c "while true; do :; done"
+
 services:
-    redis:
-        network_mode: host
-        image: redis:6.2.6
-        container_name: aymurai-redis
-        # ports:
-        #     - "6379:6379"
-        volumes:
-            - $PWD/resources/cache/redis:/data
+  aymurai-devcontainer-gpu:
+    <<: *template
+    image: aymurai-devcontainer-gpu
+    container_name: aymurai-devcontainer-gpu
+    build:
+      context: ..
+      dockerfile: .devcontainer/Dockerfile
+      args:
+        # - CORE_IMAGE=nvidia/cuda:11.8.0-cudnn8-runtime-ubuntu22.04
+        - CORE_IMAGE=nvidia/cuda:12.6.2-cudnn-runtime-ubuntu24.04
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: [ gpu ]
 
-    aymurai-devcontainer-gpu:
-        network_mode: host
-        image: aymurai-devcontainer-gpu
-        container_name: aymurai-devcontainer-gpu
-        build:
-            context: ..
-            dockerfile: .devcontainer/Dockerfile
-            args:
-                - CORE_IMAGE=aymurai-core-gpu
-                - AYMURAI_EXTRA_PACKAGE=dev,gpu
-                - USER_NAME=vscode
-                - USER_UID=1000
-                - USER_GID=1000
-        depends_on:
-            - redis
-        deploy:
-            resources:
-                reservations:
-                    devices:
-                        - capabilities: [ gpu ]
-        shm_size: "8gb"
-        volumes:
-            - ..:/workspace:cached
-            - ../notebooks/:/notebooks
-            - ../resources/:/resources
-            - ../test/:/test
-            - $HOME/.ssh/:/home/vscode/.ssh
-            - $HOME/.gitconfig:/home/vscode/.gitconfig
-            - /var/run/docker.sock:/var/run/docker.sock
-
-        command: /bin/sh -c "while true; do :; done"
-        env_file:
-            - ../.env.common
-            - ../.env
-
-    aymurai-devcontainer:
-        network_mode: host
-        image: aymurai-devcontainer
-        container_name: aymurai-devcontainer-cpu
-        build:
-            context: ..
-            dockerfile: .devcontainer/Dockerfile
-            args:
-                - CORE_IMAGE=aymurai-core-cpu
-                - AYMURAI_EXTRA_PACKAGE=dev
-                - USER_NAME=vscode
-                - USER_UID=1000
-                - USER_GID=1000
-        depends_on:
-            - redis
-        shm_size: "8gb"
-        volumes:
-            - ..:/workspace:cached
-            - ../notebooks/:/notebooks
-            - ../resources/:/resources
-            - ../test/:/test
-            - $HOME/.ssh/:/home/vscode/.ssh
-            - $HOME/.gitconfig:/home/vscode/.gitconfig
-            - /var/run/docker.sock:/var/run/docker.sock
-        command: /bin/sh -c "while sleep 1000; do :; done"
-        env_file:
-            - ../.env.common
-            - ../.env
+  aymurai-devcontainer:
+    <<: *template
+    image: aymurai-devcontainer
+    container_name: aymurai-devcontainer-cpu
+    build:
+      context: ..
+      dockerfile: .devcontainer/Dockerfile
+      args:
+        - CORE_IMAGE=ubuntu:noble
+    command: /bin/sh -c "while sleep 1000; do :; done"
