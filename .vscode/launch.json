@@ -1,0 +1,25 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python: FastAPI",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "uvicorn",
+            "jinja": true,
+            "args": [
+                // "--app-dir=${workspaceFolder}/src/aymurai",
+                "aymurai.api.main:api",
+                "--timeout-keep-alive",
+                "10", // Increase the timeout to 10 seconds
+                "--port=8999"
+            ],
+            "subProcess": false,
+            "envFile": "${workspaceFolder}/.env",
+            "python": "${workspaceFolder}/.venv/bin/python"
+        },
+    ]
+}
