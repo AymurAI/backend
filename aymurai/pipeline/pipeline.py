@@ -1,6 +1,6 @@
 import os
 
-from aymurai.logging import get_logger
+from aymurai.logger import get_logger
 from aymurai.meta.types import DataItem, DataBlock
 
 from .training import TrainingPipeline

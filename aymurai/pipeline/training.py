@@ -1,7 +1,7 @@
 from typing import Dict, Optional
 from collections import OrderedDict
 
-from aymurai.logging import get_logger
+from aymurai.logger import get_logger
 from aymurai.meta.types import DataItem, DataBlock
 from aymurai.meta.pipeline_interfaces import TrainModule
 from aymurai.utils.cache import cache_load, cache_save, get_cache_key

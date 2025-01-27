@@ -3,7 +3,7 @@ from copy import deepcopy
 
 import spacy
 
-from aymurai.logging import get_logger
+from aymurai.logger import get_logger
 from aymurai.meta.api_interfaces import DocLabelAttributes
 
 logger = get_logger(__name__)

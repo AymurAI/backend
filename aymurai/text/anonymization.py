@@ -14,7 +14,7 @@ from lxml import etree
 from joblib import hash
 from more_itertools import flatten
 
-from aymurai.logging import get_logger
+from aymurai.logger import get_logger
 from aymurai.meta.pipeline_interfaces import Transform
 from aymurai.models.flair.utils import FlairTextNormalize
 from aymurai.utils.alignment.core import tokenize, align_text
