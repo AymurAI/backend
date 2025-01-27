@@ -18,7 +18,8 @@
                 "--port=8999"
             ],
             "subProcess": false,
-            "envFile": "${workspaceFolder}/.env"
+            "envFile": "${workspaceFolder}/.env",
+            "python": "${workspaceFolder}/.venv/bin/python"
         },
     ]
 }
