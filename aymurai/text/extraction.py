@@ -14,7 +14,7 @@ from more_itertools import flatten
 from textract.exceptions import ShellError
 from textract.parsers import _get_available_extensions
 
-from aymurai.logging import get_logger
+from aymurai.logger import get_logger
 from aymurai.meta.pipeline_interfaces import Transform
 from aymurai.utils.misc import get_element, get_recursively
 from aymurai.utils.cache import cache_load, cache_save, get_cache_key

@@ -6,7 +6,7 @@ from typing import Any, Optional
 import joblib
 import diskcache
 
-from aymurai.logging import get_logger
+from aymurai.logger import get_logger
 from aymurai.meta.types import DataItem
 from aymurai.utils.json_encoding import EnhancedJSONEncoder
 

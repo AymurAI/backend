@@ -4,7 +4,8 @@ from copy import deepcopy
 
 import numpy as np
 import tensorflow as tf
-from aymurai.logging import get_logger
+
+from aymurai.logger import get_logger
 from aymurai.meta.types import DataItem
 from aymurai.models.usem.core import USEMQA
 from aymurai.utils.download import download

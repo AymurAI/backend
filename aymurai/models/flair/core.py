@@ -7,9 +7,10 @@ import flair
 import numpy as np
 from flair.data import Sentence
 from more_itertools import collapse
-from aymurai.utils.misc import is_url
-from aymurai.logging import get_logger
 from flair.models import SequenceTagger
+
+from aymurai.logger import get_logger
+from aymurai.utils.misc import is_url
 from aymurai.utils.download import download
 from aymurai.meta.types import DataItem, DataBlock
 from aymurai.meta.pipeline_interfaces import TrainModule
