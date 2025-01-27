@@ -68,6 +68,7 @@ FROM aymurai-api AS aymurai-prod
 
 ENV TF_CPP_MIN_LOG_LEVEL=3
 ENV TFHUB_CACHE_DIR=resources/cache/tfhub_modules
+ENV RESOURCES_BASEPATH=resources
 
 # copy api resources
 COPY ./resources/api resources/api
