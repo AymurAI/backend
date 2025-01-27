@@ -1,42 +1,42 @@
-import os
 import json
+import os
 import tempfile
-from threading import Lock
 from subprocess import getoutput
+from threading import Lock
 
 import torch
-from sqlmodel import Session
-from fastapi.routing import APIRouter
+from fastapi import Body, Depends, Form, UploadFile
 from fastapi.responses import FileResponse
+from fastapi.routing import APIRouter
+from sqlmodel import Session
 from starlette.background import BackgroundTask
-from fastapi import Body, Form, Depends, UploadFile
 
-from aymurai.logger import get_logger
-from aymurai.settings import settings
-from aymurai.utils.misc import get_element
 from aymurai.api.utils import load_pipeline
-from aymurai.database.session import get_session
-from aymurai.text.anonymization import DocAnonymizer
-from aymurai.database.utils import data_to_uuid, text_to_uuid
-from aymurai.text.extraction import MIMETYPE_EXTENSION_MAPPER
 from aymurai.database.crud.anonymization.document import anonymization_document_create
-from aymurai.meta.api_interfaces import (
-    DocLabel,
-    TextRequest,
-    DocumentAnnotations,
-    DocumentInformation,
+from aymurai.database.crud.anonymization.paragraph import (
+    anonymization_paragraph_batch_create_update,
+    anonymization_paragraph_create,
+    anonymization_paragraph_read,
+    anonymization_paragraph_update,
 )
 from aymurai.database.schema import (
     AnonymizationParagraph,
     AnonymizationParagraphCreate,
     AnonymizationParagraphUpdate,
 )
-from aymurai.database.crud.anonymization.paragraph import (
-    anonymization_paragraph_read,
-    anonymization_paragraph_create,
-    anonymization_paragraph_update,
-    anonymization_paragraph_batch_create_update,
+from aymurai.database.session import get_session
+from aymurai.database.utils import data_to_uuid, text_to_uuid
+from aymurai.logger import get_logger
+from aymurai.meta.api_interfaces import (
+    DocLabel,
+    DocumentAnnotations,
+    DocumentInformation,
+    TextRequest,
 )
+from aymurai.settings import settings
+from aymurai.text.anonymization import DocAnonymizer
+from aymurai.text.extraction import MIMETYPE_EXTENSION_MAPPER
+from aymurai.utils.misc import get_element
 
 logger = get_logger(__name__)
 
@@ -175,7 +175,7 @@ async def anonymizer_compile_document(
             text=paragraph.document,
             validation=paragraph.labels or [],
         )
-        for paragraph in annots
+        for paragraph in annots.data
     ]
     paragraphs = anonymization_paragraph_batch_create_update(
         paragraphs, session=session

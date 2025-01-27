@@ -1,7 +1,7 @@
 import uuid
 from typing import List, Optional
 
-from pydantic import UUID5, Field, BaseModel, RootModel
+from pydantic import UUID5, BaseModel, Field  # RootModel
 
 
 class SuccessResponse(BaseModel):
@@ -72,11 +72,10 @@ class DocumentInformation(BaseModel):
     # labels: list[DocLabel]
 
 
-class DocumentAnnotations(RootModel):
+class DocumentAnnotations(BaseModel):
     """Datatype for document annotations"""
 
-    # data: list[DocumentInformation]
-    root: List[DocumentInformation]
+    data: list[DocumentInformation]
 
 
 class Document(BaseModel):
