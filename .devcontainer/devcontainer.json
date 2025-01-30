@@ -2,7 +2,7 @@
 // https://github.com/microsoft/vscode-dev-containers/tree/v0.183.0/containers/python-3
 {
 	"name": "aymurai",
-	"initializeCommand": "make core-build",
+	// "initializeCommand": "make core-build",
 	"dockerComposeFile": "docker-compose.yml",
 	"service": "aymurai-devcontainer-gpu",
 	"runServices": [
@@ -49,9 +49,13 @@
 				"njpwerner.autodocstring",
 				"GrapeCity.gc-excelviewer",
 				"tamasfe.even-better-toml",
-				"redhat.vscode-xml"
+				"redhat.vscode-xml",
+				"cweijan.vscode-database-client2",
+				"christian-kohler.path-intellisense",
+				"github.vscode-github-actions",
+				"seatonjiang.gitmoji-vscode"
 			]
 		}
 	},
-	"postCreateCommand": "sudo /entrypoint.sh"
+	"postCreateCommand": "bash /home/ubuntu/entrypoint.sh"
 }

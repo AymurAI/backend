@@ -71,8 +71,6 @@ target/
 # Pycharm
 .idea
 
-# VS Code
-.vscode/
 
 # IntelliJ
 *.iml
@@ -125,3 +123,6 @@ cache_dir
 
 resources
 .env
+.xml*
+
+.venv

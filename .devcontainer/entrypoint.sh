@@ -1,12 +1,16 @@
 #!/bin/sh
 
+# Ensure the .gitconfig file is included in the global git configuration
+cp /tmp/.gitconfig ~/.gitconfig
+git config --global commit.template ~/.gitmessage
+
+uv sync --frozen --all-extras
+
 # configure precommit
-pre-commit install
+uv run pre-commit install
 chown $USER_NAME .git/hooks/pre-commit
 
 
-# install src packages
-sudo pip install --no-deps -e .
 # Run the CMD, as the main container process
 # exec "$@"
 $@

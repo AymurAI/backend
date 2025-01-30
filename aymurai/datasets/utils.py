@@ -6,7 +6,7 @@ import pandas as pd
 from datasets import Dataset
 from more_itertools import unzip, split_at
 
-from aymurai.logging import get_logger
+from aymurai.logger import get_logger
 from aymurai.text.extraction import extract_document
 
 logger = get_logger(__file__)

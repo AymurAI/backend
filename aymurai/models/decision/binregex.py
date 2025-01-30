@@ -9,7 +9,8 @@ from copy import deepcopy
 import regex
 import torch
 from unidecode import unidecode
-from aymurai.logging import get_logger
+
+from aymurai.logger import get_logger
 from aymurai.utils.download import download
 from aymurai.meta.types import DataItem, DataBlock
 from aymurai.utils.misc import is_url, get_element

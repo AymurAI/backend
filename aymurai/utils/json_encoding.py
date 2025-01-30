@@ -6,7 +6,7 @@ import datetime
 
 import pandas as pd
 
-from aymurai.logging import get_logger
+from aymurai.logger import get_logger
 
 logger = get_logger(__name__)
 
