@@ -1,12 +1,16 @@
-import os
 import logging
-import zipfile
+import os
+import re
+import statistics
 import unicodedata
-from typing import Any
+import zipfile
 from pathlib import Path
+from typing import Any
 from zipfile import BadZipFile
 
 import magic
+import numpy as np
+import pymupdf
 import textract
 import xmltodict
 from lxml import etree
@@ -16,8 +20,8 @@ from textract.parsers import _get_available_extensions
 
 from aymurai.logger import get_logger
 from aymurai.meta.pipeline_interfaces import Transform
-from aymurai.utils.misc import get_element, get_recursively
 from aymurai.utils.cache import cache_load, cache_save, get_cache_key
+from aymurai.utils.misc import get_element, get_recursively
 
 logger = get_logger(__file__)
 
@@ -41,7 +45,7 @@ class InvalidFile(Exception):
 
 class FulltextExtract(Transform):
     """
-    Extract plain text from document files (doc, docx, odt)
+    Extract plain text from document files (doc, docx, odt, pdf).
     """
 
     def __init__(self, use_cache: bool = False, **kwargs):
@@ -50,13 +54,13 @@ class FulltextExtract(Transform):
 
     def __call__(self, item: dict) -> dict:
         """
-        Extract plain text from document files (doc, docx, odt)
+        Extract plain text from document files (doc, docx, odt, pdf).
 
         Args:
-            item (dict): data item
+            item (dict): data item.
 
         Returns:
-            dict: data item with extracted text
+            dict: data item with extracted text.
         """
 
         if not item.get("data"):
@@ -83,14 +87,15 @@ def get_extension(path: str) -> str:
 
 
 def _load_xml_from_odt(path: str, xmlfile: str = "styles.xml") -> str:
-    """load xml file inside an odt
+    """
+    Load xml file inside an odt.
 
     Args:
-        path (str): path to odt file
+        path (str): path to odt file.
         xmlfile (str, optional): xml to open. Defaults to 'styles.xml'.
 
     Returns:
-        str: xml content
+        str: xml content.
     """
     with zipfile.ZipFile(path, "r") as odt:
         if xmlfile not in odt.namelist():
@@ -111,13 +116,14 @@ def _load_xml_from_docx(path: str, xmlfile: str = "word/footnotes.xml") -> Any |
 
 
 def get_header(path: str) -> list[str]:
-    """Extract header from styles.xml inside a ODT file
+    """
+    Extract header from styles.xml inside a ODT file.
 
     Args:
-        path (str): path to odt file
+        path (str): path to odt file.
 
     Returns:
-        list[str]: header lines
+        list[str]: header lines.
     """
     styles_xml_content = _load_xml_from_odt(path)
     styles_dict = xmltodict.parse(styles_xml_content)
@@ -155,7 +161,8 @@ def get_header(path: str) -> list[str]:
 
 
 def get_footnotes(path: str) -> list[str] | None:
-    """Extract footnotes from footnotes.xml inside a DOCX file.
+    """
+    Extract footnotes from footnotes.xml inside a DOCX file.
 
     Args:
         path (str): Path to the DOCX file.
@@ -187,10 +194,11 @@ def extract_document(
     errors: str = "ignore",
     **kwargs,
 ) -> str | None:
-    """extract text from document by path
+    """
+    Extract text from document by path.
 
     Args:
-        filename (str): document path
+        filename (str): document path.
         errors (str, optional): {'ignore', 'raise', 'coerce'}, default 'ignore'
         - If :const:`'raise'`, then invalid parsing will raise an exception.
         - If :const:`'coerce'`, then invalid parsing will be setas :const:`NaN`
@@ -200,11 +208,11 @@ def extract_document(
         **kwargs: keyword arguments for textract.
 
     Raises:
-        ValueError: Invalid argument
-        InvalidFile: Invalid or unsupported file
+        ValueError: Invalid argument.
+        InvalidFile: Invalid or unsupported file.
 
     Returns:
-        str: extracted document text
+        str: extracted document text.
     """
     filename = str(filename)  # patch for pathlib
 
@@ -232,6 +240,11 @@ def extract_document(
         return
 
     try:
+        if ext == "pdf":
+            y_tolerance = compute_median_margin_between_blocks(filename)
+            paragraphs = extract_and_merge_paragraphs(filename, np.ceil(y_tolerance))
+            return "\n\n".join(paragraphs)
+
         docu = textract.process(filename, **kwargs).decode("utf-8")
     except (BadZipFile, KeyError, ShellError):
         if errors == "raise":
@@ -253,3 +266,85 @@ def extract_document(
 
     docu = unicodedata.normalize("NFKC", docu)
     return docu
+
+
+def compute_median_margin_between_blocks(pdf_path: str) -> float:
+    """
+    Computes the median vertical margin between text blocks in a PDF.
+
+    Args:
+        pdf_path (str): Path to the PDF file.
+
+    Returns:
+        float: Median margin between text blocks (in points).
+    """
+    margins = []
+
+    with pymupdf.open(pdf_path) as doc:
+        for page in doc:
+            # Extract all text blocks from the page
+            blocks = page.get_text("blocks")
+
+            # Sort blocks by their top y-coordinate (y0)
+            blocks_sorted = sorted(blocks, key=lambda b: b[1])
+
+            # Compute vertical margins between consecutive blocks
+            for i in range(1, len(blocks_sorted)):
+                previous_block = blocks_sorted[i - 1]
+                current_block = blocks_sorted[i]
+
+                # Calculate the vertical margin
+                previous_y1 = previous_block[3]  # Bottom of the previous block
+                current_y0 = current_block[1]  # Top of the current block
+                margin = current_y0 - previous_y1
+
+                if margin > 0:  # Ignore overlapping blocks
+                    margins.append(margin)
+
+    # Compute and return the median margin
+    if margins:
+        return statistics.median(margins)
+    else:
+        return 0.0  # Return 0 if no margins were found
+
+
+def extract_and_merge_paragraphs(pdf_path: str, y_tolerance=5) -> list[str]:
+    """
+    Extracts and merges paragraphs from a PDF by grouping close text blocks.
+
+    Args:
+        pdf_path (str): Path to the PDF file.
+        y_tolerance (float): Maximum vertical gap (in points) to consider blocks part of the same paragraph.
+
+    Returns:
+        list[str]: A list of merged paragraphs as strings.
+    """
+    paragraphs = []
+    current_paragraph = []
+    last_y1 = None
+
+    with pymupdf.open(pdf_path) as doc:
+        for page in doc:
+            # Extract all text blocks from the page
+            blocks = page.get_text("blocks")
+
+            # Sort blocks by their top y-coordinate (y0)
+            blocks_sorted = sorted(blocks, key=lambda b: b[1])
+
+            for block in blocks_sorted:
+                x0, y0, x1, y1, text, *_ = block
+
+                if last_y1 is not None and (y0 - last_y1) > y_tolerance:
+                    # If the gap between blocks is too large, start a new paragraph
+                    if current_paragraph:
+                        paragraphs.append(" ".join(current_paragraph))
+                    current_paragraph = []
+
+                current_paragraph.append(text)
+                last_y1 = y1
+
+            if current_paragraph:
+                paragraphs.append(" ".join(current_paragraph))
+                current_paragraph = []
+
+    return paragraphs
