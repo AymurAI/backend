@@ -1,7 +1,7 @@
 #!/bin/sh
 
 # install dependencies
-uv sync --frozen --all-extras --group mlops
+uv sync --frozen --all-extras
 
 # configure precommit
 uv run pre-commit install
