@@ -126,3 +126,5 @@ resources
 .xml*
 
 .venv
+
+aymurai/version.py
