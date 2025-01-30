@@ -243,7 +243,9 @@ def extract_document(
         if ext == "pdf":
             y_tolerance = compute_median_margin_between_blocks(filename)
             paragraphs = extract_and_merge_paragraphs(filename, np.ceil(y_tolerance))
-            return "\n\n".join(paragraphs)
+            docu = "\n\n".join(paragraphs)
+            docu = unicodedata.normalize("NFKC", docu)
+            return docu
 
         docu = textract.process(filename, **kwargs).decode("utf-8")
     except (BadZipFile, KeyError, ShellError):
