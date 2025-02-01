@@ -86,26 +86,27 @@ def anonymization_paragraph_batch_create_update(
 ) -> list[AnonymizationParagraph]:
     paragraphs = []
 
-    for paragraph_in in paragraphs_in:
-        paragraph_id = text_to_uuid(paragraph_in.text)
+    for p_in in paragraphs_in:
+        paragraph_id = text_to_uuid(p_in.text)
 
         statement = select(AnonymizationParagraph).where(
             AnonymizationParagraph.id == paragraph_id
         )
         paragraph = session.exec(statement).first()
         if paragraph:
-            update = AnonymizationParagraphUpdate(**paragraph_in.model_dump())
+            update = AnonymizationParagraphUpdate(**p_in.model_dump())
 
             for field, value in update.model_dump(exclude_unset=True).items():
                 setattr(paragraph, field, value)
 
         else:
-            paragraph = AnonymizationParagraph(**paragraph_in.model_dump())
-
-        paragraphs.append(paragraph)
+            paragraph = AnonymizationParagraph(**p_in.model_dump())
 
         session.add(paragraph)
         session.commit()
+        session.refresh(paragraph)
+
+        paragraphs.append(paragraph)
 
     # refresh models (Must be a list or for-loop)
     [session.refresh(paragraph) for paragraph in paragraphs]
