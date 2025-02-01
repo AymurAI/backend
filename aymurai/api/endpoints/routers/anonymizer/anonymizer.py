@@ -1,42 +1,42 @@
-import json
 import os
+import json
 import tempfile
-from subprocess import getoutput
+import subprocess
 from threading import Lock
 
 import torch
-from fastapi import Body, Depends, Form, UploadFile
-from fastapi.responses import FileResponse
-from fastapi.routing import APIRouter
 from sqlmodel import Session
+from fastapi.routing import APIRouter
+from fastapi.responses import FileResponse
 from starlette.background import BackgroundTask
+from fastapi import Body, Form, Depends, UploadFile
 
+from aymurai.logger import get_logger
+from aymurai.settings import settings
+from aymurai.utils.misc import get_element
 from aymurai.api.utils import load_pipeline
+from aymurai.database.session import get_session
+from aymurai.text.anonymization import DocAnonymizer
+from aymurai.database.utils import data_to_uuid, text_to_uuid
+from aymurai.text.extraction import MIMETYPE_EXTENSION_MAPPER
 from aymurai.database.crud.anonymization.document import anonymization_document_create
-from aymurai.database.crud.anonymization.paragraph import (
-    anonymization_paragraph_batch_create_update,
-    anonymization_paragraph_create,
-    anonymization_paragraph_read,
-    anonymization_paragraph_update,
+from aymurai.meta.api_interfaces import (
+    DocLabel,
+    TextRequest,
+    DocumentAnnotations,
+    DocumentInformation,
 )
 from aymurai.database.schema import (
     AnonymizationParagraph,
     AnonymizationParagraphCreate,
     AnonymizationParagraphUpdate,
 )
-from aymurai.database.session import get_session
-from aymurai.database.utils import data_to_uuid, text_to_uuid
-from aymurai.logger import get_logger
-from aymurai.meta.api_interfaces import (
-    DocLabel,
-    DocumentAnnotations,
-    DocumentInformation,
-    TextRequest,
+from aymurai.database.crud.anonymization.paragraph import (
+    anonymization_paragraph_read,
+    anonymization_paragraph_create,
+    anonymization_paragraph_update,
+    anonymization_paragraph_batch_create_update,
 )
-from aymurai.settings import settings
-from aymurai.text.anonymization import DocAnonymizer
-from aymurai.text.extraction import MIMETYPE_EXTENSION_MAPPER
-from aymurai.utils.misc import get_element
 
 logger = get_logger(__name__)
 
@@ -156,7 +156,9 @@ async def anonymizer_compile_document(
     extension = MIMETYPE_EXTENSION_MAPPER.get(file.content_type)
     logger.info(f"detection extension: {extension} ({file.content_type})")
 
-    tmp_filename = f"/tmp/{file.filename}"
+    _, suffix = os.path.splitext(file.filename)
+    tmp_file = tempfile.NamedTemporaryFile(dir="/tmp", suffix=suffix, delete=False)
+    tmp_filename = tmp_file.name
     logger.info(f"saving temp file on local storage => {tmp_filename}")
     with open(tmp_filename, "wb") as tmp_file:
         data = file.file.read()
@@ -192,13 +194,24 @@ async def anonymizer_compile_document(
     # Anonymize the document
     doc_anonymizer = DocAnonymizer()
 
-    item = {"path": tmp_filename}
-    doc_anonymizer(
-        item,
-        [document_information.model_dump() for document_information in annots.data],
-        "/tmp",
-    )
-    logger.info(f"saved temp file on local storage => {tmp_filename}")
+    if suffix == ".docx":
+        item = {"path": tmp_filename}
+        doc_anonymizer(
+            item,
+            [document_information.model_dump() for document_information in annots.data],
+            "/tmp",
+        )
+        logger.info(f"saved temp file on local storage => {tmp_filename}")
+
+    else:  # export as raw document
+        anonymized_doc = [
+            doc_anonymizer.replace_labels_in_text(document_information.model_dump())
+            .replace("&lt;", "<")
+            .replace("&gt;", ">")
+            for document_information in annots.data
+        ]
+        with open(tmp_filename, "w") as f:
+            f.write("\n".join(anonymized_doc))
 
     # Connvert to ODT
     with tempfile.NamedTemporaryFile(dir="/tmp", suffix=".docx") as temp:
@@ -207,8 +220,9 @@ async def anonymizer_compile_document(
 
         temp.flush()
 
-        cmd = "libreoffice --headless --convert-to odt --outdir /tmp {file}"
-        getoutput(cmd.format(file=temp.name))
+        cmd = f"{settings.LIBREOFFICE_BIN} --headless --convert-to odt --outdir /tmp {temp.name}"
+        subprocess.run(cmd, shell=True)
+
         odt = temp.name.replace(".docx", ".odt")
 
         os.remove(tmp_filename)
