@@ -30,18 +30,12 @@
 					"editor.codeActionsOnSave": {
 						"source.fixAll": "never"
 					}
-				},
-				"isort.args": [
-					"--profile=black",
-					"--skip-gitignore",
-					"--length-sort-straight"
-				]
+				}
 			},
 			// Add the IDs of extensions you want installed when the container is created.
 			"extensions": [
 				"ms-python.python",
 				"magicstack.magicpython",
-				"ms-python.isort",
 				"eamodio.gitlens",
 				"charliermarsh.ruff",
 				"ms-toolsai.jupyter",
