@@ -238,12 +238,13 @@ wheels = [
 
 [[package]]
 name = "aymurai"
-version = "1.1.1.dev28+g413ac48"
+version = "1.1.1.dev29+gd680daf.d20250203"
 source = { editable = "." }
 dependencies = [
     { name = "alembic" },
     { name = "cachetools" },
     { name = "datasets" },
+    { name = "datetime-matcher" },
     { name = "diskcache" },
     { name = "es-core-news-sm" },
     { name = "faker" },
@@ -301,6 +302,7 @@ requires-dist = [
     { name = "alembic", specifier = ">=1.13.3" },
     { name = "cachetools", specifier = ">=5.5.0" },
     { name = "datasets", specifier = ">=3.2.0" },
+    { name = "datetime-matcher", git = "https://github.com/jedzill4/datetime_matcher" },
     { name = "diskcache", specifier = ">=5.6.3" },
     { name = "es-core-news-sm", url = "https://github.com/explosion/spacy-models/releases/download/es_core_news_sm-3.8.0/es_core_news_sm-3.8.0-py3-none-any.whl" },
     { name = "faker", specifier = "==18.11.2" },
@@ -709,6 +711,11 @@ sdist = { url = "https://files.pythonhosted.org/packages/fc/48/744286c044e2b942d
 wheels = [
     { url = "https://files.pythonhosted.org/packages/d7/84/0df6c5981f5fc722381662ff8cfbdf8aad64bec875f75d80b55bfef394ce/datasets-3.2.0-py3-none-any.whl", hash = "sha256:f3d2ba2698b7284a4518019658596a6a8bc79f31e51516524249d6c59cf0fe2a", size = 480647 },
 ]
+
+[[package]]
+name = "datetime-matcher"
+version = "0.2.1"
+source = { git = "https://github.com/jedzill4/datetime_matcher#0e5793e8d1e3653f71f9fea78bca93d79aec4106" }
 
 [[package]]
 name = "debugpy"

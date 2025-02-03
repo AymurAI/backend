@@ -62,7 +62,7 @@ dependencies = [
     "textract==1.6.5",
     # "spacy[transformers]==3.8.3",
     "spaczz==0.6.1",
-    # "datetime_matcher @ git+https://github.com/jedzill4/datetime_matcher",
+    "datetime_matcher @ git+https://github.com/jedzill4/datetime_matcher",
     "scikit-learn==1.5.2",
     "jiwer==3.0.5",
     "datasets>=3.2.0",
