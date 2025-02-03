@@ -1,42 +1,42 @@
-import os
 import json
-import tempfile
+import os
 import subprocess
+import tempfile
 from threading import Lock
 
 import torch
-from sqlmodel import Session
-from fastapi.routing import APIRouter
+from fastapi import Body, Depends, Form, UploadFile
 from fastapi.responses import FileResponse
+from fastapi.routing import APIRouter
+from sqlmodel import Session
 from starlette.background import BackgroundTask
-from fastapi import Body, Form, Depends, UploadFile
 
-from aymurai.logger import get_logger
-from aymurai.settings import settings
-from aymurai.utils.misc import get_element
 from aymurai.api.utils import load_pipeline
-from aymurai.database.session import get_session
-from aymurai.text.anonymization import DocAnonymizer
-from aymurai.database.utils import data_to_uuid, text_to_uuid
-from aymurai.text.extraction import MIMETYPE_EXTENSION_MAPPER
 from aymurai.database.crud.anonymization.document import anonymization_document_create
-from aymurai.meta.api_interfaces import (
-    DocLabel,
-    TextRequest,
-    DocumentAnnotations,
-    DocumentInformation,
+from aymurai.database.crud.anonymization.paragraph import (
+    anonymization_paragraph_batch_create_update,
+    anonymization_paragraph_create,
+    anonymization_paragraph_read,
+    anonymization_paragraph_update,
 )
 from aymurai.database.schema import (
     AnonymizationParagraph,
     AnonymizationParagraphCreate,
     AnonymizationParagraphUpdate,
 )
-from aymurai.database.crud.anonymization.paragraph import (
-    anonymization_paragraph_read,
-    anonymization_paragraph_create,
-    anonymization_paragraph_update,
-    anonymization_paragraph_batch_create_update,
+from aymurai.database.session import get_session
+from aymurai.database.utils import data_to_uuid, text_to_uuid
+from aymurai.logger import get_logger
+from aymurai.meta.api_interfaces import (
+    DocLabel,
+    DocumentAnnotations,
+    DocumentInformation,
+    TextRequest,
 )
+from aymurai.settings import settings
+from aymurai.text.anonymization import DocAnonymizer
+from aymurai.text.extraction import MIMETYPE_EXTENSION_MAPPER
+from aymurai.utils.misc import get_element
 
 logger = get_logger(__name__)
 
@@ -157,7 +157,8 @@ async def anonymizer_compile_document(
     logger.info(f"detection extension: {extension} ({file.content_type})")
 
     _, suffix = os.path.splitext(file.filename)
-    tmp_file = tempfile.NamedTemporaryFile(dir="/tmp", suffix=suffix, delete=False)
+    suffix = suffix if suffix == ".docx" else ".txt"
+    tmp_file = tempfile.NamedTemporaryFile(suffix=suffix, delete=False)
     tmp_filename = tmp_file.name
     logger.info(f"saving temp file on local storage => {tmp_filename}")
     with open(tmp_filename, "wb") as tmp_file:
@@ -203,7 +204,8 @@ async def anonymizer_compile_document(
         )
         logger.info(f"saved temp file on local storage => {tmp_filename}")
 
-    else:  # export as raw document
+    else:
+        # Export as raw document
         anonymized_doc = [
             doc_anonymizer.replace_labels_in_text(document_information.model_dump())
             .replace("&lt;", "<")
@@ -214,22 +216,23 @@ async def anonymizer_compile_document(
             f.write("\n".join(anonymized_doc))
 
     # Connvert to ODT
-    with tempfile.NamedTemporaryFile(dir="/tmp", suffix=".docx") as temp:
-        with open(tmp_filename, "rb") as f:
-            temp.write(f.read())
+    tmp_dir = tempfile.gettempdir()
+    cmd = f"{settings.LIBREOFFICE_BIN} --headless --convert-to odt --outdir {tmp_dir} {tmp_filename}"
 
-        temp.flush()
-
-        cmd = f"{settings.LIBREOFFICE_BIN} --headless --convert-to odt --outdir /tmp {temp.name}"
+    try:
         subprocess.run(cmd, shell=True)
-
-        odt = temp.name.replace(".docx", ".odt")
-
-        os.remove(tmp_filename)
-
-        return FileResponse(
-            odt,
-            background=BackgroundTask(os.remove, odt),
-            media_type="application/octet-stream",
-            filename=f"{os.path.splitext(os.path.basename(tmp_filename))[0]}.odt",
+    except subprocess.CalledProcessError as e:
+        raise RuntimeError(
+            f"LibreOffice conversion failed: {e.output.decode('utf-8', errors='ignore')}"
         )
+
+    odt = tmp_filename.replace(suffix, ".odt")
+
+    os.remove(tmp_filename)
+
+    return FileResponse(
+        odt,
+        background=BackgroundTask(os.remove, odt),
+        media_type="application/octet-stream",
+        filename=f"{os.path.splitext(os.path.basename(tmp_filename))[0]}.odt",
+    )
