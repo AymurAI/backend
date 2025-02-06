@@ -1,16 +1,16 @@
 import tempfile
 from threading import Lock
 
-from fastapi.routing import APIRouter
 from fastapi import Depends, UploadFile
+from fastapi.routing import APIRouter
 
-from aymurai.logger import get_logger
-from aymurai.utils.misc import get_element
-from aymurai.pipeline import AymurAIPipeline
-from aymurai.database.utils import data_to_uuid
-from aymurai.meta.api_interfaces import Document
 from aymurai.api.utils import get_pipeline_doc_extract
+from aymurai.database.utils import data_to_uuid
+from aymurai.logger import get_logger
+from aymurai.meta.api_interfaces import Document
+from aymurai.pipeline import AymurAIPipeline
 from aymurai.text.extraction import MIMETYPE_EXTENSION_MAPPER
+from aymurai.utils.misc import get_element
 
 logger = get_logger(__name__)
 pipeline_lock = Lock()
@@ -31,6 +31,7 @@ def plain_text_extractor(
     with tempfile.NamedTemporaryFile(delete=True, suffix=f".{extension}") as tmp_file:
         tmp_filename = tmp_file.name
         tmp_file.write(data)
+        tmp_file.flush()
 
         logger.info(f"saved temp file on local storage => {tmp_filename}")
 

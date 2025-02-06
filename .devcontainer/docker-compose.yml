@@ -7,7 +7,6 @@ x-template: &template
     - ../resources/:/resources
     - ../test/:/test
     - $HOME/.ssh/:/home/ubuntu/.ssh
-    - $HOME/.gitconfig:/home/ubuntu/.gitconfig
     - /var/run/docker.sock:/var/run/docker.sock
   env_file:
     - ../.env.common
@@ -23,7 +22,6 @@ services:
       context: ..
       dockerfile: .devcontainer/Dockerfile
       args:
-        # - CORE_IMAGE=nvidia/cuda:11.8.0-cudnn8-runtime-ubuntu22.04
         - CORE_IMAGE=nvidia/cuda:12.6.2-cudnn-runtime-ubuntu24.04
     deploy:
       resources:

@@ -1,6 +1,5 @@
 import os
 from pathlib import Path
-from functools import cached_property
 
 from dotenv import load_dotenv
 from pydantic_core import MultiHostUrl
@@ -66,6 +65,8 @@ class Settings(BaseSettings):
     # Cachetools settings
     MEMORY_CACHE_MAXSIZE: int = 1
     MEMORY_CACHE_TTL: int = 60
+
+    LIBREOFFICE_BIN: str = "libreoffice"
 
 
 load_env()

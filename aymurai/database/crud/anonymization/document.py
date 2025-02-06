@@ -21,14 +21,9 @@ def anonymization_document_create(
 ) -> AnonymizationDocument:
     document = AnonymizationDocument(id=id, name=name, paragraphs=paragraphs)
 
-    if override:
-        statement = select(AnonymizationDocument).where(
-            AnonymizationDocument.id == document.id
-        )
-        existing = session.exec(statement).first()
-
-        if existing:
-            session.delete(existing)
+    exists = session.get(AnonymizationDocument, id)
+    if exists and override:
+        session.delete(exists)
 
     session.add(document)
     session.commit()

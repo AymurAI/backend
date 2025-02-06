@@ -1,7 +1,7 @@
 import json
 import os
+import subprocess
 import tempfile
-from subprocess import getoutput
 from threading import Lock
 
 import torch
@@ -156,7 +156,10 @@ async def anonymizer_compile_document(
     extension = MIMETYPE_EXTENSION_MAPPER.get(file.content_type)
     logger.info(f"detection extension: {extension} ({file.content_type})")
 
-    tmp_filename = f"/tmp/{file.filename}"
+    _, suffix = os.path.splitext(file.filename)
+    suffix = suffix if suffix == ".docx" else ".txt"
+    tmp_file = tempfile.NamedTemporaryFile(suffix=suffix, delete=False)
+    tmp_filename = tmp_file.name
     logger.info(f"saving temp file on local storage => {tmp_filename}")
     with open(tmp_filename, "wb") as tmp_file:
         data = file.file.read()
@@ -192,30 +195,44 @@ async def anonymizer_compile_document(
     # Anonymize the document
     doc_anonymizer = DocAnonymizer()
 
-    item = {"path": tmp_filename}
-    doc_anonymizer(
-        item,
-        [document_information.model_dump() for document_information in annots.data],
-        "/tmp",
-    )
-    logger.info(f"saved temp file on local storage => {tmp_filename}")
+    if suffix == ".docx":
+        item = {"path": tmp_filename}
+        doc_anonymizer(
+            item,
+            [document_information.model_dump() for document_information in annots.data],
+            "/tmp",
+        )
+        logger.info(f"saved temp file on local storage => {tmp_filename}")
+
+    else:
+        # Export as raw document
+        anonymized_doc = [
+            doc_anonymizer.replace_labels_in_text(document_information.model_dump())
+            .replace("&lt;", "<")
+            .replace("&gt;", ">")
+            for document_information in annots.data
+        ]
+        with open(tmp_filename, "w") as f:
+            f.write("\n".join(anonymized_doc))
 
     # Connvert to ODT
-    with tempfile.NamedTemporaryFile(dir="/tmp", suffix=".docx") as temp:
-        with open(tmp_filename, "rb") as f:
-            temp.write(f.read())
+    tmp_dir = tempfile.gettempdir()
+    cmd = f"{settings.LIBREOFFICE_BIN} --headless --convert-to odt --outdir {tmp_dir} {tmp_filename}"
 
-        temp.flush()
-
-        cmd = "libreoffice --headless --convert-to odt --outdir /tmp {file}"
-        getoutput(cmd.format(file=temp.name))
-        odt = temp.name.replace(".docx", ".odt")
-
-        os.remove(tmp_filename)
-
-        return FileResponse(
-            odt,
-            background=BackgroundTask(os.remove, odt),
-            media_type="application/octet-stream",
-            filename=f"{os.path.splitext(os.path.basename(tmp_filename))[0]}.odt",
+    try:
+        subprocess.run(cmd, shell=True)
+    except subprocess.CalledProcessError as e:
+        raise RuntimeError(
+            f"LibreOffice conversion failed: {e.output.decode('utf-8', errors='ignore')}"
         )
+
+    odt = tmp_filename.replace(suffix, ".odt")
+
+    os.remove(tmp_filename)
+
+    return FileResponse(
+        odt,
+        background=BackgroundTask(os.remove, odt),
+        media_type="application/octet-stream",
+        filename=f"{os.path.splitext(os.path.basename(tmp_filename))[0]}.odt",
+    )
