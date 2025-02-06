@@ -17,7 +17,7 @@ from aymurai.utils.misc import is_url, get_element
 from aymurai.models.decision.tokenizer import Tokenizer
 from aymurai.meta.pipeline_interfaces import TrainModule
 from aymurai.models.decision.conv1d import Conv1dTextClassifier
-from aymurai.meta.api_interfaces import DocLabel, DocLabelAttributes
+from aymurai.meta.api_interfaces import DocLabel, EntityAttributes
 
 logger = get_logger(__name__)
 
@@ -108,7 +108,7 @@ class DecisionConv1dBinRegex(TrainModule):
 
     def gen_aymurai_entity(self, text: str, category: int, score: float):
         subcategory = self.get_subcategory(text)
-        attrs = DocLabelAttributes(
+        attrs = EntityAttributes(
             aymurai_label="DECISION",
             aymurai_label_subclass=subcategory,
             aymurai_method=self.__name__,

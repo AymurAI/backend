@@ -1,13 +1,13 @@
+import unicodedata
 from multiprocessing import cpu_count
 from typing import Iterable, Optional
 
-import spacy
 import numpy as np
 import tensorflow as tf
 import tensorflow_hub as hub
-from tqdm.auto import tqdm
 import tensorflow_text  # noqa
 from more_itertools import chunked
+from tqdm.auto import tqdm
 
 from aymurai.logger import get_logger
 
@@ -25,14 +25,15 @@ class USEMQA:
         self,
         usem_qa_url: str = "https://tfhub.dev/google/universal-sentence-encoder-multilingual-qa/3",
     ):
-        self.nlp = spacy.blank("xx")
         self.embed = hub.load(usem_qa_url)
 
     def normalize_text(self, text: str) -> str:
-        tokens = self.nlp(text)
-        tokens = (token.text for token in tokens if not token.is_punct)
-        text = " ".join(tokens).lower()
-
+        text = text.lower()
+        text = "".join(
+            char
+            for char in unicodedata.normalize("NFKD", text)
+            if char.isalnum() or char.isspace()
+        )
         return text
 
     def encode(

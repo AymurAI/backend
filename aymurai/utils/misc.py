@@ -7,7 +7,7 @@ def get_element(
     levels: Union[list, Any] = [],
     default: Any = None,
     *,
-    ignore_errors: bool = True
+    ignore_errors: bool = True,
 ):
     """
     retrieve element hierarchically
@@ -32,7 +32,7 @@ def get_element(
     level = levels.pop(0)
 
     try:
-        return get_element(obj[level], levels=levels)
+        return get_element(obj[level], levels=levels, default=default)
     except Exception:
         if ignore_errors:
             return default

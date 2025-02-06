@@ -5,9 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "aymurai"
 requires-python = "==3.10.*"
-# version = "1.1.0"
 dynamic = ["version"]
-# dynamic = ["version", "dependencies"]
 authors = [
     { name = "datagenero.org", email = "aymurai@datagenero.org" },
     { name = "collective.ai", email = "info@collectiveai.io" },
@@ -53,21 +51,18 @@ classifiers = [
 ]
 
 dependencies = [
-    "requests==2.32.3",
+    "requests>=2.32.3",
     "numpy<2.0.0",
-    "more-itertools==10.5.0",
-    "odfpy==1.4.1",
+    "more-itertools>=10.5.0",
+    "odfpy>=1.4.1",
     "gdown==4.6.0",
-    "joblib==1.4.2",
+    "joblib>=1.4.2",
     "textract==1.6.5",
-    # "spacy[transformers]==3.8.3",
-    "spaczz==0.6.1",
     "datetime_matcher @ git+https://github.com/jedzill4/datetime_matcher",
-    "scikit-learn==1.5.2",
+    # "scikit-learn==1.5.2",
     "jiwer==3.0.5",
     "datasets>=3.2.0",
     "python-magic==0.4.27",
-    # "redis==5.0.8",
     "unidecode==1.3.8",
     "sentencepiece==0.2.0",
     # "flair @ git+https://github.com/flairNLP/flair@v0.13.1",
@@ -77,24 +72,20 @@ dependencies = [
     "python-multipart>=0.0.20",
     "pydantic>=2.10.4",
     "pydantic_settings>=2.7.0",
-    "httpx==0.28.1",
     "faker==18.11.2",
     "xmltodict==0.14.2",
     "cachetools>=5.5.0",
     "diskcache>=5.6.3",
-    "mammoth==1.8.0",
     "scipy<1.14.1",
-    "torch==1.12.1", # for decision model
-    "torchtext==0.13.1", # for decision model
+    "torch==1.12.1",                  # for decision model
+    "torchtext==0.13.1",              # for decision model
     "pytorch-lightning==1.8.3.post1",
     "tensorflow_text==2.18.1",
-    "rich==13.9.4",
     "psutil==6.1.0",
     "sqlmodel==0.0.22",
     "alembic>=1.13.3",
-    "tenacity==9.0.0",
+    "tenacity>=9.0.0",
     "python-dotenv>=1.0.1",
-    "es-core-news-sm",
     "tensorflow-hub>=0.16.1",
     "pymupdf>=1.25.2",
 ]
@@ -112,14 +103,13 @@ Issues = "https://github.com/AymurAI/backend/issues"
 
 [dependency-groups]
 dev = [
-    "tensorboard==2.18.0",
-    "matplotlib==3.10.0",
-    "seaborn==0.13.2",
-    "plotly==5.24.1",
-    "pre-commit==4.0.1",
-    "nbstripout==0.8.0",
-    "jupyter==1.1.1",
-    "python-semantic-release>=9.16.1",
+    "matplotlib>=3.10.0",
+    "seaborn>=0.13.2",
+    "plotly>=5.24.1",
+    "pre-commit>=4.0.1",
+    "rich>=13.9.4",
+    "nbstripout>=0.8.0",
+    "jupyter>=1.1.1",
     "pip>=24.3.1",
 ]
 
@@ -137,17 +127,5 @@ aymurai-api = "aymurai.api.main:main"
 version_file = "aymurai/version.py"
 
 
-[tool.uv]
-python-preference = "system"
-
 [tool.pylint.messages_control]
 disable = "C0330, C0326"
-
-[tool.isort]
-profile = "black"
-length_sort = true
-combine_as_imports = true
-force_sort_within_sections = true
-
-[tool.uv.sources]
-es-core-news-sm = { url = "https://github.com/explosion/spacy-models/releases/download/es_core_news_sm-3.8.0/es_core_news_sm-3.8.0-py3-none-any.whl" }

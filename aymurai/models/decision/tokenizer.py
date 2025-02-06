@@ -4,13 +4,15 @@
 
 import torch
 from unidecode import unidecode
-from torchtext.data import get_tokenizer
+
+# from torchtext.data import get_tokenizer
+from aymurai.text.tokenizers.spanish import SpanishTokenizer
 
 
 class Tokenizer(object):
     def __init__(self, vocab):
         self.max_len = 128
-        self.tokenizer = get_tokenizer("spacy", "es_core_news_sm")
+        self.tokenizer = SpanishTokenizer()
         self.vocab = vocab
 
     def save(self, path: str):
