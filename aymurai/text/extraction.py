@@ -1,9 +1,9 @@
-import logging
 import os
 import re
+import logging
+import zipfile
 import statistics
 import unicodedata
-import zipfile
 from pathlib import Path
 from typing import Any
 from zipfile import BadZipFile
@@ -189,6 +189,27 @@ def get_footnotes(path: str) -> list[str] | None:
     return footnotes_texts
 
 
+def pdf_to_text(filename: str, y_tolerance: float | None = None) -> str:
+    """
+    Extract text from a PDF file.
+
+    Args:
+        filename (str): Path to the PDF file.
+        y_tolerance (float, optional):
+            Maximum vertical gap (in points) to consider blocks part of the same paragraph.
+
+    Returns:
+        str: Extracted text.
+    """
+    if y_tolerance is None:
+        y_tolerance = compute_median_margin_between_blocks(filename)
+
+    paragraphs = extract_and_merge_paragraphs(filename, np.ceil(y_tolerance))
+    docu = "\n\n".join(paragraphs)
+    docu = unicodedata.normalize("NFKC", docu)
+    return docu
+
+
 def extract_document(
     filename: str | Path,
     errors: str = "ignore",
@@ -241,11 +262,7 @@ def extract_document(
 
     try:
         if ext == "pdf":
-            y_tolerance = compute_median_margin_between_blocks(filename)
-            paragraphs = extract_and_merge_paragraphs(filename, np.ceil(y_tolerance))
-            docu = "\n\n".join(paragraphs)
-            docu = unicodedata.normalize("NFKC", docu)
-            return docu
+            return pdf_to_text(filename, y_tolerance=kwargs.get("y_tolerance"))
 
         docu = textract.process(filename, **kwargs).decode("utf-8")
     except (BadZipFile, KeyError, ShellError):
