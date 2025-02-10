@@ -1,4 +1,4 @@
-from pydantic import Field, BaseModel
+from pydantic import BaseModel, Field
 
 
 class EntityAttributes(BaseModel):
@@ -11,21 +11,21 @@ class EntityAttributes(BaseModel):
     )
     aymurai_alt_text: str | None = Field(
         None,
-        description="alternative form for text formating (i.e. datetimes)",
+        description="Alternative form for text formating (i.e. datetimes)",
     )
     aymurai_alt_start_char: int | None = Field(
         None,
-        description="start character of the alternative span in relation of the full text",
+        description="Start character of the alternative span in relation of the full text",
     )
     aymurai_alt_end_char: int | None = Field(
         None,
-        description="last character of the alternative span in relation of the full text",
+        description="Last character of the alternative span in relation of the full text",
     )
     aymurai_method: str | None = Field(
         None,
-        description="method used on the prediction label",
+        description="Method used on the prediction label",
     )
-    aymurai_score: float | None = Field(None, description="score for prediction")
+    aymurai_score: float | None = Field(None, description="Score for prediction")
 
 
 class Entity(BaseModel):
