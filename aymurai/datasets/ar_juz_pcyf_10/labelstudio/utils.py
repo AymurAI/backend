@@ -21,8 +21,14 @@ def join_label_category(spans: list[dict]) -> dict:
 
 def reformat_entity(text: str, span: dict) -> dict:
     """
-    Reformat labelstudio entity to aymurai.
-    Now using raw text slicing instead of spacy.
+    reformat labelstudio entity to aymurai
+
+    Args:
+        text (str): text containing the entity to reformat
+        span (dict): span to reformat
+
+    Returns:
+        dict: aymurai formatted entity
     """
     context_offset = 10
 
@@ -54,7 +60,6 @@ def parse_annots(data: dict) -> dict:
     Returns:
         dict: categories & entities (aymurai format)
     """
-    # Use raw text from data instead of spacy document
     doc_text = data["data"]["text"]
 
     annotations = data["annotations"][0]["result"]

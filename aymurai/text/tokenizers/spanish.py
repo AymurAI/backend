@@ -6,8 +6,6 @@ without any dependency on spaCy. This module provides:
   • TOKENIZER_SUFFIXES and TOKENIZER_INFIXES – basic regex rules.
   • Lexical attribute getter for “like_num”.
   • SpanishTokenizer – a class that tokenizes text using the above rules.
-  • SpanishLemmatizer – a very basic rule‐based lemmatizer.
-  • Spanish – a container class tying together the tokenizer, lemmatizer, stop words, etc.
 
 Note: This is a “simple but close” clone. spaCy’s internal rules are very
 comprehensive; here we implement only some of the core ideas.
@@ -302,8 +300,8 @@ LEX_ATTRS = {"LIKE_NUM": like_num}
 # --- Spanish Tokenizer Implementation ---
 class SpanishTokenizer:
     """
-    Spacy spanish tokenizer clone:
-    source: https://github.com/explosion/spaCy/tree/b3c46c315eb16ce644bddd106d31c3dd349f6bb2/spacy/lang/es
+    Spacy spanish tokenizer clone
+    Source: https://github.com/explosion/spaCy/tree/b3c46c315eb16ce644bddd106d31c3dd349f6bb2/spacy/lang/es
     """
 
     def __init__(self):
