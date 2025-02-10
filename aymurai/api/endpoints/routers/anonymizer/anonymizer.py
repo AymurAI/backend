@@ -97,8 +97,8 @@ async def anonymizer_paragraph_predict(
     text = get_element(processed[0], ["data", "doc.text"]) or ""
     labels = get_element(processed[0], ["predictions", "entities"]) or []
 
-    logger.info(f"saving in cache: {paragraph_id}")
     if use_cache:
+        logger.info(f"saving in cache: {paragraph_id}")
         paragraph = AnonymizationParagraph(
             id=paragraph_id,
             text=text,

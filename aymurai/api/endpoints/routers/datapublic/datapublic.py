@@ -2,35 +2,35 @@ import os
 from threading import Lock
 
 import torch
+from fastapi import Body, Depends, Query
+from fastapi.routing import APIRouter
 from pydantic import UUID5
 from sqlmodel import Session
-from fastapi import Body, Depends
-from fastapi.routing import APIRouter
 
-from aymurai.logger import get_logger
-from aymurai.settings import settings
-from aymurai.utils.misc import get_element
 from aymurai.api.utils import load_pipeline
-from aymurai.database.utils import text_to_uuid
-from aymurai.database.session import get_session
 from aymurai.database.crud.datapublic.document import datapublic_document_create
-from aymurai.meta.api_interfaces import (
-    DocLabel,
-    TextRequest,
-    DocumentAnnotations,
-    DocumentInformation,
+from aymurai.database.crud.datapublic.paragraph import (
+    datapublic_paragraph_batch_create_update,
+    datapublic_paragraph_create,
+    datapublic_paragraph_read,
+    datapublic_paragraph_update,
 )
 from aymurai.database.schema import (
     DataPublicParagraph,
     DataPublicParagraphCreate,
     DataPublicParagraphUpdate,
 )
-from aymurai.database.crud.datapublic.paragraph import (
-    datapublic_paragraph_read,
-    datapublic_paragraph_create,
-    datapublic_paragraph_update,
-    datapublic_paragraph_batch_create_update,
+from aymurai.database.session import get_session
+from aymurai.database.utils import text_to_uuid
+from aymurai.logger import get_logger
+from aymurai.meta.api_interfaces import (
+    DocLabel,
+    DocumentAnnotations,
+    DocumentInformation,
+    TextRequest,
 )
+from aymurai.settings import settings
+from aymurai.utils.misc import get_element
 
 logger = get_logger(__name__)
 
@@ -47,7 +47,9 @@ router = APIRouter()
 @router.post("/predict", response_model=DocumentInformation)
 async def predict_over_text(
     text_request: TextRequest = Body({"text": "Buenos Aires, 17 de noviembre 2024"}),
-    use_cache: bool = True,
+    use_cache: bool = Query(
+        True, description="Use cache to store or retrive predictions"
+    ),
     session: Session = Depends(get_session),
 ) -> DocumentInformation:
     logger.info("datapublic predict single")
@@ -56,14 +58,12 @@ async def predict_over_text(
     text = text_request.text
     paragraph_id = text_to_uuid(text)
 
-    cached_prediction = datapublic_paragraph_read(paragraph_id, session=session)
+    cached_prediction = session.get(DataPublicParagraph, paragraph_id)
     if cached_prediction and use_cache:
         logger.info(f"cache loaded from key: {paragraph_id}")
-        logger.info(f"{cached_prediction}")
-        return DocumentInformation(
-            document=cached_prediction.text,
-            labels=cached_prediction.prediction or [],
-        )
+        logger.debug(f"{cached_prediction}")
+        labels = cached_prediction.prediction
+        return DocumentInformation(document=cached_prediction.text, labels=labels or [])
 
     # load datapublic pipeline
     logger.info("Running prediction")
@@ -77,23 +77,19 @@ async def predict_over_text(
         processed = pipeline.predict_single(processed[0])
         processed = pipeline.postprocess([processed])
 
-    new_prediction = DocumentInformation(
-        document=get_element(processed[0], ["data", "doc.text"]) or "",
-        labels=get_element(processed[0], ["predictions", "entities"]) or [],
-    )
+    text = get_element(processed[0], ["data", "doc.text"]) or ""
+    labels = get_element(processed[0], ["predictions", "entities"]) or []
 
-    logger.info(f"saving in cache: {new_prediction}")
     if use_cache:
-        if not cached_prediction:
-            paragraph = DataPublicParagraphCreate(
-                text=new_prediction.document, prediction=new_prediction.labels or None
-            )
-            datapublic_paragraph_create(paragraph, session=session)
-        else:
-            update = DataPublicParagraphUpdate(prediction=new_prediction.labels or None)
-            datapublic_paragraph_update(update, session=session)
+        logger.info(f"saving in cache: {paragraph_id}")
+        paragraph = DataPublicParagraph(
+            id=paragraph_id,
+            text=text,
+            prediction=labels,
+        )
+        paragraph = datapublic_paragraph_create(paragraph, session=session)
 
-    return new_prediction
+    return DocumentInformation(document=text, labels=paragraph.prediction)
 
 
 # MARK: Validate

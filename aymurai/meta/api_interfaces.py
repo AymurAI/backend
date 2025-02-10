@@ -1,6 +1,6 @@
 import uuid
 
-from pydantic import UUID5, AliasChoices, BaseModel, Field
+from pydantic import UUID5, BaseModel, Field
 
 from aymurai.meta.entities import EntityAttributes
 
