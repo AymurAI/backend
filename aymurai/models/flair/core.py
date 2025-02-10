@@ -14,6 +14,7 @@ from aymurai.utils.misc import is_url
 from aymurai.utils.download import download
 from aymurai.meta.types import DataItem, DataBlock
 from aymurai.meta.pipeline_interfaces import TrainModule
+from aymurai.meta.entities import Entity, EntityAttributes
 
 flair.logger.setLevel(logging.ERROR)
 
@@ -146,22 +147,22 @@ class FlairModel(TrainModule):
         context_pre = " ".join([t.text for t in full_tokens[soffset:start]])
         context_post = " ".join([t.text for t in full_tokens[end:eoffset]])
 
-        return {
-            "start": int(start),
-            "end": int(end),
-            "label": label_value,
-            "text": text,
-            "start_char": start_char,
-            "end_char": end_char,
-            "context_pre": context_pre,
-            "context_post": context_post,
-            "attrs": {
-                "aymurai_score": score,
-                "aymurai_method": "ner/flair",
-                "aymurai_label": label_value,
-                # "aymurai_label_subclass": [],
-            },
-        }
+        entity = Entity(
+            start=start,
+            end=end,
+            label=label_value,
+            text=text,
+            start_char=start_char,
+            end_char=end_char,
+            context_pre=context_pre,
+            context_post=context_post,
+            attrs=EntityAttributes(
+                aymurai_score=score,
+                aymurai_method="ner/flair",
+                aymurai_label=label_value,
+            ),
+        )
+        return entity.model_dump()
 
     def format_entities(self, sentences: list[flair.data.Span]) -> list[dict]:
         """

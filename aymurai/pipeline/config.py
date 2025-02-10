@@ -1,12 +1,12 @@
 import json
 import importlib
-from typing import Any
 from copy import deepcopy
+from typing import Any
 
-import srsly
+import yaml  # Added to replace srsly
 
 from aymurai.meta.config import ConfigSchema
-from aymurai.meta.pipeline_interfaces import Transform, TrainModule
+from aymurai.meta.pipeline_interfaces import TrainModule, Transform
 
 
 class PipeNotFoundError(Exception):
@@ -139,6 +139,5 @@ def config2yaml(config: ConfigSchema) -> str:
     Returns:
         ConfigSchema: Config in functional YAML
     """
-    cfg = config2json(config)
-    cfg = srsly.json_loads(cfg)
-    return srsly.yaml_dumps(cfg)
+    cfg = json.loads(config2json(config))
+    return yaml.dump(cfg, sort_keys=False)

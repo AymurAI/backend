@@ -53,9 +53,12 @@ def find_subcategories(
     )
 
     for ent, found_subcat in zip(ents, found_subcats):
-        if ent in filtered_ents and not get_element(
-            ent, levels=["attrs", "aymurai_label_subclass"]
-        ):
+        aymurai_label_subclass = get_element(
+            ent,
+            levels=["attrs", "aymurai_label_subclass"],
+            default=None,
+        )
+        if ent in filtered_ents and not aymurai_label_subclass:
             ent["attrs"]["aymurai_label_subclass"] = found_subcat
 
     return ents
