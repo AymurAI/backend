@@ -1,7 +1,7 @@
-import os
 import json
-import tempfile
+import os
 import subprocess
+import tempfile
 from threading import Lock
 
 import torch
@@ -58,15 +58,13 @@ async def anonymizer_paragraph_predict(
     """
     Endpoint to predict anonymization for a given paragraph of text.
 
-    ### Args:
-    - **text_request** (`TextRequest`):
-        The request body containing the text to be anonymized.
-    - **use_cache** (`bool`):
-        Flag to determine whether to use cache for storing or retrieving predictions.
+    Args:
+        text_request (TextRequest): The request body containing the text to be anonymized.
+        use_cache (bool): Flag to determine whether to use cache for storing or retrieving predictions.
+        session (Session): Database session dependency.
 
-    ### Returns:
-    - **DocumentInformation**:
-        The anonymized document information including the text and labels.
+    Returns:
+        DocumentInformation: The anonymized document information including the text and labels.
     """
 
     logger.info("anonymization predict single")
@@ -119,6 +117,13 @@ async def anonymizer_get_paragraph_validation(
 ) -> list[DocLabel] | None:
     """
     Get the validation labels for a given paragraph text.
+
+    Args:
+        text_request (TextRequest): The request body containing the text to be validated.
+        session (Session): Database session dependency.
+
+    Returns:
+        list[DocLabel] | None: A list of validation labels for the given paragraph text, or None if no validation exists.
     """
 
     text = text_request.text
@@ -142,7 +147,7 @@ async def anonymizer_compile_document(
     Compile Anonimized document from original file and annotations
 
     Args:
-        file (UploadFile): Original DOCX file
+        file (UploadFile): Original file.
         annotations (str, optional): JSON with document annotations.
 
     Returns:
