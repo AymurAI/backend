@@ -157,14 +157,23 @@ async def anonymizer_compile_document(
     extension = MIMETYPE_EXTENSION_MAPPER.get(file.content_type)
     logger.info(f"detection extension: {extension} ({file.content_type})")
 
+    # Create a temporary file
     _, suffix = os.path.splitext(file.filename)
     suffix = suffix if suffix == ".docx" else ".txt"
-    tmp_file = tempfile.NamedTemporaryFile(suffix=suffix, delete=False)
-    tmp_filename = tmp_file.name
-    logger.info(f"saving temp file on local storage => {tmp_filename}")
-    with open(tmp_filename, "wb") as tmp_file:
+    tmp_dir = tempfile.gettempdir()
+
+    # Use delete=False to avoid the file being deleted when the NamedTemporaryFile object is closed
+    # This is necessary on Windows, as the file is locked by the file object and cannot be deleted
+    with tempfile.NamedTemporaryFile(
+        suffix=suffix, delete=False, dir=tmp_dir
+    ) as tmp_file:
+        tmp_filename = tmp_file.name
+        logger.info(f"saving temp file on local storage => {tmp_filename}")
         data = file.file.read()
         tmp_file.write(data)
+        tmp_file.flush()
+        tmp_file.close()
+
     logger.info(f"saved temp file on local storage => {tmp_filename}")
 
     annots_json = json.loads(annotations)
@@ -201,7 +210,7 @@ async def anonymizer_compile_document(
         doc_anonymizer(
             item,
             [document_information.model_dump() for document_information in annots.data],
-            "/tmp",
+            tmp_dir,
         )
         logger.info(f"saved temp file on local storage => {tmp_filename}")
 
@@ -216,24 +225,41 @@ async def anonymizer_compile_document(
         with open(tmp_filename, "w") as f:
             f.write("\n".join(anonymized_doc))
 
-    # Connvert to ODT
-    tmp_dir = tempfile.gettempdir()
-    cmd = f"{settings.LIBREOFFICE_BIN} --headless --convert-to odt --outdir {tmp_dir} {tmp_filename}"
+    # Convert to ODT
+    cmd = [
+        settings.LIBREOFFICE_BIN,
+        "--headless",
+        "--convert-to",
+        "odt",
+        "--outdir",
+        tmp_dir,
+        tmp_filename,
+    ]
+
+    logger.info(f"Executing: {' '.join(cmd)}")
 
     try:
-        subprocess.run(cmd, shell=True)
+        output = subprocess.check_output(
+            cmd, shell=False, encoding="utf-8", errors="ignore"
+        )
+        logger.info(f"LibreOffice output: {output}")
     except subprocess.CalledProcessError as e:
         raise RuntimeError(
             f"LibreOffice conversion failed: {e.output.decode('utf-8', errors='ignore')}"
         )
 
     odt = tmp_filename.replace(suffix, ".odt")
+    logger.info(f"Expected output file path: {odt}")
 
+    if not os.path.exists(odt):
+        raise RuntimeError(f"File at path {odt} does not exist.")
+
+    # Ensure the temporary file is deleted
     os.remove(tmp_filename)
 
     return FileResponse(
         odt,
         background=BackgroundTask(os.remove, odt),
         media_type="application/octet-stream",
-        filename=f"{os.path.splitext(os.path.basename(tmp_filename))[0]}.odt",
+        filename=f"{os.path.splitext(file.filename)[0]}.odt",
     )
