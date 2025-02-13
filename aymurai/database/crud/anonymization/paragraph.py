@@ -49,7 +49,7 @@ def anonymization_paragraph_update(
     if not paragraph:
         raise ValueError(f"Paragraph not found: {paragraph_id}")
 
-    for field, value in paragraph_in.model_dump(exclude_unset=True).items():
+    for field, value in paragraph_in.model_dump(exclude_none=True).items():
         setattr(paragraph, field, value)
 
     session.add(paragraph)
@@ -83,7 +83,7 @@ def anonymization_paragraph_batch_create_update(
         if paragraph:
             update = AnonymizationParagraphUpdate(**p_in.model_dump())
 
-            for field, value in update.model_dump(exclude_unset=True).items():
+            for field, value in update.model_dump(exclude_none=True).items():
                 setattr(paragraph, field, value)
 
         else:
