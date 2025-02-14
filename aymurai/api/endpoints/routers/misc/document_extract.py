@@ -4,6 +4,7 @@ from threading import Lock
 
 from fastapi import Depends, UploadFile
 from fastapi.routing import APIRouter
+from more_itertools import unique_justseen
 
 from aymurai.api.utils import get_pipeline_doc_extract
 from aymurai.database.utils import data_to_uuid
@@ -59,7 +60,7 @@ def plain_text_extractor(
     document_id = data_to_uuid(data)
     doc_text: str = get_element(processed[0], ["data", "doc.text"], "")
 
-    return Document(
-        document=[text.strip() for text in doc_text.split("\n") if text.strip()],
-        document_id=document_id,
-    )
+    document = [text.strip() for text in doc_text.split("\n") if text.strip()]
+    document = list(unique_justseen(document))
+
+    return Document(document=document, document_id=document_id)
