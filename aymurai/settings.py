@@ -2,19 +2,12 @@ import os
 from pathlib import Path
 
 from dotenv import load_dotenv
-from pydantic_core import MultiHostUrl
-from typing_extensions import Annotated
 from pydantic_settings import BaseSettings
-from pydantic import FilePath, ConfigDict, UrlConstraints, field_validator
+from pydantic import FilePath, ConfigDict, field_validator
 
 import aymurai
 
 PARENT = Path(aymurai.__file__).parent
-
-SQLiteDNS = Annotated[
-    MultiHostUrl,
-    UrlConstraints(host_required=False, allowed_schemes=["sqlite"]),
-]
 
 
 def load_env():
@@ -53,7 +46,7 @@ class Settings(BaseSettings):
 
         return [i.strip() for i in v.split(",")]
 
-    SQLALCHEMY_DATABASE_URI: SQLiteDNS = "sqlite:////resources/cache/sqlite/database.db"
+    SQLALCHEMY_DATABASE_URI: str = "sqlite:////resources/cache/sqlite/database.db"
 
     RESOURCES_BASEPATH: str = "/resources"
 
