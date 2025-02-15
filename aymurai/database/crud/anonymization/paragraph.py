@@ -1,14 +1,14 @@
 import uuid
 
-from sqlmodel import Session, select
+from sqlmodel import Session
 
-from aymurai.logger import get_logger
-from aymurai.database.utils import text_to_uuid
 from aymurai.database.schema import (
     AnonymizationParagraph,
     AnonymizationParagraphCreate,
     AnonymizationParagraphUpdate,
 )
+from aymurai.database.utils import text_to_uuid
+from aymurai.logger import get_logger
 
 logger = get_logger(__name__)
 
@@ -18,32 +18,25 @@ def anonymization_paragraph_create(
     session: Session,
     override: bool = False,
 ) -> AnonymizationParagraph:
-    paragraph = AnonymizationParagraph(**paragraph_in.model_dump())
+    new_paragraph = AnonymizationParagraph(**paragraph_in.model_dump())
 
     if override:
-        statement = select(AnonymizationParagraph).where(
-            AnonymizationParagraph.id == paragraph.id
-        )
-        existing = session.exec(statement).first() or paragraph
+        existing = session.get(AnonymizationParagraph, new_paragraph.id)
 
         if existing:
             session.delete(existing)
 
-    session.add(paragraph)
+    session.add(new_paragraph)
     session.commit()
-    session.refresh(paragraph)
-    return paragraph
+    session.refresh(new_paragraph)
+    return new_paragraph
 
 
 def anonymization_paragraph_read(
     paragraph_id: uuid.UUID,
     session: Session,
 ) -> AnonymizationParagraph | None:
-    statement = select(AnonymizationParagraph).where(
-        AnonymizationParagraph.id == paragraph_id
-    )
-    data = session.exec(statement).first()
-    return data
+    return session.get(AnonymizationParagraph, paragraph_id)
 
 
 def anonymization_paragraph_update(
@@ -51,25 +44,22 @@ def anonymization_paragraph_update(
     paragraph_in: AnonymizationParagraphUpdate,
     session: Session,
 ) -> AnonymizationParagraph:
-    statement = select(AnonymizationParagraph).where(
-        AnonymizationParagraph.id == paragraph_id
-    )
-    paragraph = session.exec(statement).first()
+    paragraph = session.get(AnonymizationParagraph, paragraph_id)
 
     if not paragraph:
         raise ValueError(f"Paragraph not found: {paragraph_id}")
 
-    for field, value in paragraph_in.model_dump(exclude_unset=True).items():
+    for field, value in paragraph_in.model_dump(exclude_none=True).items():
         setattr(paragraph, field, value)
 
-    return anonymization_paragraph_create(paragraph, session)
+    session.add(paragraph)
+    session.commit()
+    session.refresh(paragraph)
+    return paragraph
 
 
 def anonymization_paragraph_delete(paragraph_id: uuid.UUID, session: Session):
-    statement = select(AnonymizationParagraph).where(
-        AnonymizationParagraph.id == paragraph_id
-    )
-    paragraph = session.exec(statement).first()
+    paragraph = session.get(AnonymizationParagraph, paragraph_id)
 
     if not paragraph:
         raise ValueError(f"Paragraph not found: {paragraph_id}")
@@ -89,14 +79,11 @@ def anonymization_paragraph_batch_create_update(
     for p_in in paragraphs_in:
         paragraph_id = text_to_uuid(p_in.text)
 
-        statement = select(AnonymizationParagraph).where(
-            AnonymizationParagraph.id == paragraph_id
-        )
-        paragraph = session.exec(statement).first()
+        paragraph = session.get(AnonymizationParagraph, paragraph_id)
         if paragraph:
             update = AnonymizationParagraphUpdate(**p_in.model_dump())
 
-            for field, value in update.model_dump(exclude_unset=True).items():
+            for field, value in update.model_dump(exclude_none=True).items():
                 setattr(paragraph, field, value)
 
         else:

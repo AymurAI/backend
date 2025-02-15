@@ -2,13 +2,13 @@ import uuid
 
 from sqlmodel import Session, select
 
-from aymurai.logger import get_logger
-from aymurai.database.utils import text_to_uuid
 from aymurai.database.schema import (
     DataPublicParagraph,
     DataPublicParagraphCreate,
     DataPublicParagraphUpdate,
 )
+from aymurai.database.utils import text_to_uuid
+from aymurai.logger import get_logger
 
 logger = get_logger(__name__)
 
@@ -59,7 +59,7 @@ def datapublic_paragraph_update(
     if not paragraph:
         raise ValueError(f"Paragraph not found: {paragraph_id}")
 
-    for field, value in paragraph_in.model_dump(exclude_unset=True).items():
+    for field, value in paragraph_in.model_dump(exclude_none=True).items():
         setattr(paragraph, field, value)
 
     return datapublic_paragraph_create(paragraph, session)
@@ -95,7 +95,7 @@ def datapublic_paragraph_batch_create_update(
         if paragraph:
             update = DataPublicParagraphUpdate(**paragraph_in.model_dump())
 
-            for field, value in update.model_dump(exclude_unset=True).items():
+            for field, value in update.model_dump(exclude_none=True).items():
                 setattr(paragraph, field, value)
 
         else:

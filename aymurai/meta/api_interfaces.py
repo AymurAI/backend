@@ -1,6 +1,6 @@
 import uuid
 
-from pydantic import UUID5, Field, BaseModel
+from pydantic import UUID5, BaseModel, Field
 
 from aymurai.meta.entities import EntityAttributes
 
@@ -22,7 +22,10 @@ class TextRequest(BaseModel):
 class DocLabel(BaseModel):
     """Datatype for a document label"""
 
-    text: str = Field(description="raw text of entity")
+    text: str = Field(
+        description="raw text of entity",
+        # alias=AliasChoices(["text", "document"]),
+    )
     start_char: int = Field(
         description="start character of the span in relation of the full text"
     )
@@ -36,11 +39,7 @@ class DocumentInformation(BaseModel):
     """Datatype for a document information with all labels"""
 
     document: str = Field(description="processed text")
-    labels: list[DocLabel]
-
-    # text: str
-    # document_id: str
-    # labels: list[DocLabel]
+    labels: list[DocLabel] = Field(default_factory=list)
 
 
 class DocumentAnnotations(BaseModel):

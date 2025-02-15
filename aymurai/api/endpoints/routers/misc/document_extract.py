@@ -1,8 +1,10 @@
+import os
 import tempfile
 from threading import Lock
 
 from fastapi import Depends, UploadFile
 from fastapi.routing import APIRouter
+from more_itertools import unique_justseen
 
 from aymurai.api.utils import get_pipeline_doc_extract
 from aymurai.database.utils import data_to_uuid
@@ -28,25 +30,37 @@ def plain_text_extractor(
     logger.info(f"detected extension: {extension} ({file.content_type})")
 
     data = file.file.read()
-    with tempfile.NamedTemporaryFile(delete=True, suffix=f".{extension}") as tmp_file:
-        tmp_filename = tmp_file.name
-        tmp_file.write(data)
-        tmp_file.flush()
 
-        logger.info(f"saved temp file on local storage => {tmp_filename}")
+    # Use delete=False to avoid the file being deleted when the NamedTemporaryFile object is closed
+    # This is necessary on Windows, as the file is locked by the file object and cannot be deleted
+    with tempfile.NamedTemporaryFile(delete=False, suffix=f".{extension}") as tmp_file:
+        try:
+            tmp_filename = tmp_file.name
+            tmp_file.write(data)
+            tmp_file.flush()
+            tmp_file.close()
 
-        item = {"path": tmp_filename}
+            logger.info(f"saved temp file on local storage => {tmp_filename}")
 
-        logger.info("processing data item")
-        logger.info(f"{item}")
+            item = {"path": tmp_filename}
 
-        with pipeline_lock:
-            processed = pipeline.preprocess([item])
+            logger.info("processing data item")
+            logger.info(f"{item}")
+
+            with pipeline_lock:
+                processed = pipeline.preprocess([item])
+
+        except Exception as e:
+            logger.error(f"error while processing data item: {e}")
+            raise e
+
+    os.remove(tmp_filename)
+    logger.info(f"removed temp file from local storage => {tmp_filename}")
 
     document_id = data_to_uuid(data)
     doc_text: str = get_element(processed[0], ["data", "doc.text"], "")
 
-    return Document(
-        document=[text.strip() for text in doc_text.split("\n") if text.strip()],
-        document_id=document_id,
-    )
+    document = [text.strip() for text in doc_text.split("\n") if text.strip()]
+    document = list(unique_justseen(document))
+
+    return Document(document=document, document_id=document_id)
