@@ -4,11 +4,11 @@ import subprocess
 from threading import Lock
 from typing import Literal
 
+import pypandoc
 import pymupdf4llm
 from fastapi import UploadFile
 from fastapi.responses import FileResponse
 from fastapi.routing import APIRouter
-from md2docx_python.src.md2docx_python import markdown_to_word
 from starlette.background import BackgroundTask
 
 from aymurai.api.exceptions import UnsupportedFileType
@@ -25,8 +25,9 @@ def libreoffice_convert(
     input: str,
     format: Literal["pdf", "docx", "odt", "txt"],
     output_dir=tempfile.gettempdir(),
+    extra_args: str = "",
 ) -> str:
-    cmd = f"{settings.LIBREOFFICE_BIN} --headless --convert-to {format} --outdir {output_dir} {input}"
+    cmd = f"{settings.LIBREOFFICE_BIN} --headless --convert-to {format} --outdir {output_dir} {input} {extra_args}"
     subprocess.run(cmd, shell=True, check=True)
 
     filename = os.path.basename(input)
@@ -38,9 +39,10 @@ def libreoffice_convert(
     return output
 
 
-async def convert_common_txt_docx_doc(
+async def convert_libreoffice(
     file: UploadFile,
     output_format: Literal["pdf", "docx", "odt"],
+    extra_args: str = "",
 ) -> FileResponse:
     _, suffix = os.path.splitext(file.filename)
 
@@ -49,7 +51,11 @@ async def convert_common_txt_docx_doc(
         data = file.file.read()
         tmp.write(data)
 
-    output = libreoffice_convert(tmp_file.name, format=output_format)
+    output = libreoffice_convert(
+        tmp_file.name,
+        format=output_format,
+        extra_args=extra_args,
+    )
     os.remove(tmp_file.name)
 
     return FileResponse(
@@ -60,7 +66,7 @@ async def convert_common_txt_docx_doc(
     )
 
 
-async def convert_common_pdf(
+async def convert_pdf_pandoc(
     file: UploadFile,
     output_format: Literal["docx", "odt"],
 ) -> FileResponse:
@@ -79,27 +85,8 @@ async def convert_common_pdf(
             image_size_limit=0,
         )
 
-    tmp_file = tempfile.NamedTemporaryFile(suffix=".md", delete=False)
-    with open(tmp_file.name, "w") as f:
-        f.write(text)
-        f.flush()
-
-    # NOTE: md2docx_python does not support images
-    # FIXME: Use pandoc instead
-    docx_name = tmp_file.name.replace(".md", ".docx")
-    markdown_to_word(tmp_file.name, docx_name)
-    os.remove(tmp_file.name)
-
-    if output_format == "docx":
-        return FileResponse(
-            docx_name,
-            background=BackgroundTask(os.remove, docx_name),
-            media_type="application/octet-stream",
-            filename=os.path.basename(file.filename).replace(".pdf", ".docx"),
-        )
-
-    output = libreoffice_convert(docx_name, format=output_format)
-    os.remove(docx_name)
+    output = tempfile.mktemp(suffix=f".{output_format}")
+    pypandoc.convert_text(text, output_format, format="md", outputfile=output)
 
     return FileResponse(
         output,
@@ -111,22 +98,44 @@ async def convert_common_pdf(
 
 # MARK: PDF -> ODT
 @router.post("/convert/pdf/odt")
-async def convert_pdf_odt(file: UploadFile) -> FileResponse:
+async def convert_pdf_odt(
+    file: UploadFile,
+    backend: Literal["libreoffice", "pandoc"] = "libreoffice",
+) -> FileResponse:
     _, suffix = os.path.splitext(file.filename)
     if suffix != ".pdf":
         raise UnsupportedFileType(detail="Expected a .pdf file")
 
-    return await convert_common_pdf(file, output_format="odt")
+    if backend == "libreoffice":
+        return await convert_libreoffice(
+            file,
+            output_format="odt",
+            extra_args='--infilter="writer_pdf_import"',
+        )
+    elif backend == "pandoc":
+        return await convert_pdf_pandoc(file, output_format="odt")
+    raise ValueError("Invalid backend")
 
 
 # MARK: PDF -> DOCX
 @router.post("/convert/pdf/docx")
-async def convert_pdf_docx(file: UploadFile) -> FileResponse:
+async def convert_pdf_docx(
+    file: UploadFile,
+    backend: Literal["libreoffice", "pandoc"] = "libreoffice",
+) -> FileResponse:
     _, suffix = os.path.splitext(file.filename)
     if suffix != ".pdf":
         raise UnsupportedFileType(detail="Expected a .pdf file")
 
-    return await convert_common_pdf(file, output_format="docx")
+    if backend == "libreoffice":
+        return await convert_libreoffice(
+            file,
+            output_format="docx",
+            extra_args='--infilter="writer_pdf_import"',
+        )
+    elif backend == "pandoc":
+        return await convert_pdf_pandoc(file, output_format="docx")
+    raise ValueError("Invalid backend")
 
 
 # MARK: DOCX -> ODT
@@ -136,7 +145,7 @@ async def convert_docx_odt(file: UploadFile) -> FileResponse:
     if suffix != ".docx":
         raise UnsupportedFileType(detail="Expected a .docx file")
 
-    return await convert_common_txt_docx_doc(file, output_format="odt")
+    return await convert_libreoffice(file, output_format="odt")
 
 
 # MARK: DOCX -> PDF
@@ -146,7 +155,7 @@ async def convert_docx_pdf(file: UploadFile) -> FileResponse:
     if suffix != ".docx":
         raise UnsupportedFileType(detail="Expected a .docx file")
 
-    return await convert_common_txt_docx_doc(file, output_format="pdf")
+    return await convert_libreoffice(file, output_format="pdf")
 
 
 # MARK: ODT -> PDF
@@ -156,7 +165,7 @@ async def convert_odt_pdf(file: UploadFile) -> FileResponse:
     if suffix != ".odt":
         raise UnsupportedFileType(detail="Expected a .odt file")
 
-    return await convert_common_txt_docx_doc(file, output_format="pdf")
+    return await convert_libreoffice(file, output_format="pdf")
 
 
 # MARK: ODT -> DOCX
@@ -166,7 +175,7 @@ async def convert_odt_docx(file: UploadFile) -> FileResponse:
     if suffix != ".odt":
         raise UnsupportedFileType(detail="Expected a .odt file")
 
-    return await convert_common_txt_docx_doc(file, output_format="docx")
+    return await convert_libreoffice(file, output_format="docx")
 
 
 # # MARK: TXT -> DOCX

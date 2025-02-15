@@ -78,6 +78,8 @@ RUN apt update && apt install -y \
     libreoffice-writer \
     libreoffice-common \
     default-jre \
+    # Pandoc
+    pandoc \
     # Libmagic
     libmagic1 \
     && apt-get autoremove -y \

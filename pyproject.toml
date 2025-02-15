@@ -89,7 +89,7 @@ dependencies = [
     "tensorflow-hub>=0.16.1",
     "pymupdf>=1.25.2",
     "pymupdf4llm>=0.0.17",
-    "md2docx-python>=0.3.2",
+    "pypandoc>=1.15",
 ]
 
 [project.urls]
