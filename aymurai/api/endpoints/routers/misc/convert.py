@@ -1,18 +1,18 @@
 import os
 import tempfile
 import subprocess
-from enum import Enum
 from threading import Lock
+from typing import Literal
 
-from fastapi import UploadFile
+import pymupdf
+import pymupdf4llm
+from fastapi import HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from fastapi.routing import APIRouter
 from starlette.background import BackgroundTask
 
-from aymurai.api.exceptions import UnsupportedFileType
 from aymurai.logger import get_logger
 from aymurai.settings import settings
-from aymurai.text.extraction import pdf_to_text
 
 logger = get_logger(__name__)
 pipeline_lock = Lock()
@@ -20,33 +20,10 @@ pipeline_lock = Lock()
 router = APIRouter()
 
 
-class InputFormat(str, Enum):
-    docx = "docx"
-    odt = "odt"
-    pdf = "pdf"
-    txt = "txt"
-
-
-class OutputFormat(str, Enum):
-    docx = "docx"
-    odt = "odt"
-    pdf = "pdf"
-
-
-class ValidPair(Enum):
-    docx_odt = ("docx", "odt")
-    docx_pdf = ("docx", "pdf")
-    odt_docx = ("odt", "docx")
-    odt_pdf = ("odt", "pdf")
-    # pdf_docx = ("pdf", "docx")
-    # pdf_odt = ("pdf", "odt")
-
-    def __str__(self):
-        return f"{self.name}"
-
-
 def libreoffice_convert(
-    input: str, format: OutputFormat, output_dir=tempfile.gettempdir()
+    input: str,
+    format: Literal["pdf", "docx", "odt", "txt"],
+    output_dir=tempfile.gettempdir(),
 ) -> str:
     cmd = f"{settings.LIBREOFFICE_BIN} --headless --convert-to {format} --outdir {output_dir} {input}"
     subprocess.run(cmd, shell=True, check=True)
@@ -60,29 +37,18 @@ def libreoffice_convert(
     return output
 
 
-@router.post("/file_convert")
-def convert_file(file: UploadFile, format: OutputFormat = "odt") -> FileResponse:
+async def convert_common_txt_docx_doc(
+    file: UploadFile,
+    output_format: Literal["pdf", "docx", "odt"],
+) -> FileResponse:
     _, suffix = os.path.splitext(file.filename)
-    input_format = suffix[1:]
-    if input_format not in InputFormat.__members__:
-        raise UnsupportedFileType(detail=f"Unsupported file type: {suffix}")
 
     tmp_file = tempfile.NamedTemporaryFile(suffix=suffix, delete=False)
     with open(tmp_file.name, "wb") as tmp:
         data = file.file.read()
         tmp.write(data)
 
-    if input_format == InputFormat.pdf:
-        # Convert PDF to TXT
-        text = pdf_to_text(tmp_file.name)
-        with open(tmp_file.name, "w") as tmp:
-            tmp.write(text)
-
-        new_name = tmp_file.name.replace(".pdf", ".txt")
-        os.rename(tmp_file.name, new_name)
-        tmp_file.name = new_name
-
-    output = libreoffice_convert(tmp_file.name, format=format)
+    output = libreoffice_convert(tmp_file.name, format=output_format)
     os.remove(tmp_file.name)
 
     return FileResponse(
@@ -91,3 +57,114 @@ def convert_file(file: UploadFile, format: OutputFormat = "odt") -> FileResponse
         media_type="application/octet-stream",
         filename=os.path.basename(output),
     )
+
+
+async def convert_common_pdf(
+    file: UploadFile,
+    output_format: Literal["docx", "odt"],
+) -> FileResponse:
+    _, suffix = os.path.splitext(file.filename)
+    if suffix != ".pdf":
+        raise HTTPException(status_code=400, detail="Expected a .pdf file")
+
+    with pymupdf.open(file.file) as pdf:
+        text = pymupdf4llm.to_markdown(
+            pdf,
+            write_images=True,
+            embed_images=True,
+            image_size_limit=0,
+        )
+
+    with tempfile.NamedTemporaryFile(suffix=".md", delete=True) as tmp:
+        tmp.write(text.encode("utf-8"))
+        return await convert_common_txt_docx_doc(tmp.name, output_format=output_format)
+
+
+# MARK: PDF -> ODT
+@router.post("/convert/pdf/odt")
+async def convert_pdf_odt(file: UploadFile) -> FileResponse:
+    _, suffix = os.path.splitext(file.filename)
+    if suffix != ".pdf":
+        raise HTTPException(status_code=400, detail="Expected a .pdf file")
+
+    return await convert_common_pdf(file, output_format="odt")
+
+
+# MARK: PDF -> DOCX
+@router.post("/convert/pdf/docx")
+async def convert_pdf_docx(file: UploadFile) -> FileResponse:
+    _, suffix = os.path.splitext(file.filename)
+    if suffix != ".pdf":
+        raise HTTPException(status_code=400, detail="Expected a .pdf file")
+
+    return await convert_common_pdf(file, output_format="docx")
+
+
+# MARK: DOCX -> ODT
+@router.post("/convert/docx/odt")
+async def convert_docx_odt(file: UploadFile) -> FileResponse:
+    _, suffix = os.path.splitext(file.filename)
+    if suffix != ".docx":
+        raise HTTPException(status_code=400, detail="Expected a .docx file")
+
+    return await convert_common_txt_docx_doc(file, output_format="odt")
+
+
+# MARK: DOCX -> PDF
+@router.post("/convert/docx/pdf")
+async def convert_docx_pdf(file: UploadFile) -> FileResponse:
+    _, suffix = os.path.splitext(file.filename)
+    if suffix != ".docx":
+        raise HTTPException(status_code=400, detail="Expected a .docx file")
+
+    return await convert_common_txt_docx_doc(file, output_format="pdf")
+
+
+# MARK: ODT -> PDF
+@router.post("/convert/odt/pdf")
+async def convert_odt_pdf(file: UploadFile) -> FileResponse:
+    _, suffix = os.path.splitext(file.filename)
+    if suffix != ".odt":
+        raise HTTPException(status_code=400, detail="Expected a .odt file")
+
+    return await convert_common_txt_docx_doc(file, output_format="pdf")
+
+
+# MARK: TXT -> DOCX
+@router.post("/convert/txt/docx")
+async def convert_txt_docx(file: UploadFile) -> FileResponse:
+    _, suffix = os.path.splitext(file.filename)
+    if suffix != ".txt":
+        raise HTTPException(status_code=400, detail="Expected a .txt file")
+
+    return await convert_common_txt_docx_doc(file, output_format="docx")
+
+
+# MARK: TXT -> ODT
+@router.post("/convert/txt/odt")
+async def convert_txt_odt(file: UploadFile) -> FileResponse:
+    _, suffix = os.path.splitext(file.filename)
+    if suffix != ".txt":
+        raise HTTPException(status_code=400, detail="Expected a .txt file")
+
+    return await convert_common_txt_docx_doc(file, output_format="odt")
+
+
+# MARK: TXT -> PDF
+@router.post("/convert/txt/pdf")
+async def convert_txt_pdf(file: UploadFile) -> FileResponse:
+    _, suffix = os.path.splitext(file.filename)
+    if suffix != ".txt":
+        raise HTTPException(status_code=400, detail="Expected a .txt file")
+
+    return await convert_common_txt_docx_doc(file, output_format="odt")
+
+
+# MARK: ODT -> DOCX
+@router.post("/convert/odt/docx")
+async def convert_odt_docx(file: UploadFile) -> FileResponse:
+    _, suffix = os.path.splitext(file.filename)
+    if suffix != ".odt":
+        raise HTTPException(status_code=400, detail="Expected a .odt file")
+
+    return await convert_common_txt_docx_doc(file, output_format="docx")
