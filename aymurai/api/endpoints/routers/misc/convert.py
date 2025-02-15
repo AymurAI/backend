@@ -5,12 +5,13 @@ from threading import Lock
 from typing import Literal
 
 import pymupdf4llm
-from fastapi import HTTPException, UploadFile
+from fastapi import UploadFile
 from fastapi.responses import FileResponse
 from fastapi.routing import APIRouter
 from md2docx_python.src.md2docx_python import markdown_to_word
 from starlette.background import BackgroundTask
 
+from aymurai.api.exceptions import UnsupportedFileType
 from aymurai.logger import get_logger
 from aymurai.settings import settings
 
@@ -65,7 +66,7 @@ async def convert_common_pdf(
 ) -> FileResponse:
     _, suffix = os.path.splitext(file.filename)
     if suffix != ".pdf":
-        raise HTTPException(status_code=400, detail="Expected a .pdf file")
+        raise UnsupportedFileType(detail="Expected a .pdf file")
 
     with tempfile.NamedTemporaryFile(suffix=".pdf", delete=True) as tmp_file:
         tmp_file.write(file.file.read())
@@ -113,7 +114,7 @@ async def convert_common_pdf(
 async def convert_pdf_odt(file: UploadFile) -> FileResponse:
     _, suffix = os.path.splitext(file.filename)
     if suffix != ".pdf":
-        raise HTTPException(status_code=400, detail="Expected a .pdf file")
+        raise UnsupportedFileType(detail="Expected a .pdf file")
 
     return await convert_common_pdf(file, output_format="odt")
 
@@ -123,7 +124,7 @@ async def convert_pdf_odt(file: UploadFile) -> FileResponse:
 async def convert_pdf_docx(file: UploadFile) -> FileResponse:
     _, suffix = os.path.splitext(file.filename)
     if suffix != ".pdf":
-        raise HTTPException(status_code=400, detail="Expected a .pdf file")
+        raise UnsupportedFileType(detail="Expected a .pdf file")
 
     return await convert_common_pdf(file, output_format="docx")
 
@@ -133,7 +134,7 @@ async def convert_pdf_docx(file: UploadFile) -> FileResponse:
 async def convert_docx_odt(file: UploadFile) -> FileResponse:
     _, suffix = os.path.splitext(file.filename)
     if suffix != ".docx":
-        raise HTTPException(status_code=400, detail="Expected a .docx file")
+        raise UnsupportedFileType(detail="Expected a .docx file")
 
     return await convert_common_txt_docx_doc(file, output_format="odt")
 
@@ -143,7 +144,7 @@ async def convert_docx_odt(file: UploadFile) -> FileResponse:
 async def convert_docx_pdf(file: UploadFile) -> FileResponse:
     _, suffix = os.path.splitext(file.filename)
     if suffix != ".docx":
-        raise HTTPException(status_code=400, detail="Expected a .docx file")
+        raise UnsupportedFileType(detail="Expected a .docx file")
 
     return await convert_common_txt_docx_doc(file, output_format="pdf")
 
@@ -153,7 +154,7 @@ async def convert_docx_pdf(file: UploadFile) -> FileResponse:
 async def convert_odt_pdf(file: UploadFile) -> FileResponse:
     _, suffix = os.path.splitext(file.filename)
     if suffix != ".odt":
-        raise HTTPException(status_code=400, detail="Expected a .odt file")
+        raise UnsupportedFileType(detail="Expected a .odt file")
 
     return await convert_common_txt_docx_doc(file, output_format="pdf")
 
@@ -163,7 +164,7 @@ async def convert_odt_pdf(file: UploadFile) -> FileResponse:
 async def convert_odt_docx(file: UploadFile) -> FileResponse:
     _, suffix = os.path.splitext(file.filename)
     if suffix != ".odt":
-        raise HTTPException(status_code=400, detail="Expected a .odt file")
+        raise UnsupportedFileType(detail="Expected a .odt file")
 
     return await convert_common_txt_docx_doc(file, output_format="docx")
 
@@ -173,7 +174,7 @@ async def convert_odt_docx(file: UploadFile) -> FileResponse:
 # async def convert_txt_docx(file: UploadFile) -> FileResponse:
 #     _, suffix = os.path.splitext(file.filename)
 #     if suffix != ".txt":
-#         raise HTTPException(status_code=400, detail="Expected a .txt file")
+#         raise UnsupportedFileType(detail="Expected a .txt file")
 
 #     return await convert_common_txt_docx_doc(file, output_format="docx")
 
@@ -183,7 +184,7 @@ async def convert_odt_docx(file: UploadFile) -> FileResponse:
 # async def convert_txt_odt(file: UploadFile) -> FileResponse:
 #     _, suffix = os.path.splitext(file.filename)
 #     if suffix != ".txt":
-#         raise HTTPException(status_code=400, detail="Expected a .txt file")
+#         raise UnsupportedFileType(detail="Expected a .txt file")
 
 #     return await convert_common_txt_docx_doc(file, output_format="odt")
 
@@ -193,6 +194,6 @@ async def convert_odt_docx(file: UploadFile) -> FileResponse:
 # async def convert_txt_pdf(file: UploadFile) -> FileResponse:
 #     _, suffix = os.path.splitext(file.filename)
 #     if suffix != ".txt":
-#         raise HTTPException(status_code=400, detail="Expected a .txt file")
+#         raise UnsupportedFileType(detail="Expected a .txt file")
 
 #     return await convert_common_txt_docx_doc(file, output_format="odt")
