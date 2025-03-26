@@ -17,6 +17,11 @@ from aymurai.settings import settings
 from aymurai.pipeline import AymurAIPipeline
 from aymurai.api.startup.database import check_db_connection
 
+try:
+    from aymurai.version import __version__
+except ImportError:
+    __version__ = "0.0.0"
+
 logger = get_logger(__name__)
 
 
@@ -42,7 +47,7 @@ async def lifespan(app: FastAPI):
 
 api = FastAPI(
     title="AymurAI API",
-    version="0.5.0",
+    version=__version__,
     lifespan=lifespan,
 )
 
