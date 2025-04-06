@@ -7,7 +7,6 @@ from alembic import command
 from alembic.config import Config
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
-from fastapi.openapi.utils import get_openapi
 from fastapi.responses import RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -17,10 +16,6 @@ from aymurai.settings import settings
 from aymurai.pipeline import AymurAIPipeline
 from aymurai.api.startup.database import check_db_connection
 
-try:
-    from aymurai.version import __version__
-except ImportError:
-    __version__ = "0.0.0"
 
 logger = get_logger(__name__)
 
@@ -47,7 +42,7 @@ async def lifespan(app: FastAPI):
 
 api = FastAPI(
     title="AymurAI API",
-    version=__version__,
+    version=settings.APP_VERSION,
     lifespan=lifespan,
 )
 
@@ -61,7 +56,7 @@ api.add_middleware(
 )
 
 
-logger.info("Loading server ...")
+logger.info(f"Loading server (Aymurai API - {settings.APP_VERSION})...")
 logger.info(f"CORS_ORIGINS: {settings.CORS_ORIGINS}")
 
 
@@ -85,22 +80,6 @@ api.mount(
     name="static",
 )
 
-
-def custom_openapi():
-    if api.openapi_schema:
-        return api.openapi_schema
-    openapi_schema = get_openapi(
-        title="AymurAI API - Swagger UI",
-        version="0.5.0",
-        description="",
-        routes=api.routes,
-    )
-    openapi_schema["info"]["x-logo"] = {"url": "static/logo256-text.ico"}
-    api.openapi_schema = openapi_schema
-    return api.openapi_schema
-
-
-api.openapi = custom_openapi
 
 ################################################################################
 # MARK: API ENDPOINTS

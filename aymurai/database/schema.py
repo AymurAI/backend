@@ -1,3 +1,4 @@
+# ruff: noqa: F401
 from .meta.datapublic.dataset import (
     DataPublicDataset,
     DataPublicDatasetRead,
@@ -30,3 +31,16 @@ from .meta.anonymization.document import (
     AnonymizationDocumentUpdate,
     AnonymizationDocumentParagraph,
 )
+
+from .meta.document import (
+    Document,
+    DocumentPublic,
+    DocumentUpdate,
+)
+from .meta.paragraph import (
+    Paragraph,
+    ParagraphPublic,
+    ParagraphUpdate,
+)
+from .meta.model import Model, ModelPublic, ModelCreate
+from .meta.prediction import Prediction, PredictionPublic, PredictionCreate

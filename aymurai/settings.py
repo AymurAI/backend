@@ -1,11 +1,17 @@
 import os
 from pathlib import Path
+from typing import Literal
 
 from dotenv import load_dotenv
 from pydantic_settings import BaseSettings
 from pydantic import FilePath, ConfigDict, field_validator
 
 import aymurai
+
+try:
+    from aymurai.version import __version__
+except ImportError:
+    __version__ = "0.0.0"
 
 PARENT = Path(aymurai.__file__).parent
 
@@ -23,6 +29,10 @@ def load_env():
 
 class Settings(BaseSettings):
     model_config = ConfigDict(case_sensitive=True)
+
+    APP_VERSION: str = __version__
+
+    ERROR_HANDLER: Literal["ignore", "raise"] = "ignore"
 
     CORS_ORIGINS: list[str] | str = ",".join(
         [

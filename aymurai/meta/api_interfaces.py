@@ -48,8 +48,8 @@ class DocumentAnnotations(BaseModel):
     data: list[DocumentInformation]
 
 
-class Document(BaseModel):
-    document: list[str]
-    document_id: UUID5
-    header: list[str] | None = None
-    footer: list[str] | None = None
+# class Document(BaseModel):
+#     document: list[str]
+#     document_id: UUID5
+#     header: list[str] | None = None
+#     footer: list[str] | None = None
