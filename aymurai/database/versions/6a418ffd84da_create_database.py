@@ -1,8 +1,8 @@
 """Create database
 
-Revision ID: b09c785624d8
+Revision ID: 6a418ffd84da
 Revises: 
-Create Date: 2025-04-05 20:28:12.090153
+Create Date: 2025-04-06 02:50:55.031170
 
 """
 from typing import Sequence, Union
@@ -13,7 +13,7 @@ import sqlmodel
 
 
 # revision identifiers, used by Alembic.
-revision: str = "b09c785624d8"
+revision: str = "6a418ffd84da"
 down_revision: Union[str, None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -361,6 +361,7 @@ def upgrade() -> None:
         sa.Column("prediction", sa.JSON(), nullable=True),
         sa.Column("validation", sa.JSON(), nullable=True),
         sa.Column("fk_model", sa.Uuid(), nullable=False),
+        sa.Column("fk_paragraph", sa.Uuid(), nullable=True),
         sa.Column("input_hash", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
         sa.Column(
             "created_at",
@@ -372,6 +373,10 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(
             ["fk_model"],
             ["model.id"],
+        ),
+        sa.ForeignKeyConstraint(
+            ["fk_paragraph"],
+            ["paragraph.id"],
         ),
         sa.PrimaryKeyConstraint("id"),
     )

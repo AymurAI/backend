@@ -9,7 +9,7 @@ from sqlalchemy import Column, DateTime, func, text
 from aymurai.database.utils import text_to_uuid
 
 if TYPE_CHECKING:
-    from aymurai.database.meta.document import Document
+    from aymurai.database.schema import Document, Prediction
 
 
 class ParagraphBase(SQLModel):
@@ -41,6 +41,8 @@ class Paragraph(ParagraphBase, table=True):
 
     fk_document: uuid.UUID = Field(None, foreign_key="document.id")
     document: "Document" = Relationship(back_populates="paragraphs")
+
+    predictions: list["Prediction"] = Relationship(back_populates="paragraph")
 
 
 class ParagraphUpdate(BaseModel):

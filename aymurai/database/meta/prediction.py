@@ -7,8 +7,12 @@ from sqlalchemy import JSON, Column, DateTime, func, text
 
 from aymurai.meta.api_interfaces import DocLabel
 
-from aymurai.database.meta.model import Model, ModelPublic
+from aymurai.database.meta.model import ModelPublic
+from typing import TYPE_CHECKING
 from aymurai.database.utils import text_to_hash
+
+# if TYPE_CHECKING:
+from aymurai.database.schema import Model, Paragraph
 
 
 class PredictionBase(SQLModel):
@@ -21,6 +25,7 @@ class PredictionBase(SQLModel):
     validation: list[DocLabel] | None = Field(None, sa_column=Column(JSON))
 
     fk_model: uuid.UUID = Field(foreign_key="model.id")
+    fk_paragraph: uuid.UUID | None = Field(None, foreign_key="paragraph.id")
 
     @model_validator(mode="after")
     def validate_input(self) -> "PredictionBase":
@@ -41,6 +46,7 @@ class Prediction(PredictionBase, table=True):
     )
 
     model: "Model" = Relationship(back_populates="predictions")
+    paragraph: Paragraph | None = Relationship(back_populates="predictions")
 
 
 class PredictionCreate(PredictionBase):

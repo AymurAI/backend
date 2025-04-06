@@ -248,10 +248,9 @@ async def anonymizer_compile_document(
 
     predictions = []
     for paragraph in annotations:
-        with session.no_autoflush:
-            prediction = read_prediction(
-                text=paragraph.document, model_id=model.id, session=session
-            )
+        prediction = read_prediction(
+            text=paragraph.document, model_id=model.id, session=session
+        )
         if prediction:
             prediction.validation = paragraph.labels
             predictions.append(prediction)
