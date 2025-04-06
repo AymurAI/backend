@@ -50,6 +50,8 @@ class Settings(BaseSettings):
 
     RESOURCES_BASEPATH: str = "/resources"
 
+    ASSETS_BASEPATH: str = os.path.join(PARENT, "assets")
+
     # Alembic Config for running migrations
     ALEMBIC_INI_PATH: FilePath = PARENT / "alembic.ini"
 

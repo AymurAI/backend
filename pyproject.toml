@@ -90,6 +90,7 @@ dependencies = [
     "pymupdf>=1.25.2",
     "pymupdf4llm>=0.0.17",
     "pypandoc>=1.15",
+    "pystray>=0.19.5",
 ]
 
 [project.urls]
@@ -120,10 +121,11 @@ include = ["aymurai"]
 
 [project.scripts]
 aymurai-api = "aymurai.api.main:main"
+aymurai-server = "aymurai.api.systemtray_server:main"
 
 
 [tool.setuptools.package-data]
-"*" = ["*.yml", "*.yaml", "*.csv"]
+"*" = ["*.yml", "*.yaml", "*.csv", "assets/*"]
 
 [tool.setuptools_scm]
 version_file = "aymurai/version.py"
