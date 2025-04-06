@@ -6,11 +6,13 @@ export $(shell sed 's/=.*//' .env.common)
 
 
 api-build:
+	uv build
 	docker compose build aymurai-api-dev
 api-run:
 	docker compose run --service-ports aymurai-api-dev
 
 api-prod-build: api-build
+	uv build
 	docker compose build aymurai-api-prod
 api-prod-run:
 	docker compose run aymurai-api-prod
@@ -29,5 +31,5 @@ alembic-regenerate:
 	rm -rvf resources/cache/sqlite/* && \
 	rm -rvf aymurai/database/versions/* && \
 	cd aymurai && \
-	alembic revision --autogenerate -m "Create database" && \
-	alembic upgrade head
+	uv run alembic revision --autogenerate -m "Create database" && \
+	uv run alembic upgrade head
