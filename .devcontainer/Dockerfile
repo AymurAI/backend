@@ -96,17 +96,14 @@ COPY --from=astral-uv-source /uv /uvx /bin/
 
 # Install dependencies
 USER $DEVCONTAINER_USER
-# COPY --from=builder --chown=$USER_NAME:$USER_NAME /tmp/venv /home/$USER_NAME/.venv
-# ENV PYTHONPATH=/home/$USER_NAME/.venv/lib/python${PYTHON_VERSION}/site-packages:$PYTHONPATH
 
+# Install OhMyZsh
 RUN sh -c "$(curl -fsSL https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
-
 
 # Custom Zsh configurations
 RUN echo "autoload bashcompinit && bashcompinit" >> ~/.zshrc && \
     echo "autoload -Uz compinit && compinit" >> ~/.zshrc && \
     echo "sudo setfacl -m u:ubuntu:rw /var/run/docker.sock" >> ~/.zshrc
-
 
 WORKDIR /workspace
 COPY .devcontainer/entrypoint.sh /home/$DEVCONTAINER_USER/
