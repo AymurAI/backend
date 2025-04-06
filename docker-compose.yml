@@ -1,7 +1,6 @@
 services:
-    aymurai-api-dev:
-        image: ${API_IMAGE}:dev
-        container_name: aymurai-api
+    aymurai-api:
+        image: ghcr.io/aymurai/api:latest
         ports:
             - "8899:8899"
         build:
@@ -14,9 +13,8 @@ services:
         volumes:
             - ./resources/cache:/resources/cache
 
-    aymurai-api-prod:
-        image: registry.gitlab.com/collective.ai/datagenero-public/aymurai-api-prod
-        container_name: aymurai-api-prod
+    aymurai-api-full:
+        image: ghcr.io/aymurai/api:full
         ports:
             - "8899:8899"
         build:
