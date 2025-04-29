@@ -205,7 +205,6 @@ def pdf_to_text(filename: str, y_tolerance: float | None = None) -> str:
         y_tolerance = compute_median_margin_between_blocks(filename)
 
     paragraphs = extract_and_merge_paragraphs(filename, np.ceil(y_tolerance))
-    paragraphs = [re.sub(r"\s+", " ", paragraph).strip() for paragraph in paragraphs]
     docu = "\n\n".join(paragraphs)
     docu = unicodedata.normalize("NFKC", docu)
     return docu
