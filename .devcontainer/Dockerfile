@@ -82,6 +82,7 @@ RUN apt update && apt install -y \
     pandoc \
     # Libmagic
     libmagic1 \
+    sqlite3 \
     && apt-get autoremove -y \
     && apt-get clean \
     && rm -rf /tmp/* /var/tmp/* \

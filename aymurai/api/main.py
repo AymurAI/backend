@@ -6,7 +6,7 @@ import torch
 from alembic import command
 from alembic.config import Config
 from fastapi import FastAPI, Request
-from fastapi.staticfiles import StaticFiles
+from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.responses import RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -44,7 +44,9 @@ api = FastAPI(
     title="AymurAI API",
     version=settings.APP_VERSION,
     lifespan=lifespan,
+    docs_url=None,
 )
+
 
 # configure CORS
 api.add_middleware(
@@ -74,11 +76,13 @@ async def index():
     return "/docs"
 
 
-api.mount(
-    "/static",
-    StaticFiles(directory=os.path.join(RESOURCES_BASEPATH, "api", "static")),
-    name="static",
-)
+# @api.get("/docs", include_in_schema=False)
+# async def custom_swagger_ui_html():
+#     return get_swagger_ui_html(
+#         openapi_url=api.openapi_url,
+#         title=f"{api.title} - Swagger UI",
+#         swagger_css_url="https://cdn.jsdelivr.net/gh/danielperezrubio/swagger-dark-theme@main/assets/swagger-ui.min.css",
+#     )
 
 
 ################################################################################

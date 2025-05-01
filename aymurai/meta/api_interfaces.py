@@ -1,6 +1,6 @@
 import uuid
 
-from pydantic import UUID5, BaseModel, Field
+from pydantic import UUID5, BaseModel, Field, RootModel
 
 from aymurai.meta.entities import EntityAttributes
 
@@ -53,3 +53,14 @@ class DocumentAnnotations(BaseModel):
 #     document_id: UUID5
 #     header: list[str] | None = None
 #     footer: list[str] | None = None
+class DataPublicDocumentAnnotations(RootModel):
+    """Datatype for document annotations"""
+
+    root: dict
+
+
+class Document(BaseModel):
+    document: list[str]
+    document_id: UUID5
+    header: list[str] | None = None
+    footer: list[str] | None = None
