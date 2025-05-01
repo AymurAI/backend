@@ -1,4 +1,5 @@
 import os
+import re
 import tempfile
 from threading import Lock
 
@@ -71,6 +72,7 @@ def plain_text_extractor(
     doc_text: str = get_element(processed[0], ["data", "doc.text"], "")
 
     paragraph_text = [text.strip() for text in doc_text.split("\n") if text.strip()]
+    paragraph_text = [re.sub(r"\s{2,}", " ", text) for text in paragraph_text]
     paragraph_text = list(unique_justseen(paragraph_text))
 
     # Add paragraphs to the database
@@ -79,15 +81,15 @@ def plain_text_extractor(
         Paragraph(text=paragraph, order=i) for i, paragraph in enumerate(paragraph_text)
     ]
 
-    document = Document(
+    paragraph_text = Document(
         id=document_id,
         data=data,
         name=file.filename,
         paragraphs=paragraphs,
     )
 
-    session.add_all([document] + paragraphs)
+    session.add_all([paragraph_text] + paragraphs)
     session.commit()
-    session.refresh(document)
+    session.refresh(paragraph_text)
 
-    return document
+    return paragraph_text
