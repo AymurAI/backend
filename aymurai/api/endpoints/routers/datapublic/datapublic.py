@@ -2,30 +2,22 @@ import os
 from threading import Lock
 
 import torch
-from fastapi import Body, Depends, Query
+from fastapi import Body, Depends, Query, HTTPException
 from fastapi.routing import APIRouter
 from pydantic import UUID5
 from sqlmodel import Session
 
 from aymurai.api.utils import load_pipeline
-from aymurai.database.crud.datapublic.document import datapublic_document_create
-from aymurai.database.crud.datapublic.paragraph import (
-    datapublic_paragraph_batch_create_update,
-    datapublic_paragraph_create,
-    datapublic_paragraph_read,
-    datapublic_paragraph_update,
-)
 from aymurai.database.schema import (
     DataPublicParagraph,
-    DataPublicParagraphCreate,
-    DataPublicParagraphUpdate,
+    DataPublicDocument,
+    DataPublicDocumentParagraph,
 )
 from aymurai.database.session import get_session
 from aymurai.database.utils import text_to_uuid
 from aymurai.logger import get_logger
 from aymurai.meta.api_interfaces import (
-    DocLabel,
-    DocumentAnnotations,
+    DataPublicDocumentAnnotations,
     DocumentInformation,
     TextRequest,
 )
@@ -44,8 +36,9 @@ router = APIRouter()
 
 
 # MARK: Predict
-@router.post("/predict", response_model=DocumentInformation)
+@router.post("/predict/{document_id}", response_model=DocumentInformation)
 async def predict_over_text(
+    document_id: UUID5,
     text_request: TextRequest = Body({"text": "Buenos Aires, 17 de noviembre 2024"}),
     use_cache: bool = Query(
         True, description="Use cache to store or retrive predictions"
@@ -82,61 +75,87 @@ async def predict_over_text(
 
     if use_cache:
         logger.info(f"saving in cache: {paragraph_id}")
-        paragraph = DataPublicParagraph(
-            id=paragraph_id,
-            text=text,
-            prediction=labels,
+
+        document = session.get(DataPublicDocument, document_id)
+        if not document:
+            document = DataPublicDocument(id=document_id)
+
+        paragraph = DataPublicParagraph(id=paragraph_id, text=text, prediction=labels)
+        document_paragraphs = DataPublicDocumentParagraph(
+            paragraph_id=paragraph_id,
+            document_id=document_id,
         )
-        paragraph = datapublic_paragraph_create(paragraph, session=session)
+
+        session.add_all([document, paragraph, document_paragraphs])
+        session.commit()
+        session.refresh(paragraph)
+
+        # paragraph = datapublic_paragraph_create(paragraph, session=session)
 
     return DocumentInformation(document=text, labels=paragraph.prediction)
 
 
-# MARK: Validate
-@router.post("/validation", response_model=list[DocLabel] | None)
-async def datapublic_get_paragraph_validation(
-    text_request: TextRequest = Body(
-        {"text": "Acusado: Ramiro Marrón DNI 34.555.666."}
-    ),
+# MARK: Validate Paragraph
+# @router.post("/validation", response_model=list[DocLabel] | None)
+# async def datapublic_get_paragraph_validation(
+#     text_request: TextRequest = Body(
+#         {"text": "Acusado: Ramiro Marrón DNI 34.555.666."}
+#     ),
+#     session: Session = Depends(get_session),
+# ) -> list[DocLabel] | None:
+#     """
+#     Get the validation labels for a given paragraph text.
+#     """
+
+#     text = text_request.text
+#     paragraph_id = text_to_uuid(text)
+
+#     paragraph = datapublic_paragraph_read(paragraph_id, session=session)
+#     if not paragraph:
+#         return None
+
+#     return paragraph.validation
+
+
+# MARK: GET Validation Document
+@router.get("/validation/document/{document_id}")
+async def datapublic_read_document_validation(
+    document_id: UUID5,
     session: Session = Depends(get_session),
-) -> list[DocLabel] | None:
-    """
-    Get the validation labels for a given paragraph text.
-    """
+) -> DataPublicDocumentAnnotations | None:
+    logger.info(f"loading annotations => {document_id}")
 
-    text = text_request.text
-    paragraph_id = text_to_uuid(text)
+    document = session.get(DataPublicDocument, document_id)
+    if not document:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Document not found: {document_id}",
+        )
 
-    paragraph = datapublic_paragraph_read(paragraph_id, session=session)
-    if not paragraph:
+    annotations = document.validation
+    if not annotations:
         return None
 
-    return paragraph.validation
+    return DataPublicDocumentAnnotations(root=annotations)
 
 
-# MARK: Document Validation Save
+# MARK: POST Validation Document
 @router.post("/validation/document/{document_id}")
 async def datapublic_save_document_validation(
     document_id: UUID5,
-    annotations: DocumentAnnotations,
+    annotations: DataPublicDocumentAnnotations = Body(..., example={}),
     session: Session = Depends(get_session),
-) -> DocumentInformation:
+) -> None:
     logger.info(f"processing annotations => {document_id}")
 
-    paragraphs = [
-        DataPublicParagraph(
-            id=text_to_uuid(paragraph.document),
-            text=paragraph.document,
-            validation=paragraph.labels or [],
-        )
-        for paragraph in annotations
-    ]
-    paragraphs = datapublic_paragraph_batch_create_update(paragraphs, session=session)
+    document = session.get(DataPublicDocument, document_id)
+    if not document:
+        document = DataPublicDocument(id=document_id)
 
-    datapublic_document_create(
-        id=document_id,
-        name=str(document_id),
-        paragraphs=paragraphs,
-        session=session,
-        override=True,
-    )
+    document.validation = annotations.root
+    session.add(document)
+    session.commit()
+    session.refresh(document)
+    logger.info(f"document validation saved => {document_id}")
+
+    return

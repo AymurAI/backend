@@ -1,14 +1,17 @@
-from .meta.datapublic.dataset import (
-    DataPublicDataset,
-    DataPublicDatasetRead,
-    DataPublicDatasetCreate,
-    DataPublicDatasetUpdate,
-)
+# ruff: noqa: F401
+
 from .meta.datapublic.paragraph import (
     DataPublicParagraph,
     DataPublicParagraphRead,
     DataPublicParagraphCreate,
     DataPublicParagraphUpdate,
+)
+from .meta.datapublic.document import (
+    DataPublicDocumentBase,
+    DataPublicDocument,
+    DataPublicDocumentRead,
+    DataPublicDocumentCreate,
+    DataPublicDocumentUpdate,
 )
 from .meta.anonymization.paragraph import (
     AnonymizationParagraph,
@@ -16,17 +19,13 @@ from .meta.anonymization.paragraph import (
     AnonymizationParagraphCreate,
     AnonymizationParagraphUpdate,
 )
-from .meta.datapublic.document import (
-    DataPublicDocument,
-    DataPublicDocumentRead,
-    DataPublicDocumentCreate,
-    DataPublicDocumentUpdate,
-    DataPublicDocumentParagraph,
-)
 from .meta.anonymization.document import (
     AnonymizationDocument,
     AnonymizationDocumentRead,
     AnonymizationDocumentCreate,
     AnonymizationDocumentUpdate,
     AnonymizationDocumentParagraph,
+)
+from .meta.datapublic.document_paragraph import (
+    DataPublicDocumentParagraph,
 )
