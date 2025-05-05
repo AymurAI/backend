@@ -1,4 +1,5 @@
 import os
+import re
 import tempfile
 from threading import Lock
 
@@ -61,6 +62,7 @@ def plain_text_extractor(
     doc_text: str = get_element(processed[0], ["data", "doc.text"], "")
 
     document = [text.strip() for text in doc_text.split("\n") if text.strip()]
+    document = [re.sub(r"\s{2,}", " ", text) for text in document]
     document = list(unique_justseen(document))
 
     return Document(document=document, document_id=document_id)
