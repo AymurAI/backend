@@ -1,21 +1,29 @@
 import uuid
 from datetime import datetime
-from typing import TYPE_CHECKING
 
-from pydantic import BaseModel
+from typing import TYPE_CHECKING
 from sqlmodel import Field, SQLModel, Relationship
-from sqlalchemy import Column, DateTime, func, text
+from sqlalchemy import Column, DateTime, func, text, JSON
+from aymurai.meta.api_interfaces import DataPublicDocumentAnnotations
 
 from aymurai.database.meta.datapublic.document_paragraph import (
     DataPublicDocumentParagraph,
 )
 
 if TYPE_CHECKING:
-    from aymurai.database.meta.datapublic.dataset import DataPublicDataset
     from aymurai.database.meta.datapublic.paragraph import DataPublicParagraph
 
 
-class DataPublicDocument(SQLModel, table=True):
+class DataPublicDocumentBase(SQLModel):
+    prediction: DataPublicDocumentAnnotations | None = Field(
+        None, sa_column=Column(JSON)
+    )
+    validation: DataPublicDocumentAnnotations | None = Field(
+        None, sa_column=Column(JSON)
+    )
+
+
+class DataPublicDocument(DataPublicDocumentBase, table=True):
     __tablename__ = "datapublic_document"
     id: uuid.UUID | None = Field(None, primary_key=True)
     created_at: datetime = Field(
@@ -25,28 +33,22 @@ class DataPublicDocument(SQLModel, table=True):
         sa_column=Column(DateTime(), onupdate=func.now())
     )
 
-    name: str = Field(nullable=False)
     paragraphs: list["DataPublicParagraph"] = Relationship(
         back_populates="documents",
         link_model=DataPublicDocumentParagraph,
     )
 
-    dataset: "DataPublicDataset" = Relationship(
-        back_populates="document",
-        sa_relationship_kwargs={"uselist": False},
-    )
+
+class DataPublicDocumentCreate(DataPublicDocumentBase):
+    pass
 
 
-class DataPublicDocumentCreate(BaseModel):
-    name: str
-    # paragraphs: list["DataPublicParagraph"]
+class DataPublicDocumentUpdate(DataPublicDocumentBase):
+    prediction: DataPublicDocumentAnnotations | None = None
+    validation: DataPublicDocumentAnnotations | None = None
 
 
-class DataPublicDocumentUpdate(BaseModel):
-    name: str | None = None
-
-
-class DataPublicDocumentRead(BaseModel):
+class DataPublicDocumentRead(DataPublicDocumentBase):
     id: uuid.UUID
-    name: str
-    # paragraphs: list[uuid.UUID] | None
+    created_at: datetime
+    updated_at: datetime | None = None

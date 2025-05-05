@@ -26,5 +26,5 @@ alembic-regenerate:
 	rm -rvf resources/cache/sqlite/* && \
 	rm -rvf aymurai/database/versions/* && \
 	cd aymurai && \
-	alembic revision --autogenerate -m "Create database" && \
-	alembic upgrade head
+	uv run alembic revision --autogenerate -m "Create database" && \
+	uv run alembic upgrade head
