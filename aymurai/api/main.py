@@ -6,9 +6,6 @@ import torch
 from alembic import command
 from alembic.config import Config
 from fastapi import FastAPI, Request
-from fastapi.openapi.docs import (
-    get_swagger_ui_html,
-)
 from fastapi.responses import RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -50,7 +47,6 @@ api = FastAPI(
     title="AymurAI API",
     version=__version__,
     lifespan=lifespan,
-    docs_url=None,
 )
 
 
