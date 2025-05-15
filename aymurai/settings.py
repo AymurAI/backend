@@ -3,9 +3,9 @@ from pathlib import Path
 from typing import Literal
 
 from dotenv import load_dotenv
+from pydantic import ConfigDict, FilePath, field_validator
 from pydantic_settings import BaseSettings
-from pydantic import FilePath, ConfigDict, field_validator
-
+from aymurai.logger import get_logger
 import aymurai
 
 try:
@@ -15,15 +15,20 @@ except ImportError:
 
 PARENT = Path(aymurai.__file__).parent
 
+logger = get_logger(__name__)
+
 
 def load_env():
+    logger.info("Loading environment variables from .env files")
     load_dotenv(".env")
 
     # Load the stage-specific .env file (if it exists)
     stage = os.getenv("STAGE")
     if stage:
+        logger.info(f"Loading environment variables for stage: {stage}")
         env_file = f".env.{stage}"
         if os.path.exists(env_file):
+            logger.info(f"Loading environment variables from {env_file}")
             load_dotenv(env_file)
 
 
@@ -70,6 +75,10 @@ class Settings(BaseSettings):
     MEMORY_CACHE_TTL: int = 60
 
     LIBREOFFICE_BIN: str = "libreoffice"
+
+    # ----- Miscellaneous settings -----
+    SWAGGER_UI_DARK_MODE: bool = False
+    DEVELOPMENT_MODE: bool = False
 
 
 load_env()

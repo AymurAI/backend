@@ -1,15 +1,17 @@
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, model_validator, computed_field
-from typing_extensions import TYPE_CHECKING, Self
-from sqlmodel import Field, SQLModel, Relationship
+from pydantic import BaseModel, computed_field, model_validator
 from sqlalchemy import Column, DateTime, func, text
+from sqlmodel import Field, Relationship, SQLModel
+from typing_extensions import TYPE_CHECKING, Self
 
 from aymurai.database.utils import text_to_uuid
 
+# from aymurai.database.schema import PredictionPublic
+
 if TYPE_CHECKING:
-    from aymurai.database.schema import Document, Prediction
+    from aymurai.database.schema import Document, Prediction, PredictionPublic
 
 
 class ParagraphBase(SQLModel):
@@ -17,12 +19,18 @@ class ParagraphBase(SQLModel):
 
     text: str = Field(nullable=False)
 
+    index: int = Field(
+        nullable=False,
+        description="Index of the paragraph in the document",
+    )
+
     @model_validator(mode="after")
     def validate_text(self) -> Self:
         self.id = text_to_uuid(self.text)
         return self
 
     @computed_field
+    @property
     def hash(self) -> uuid.UUID:
         """Compute the hash of the text"""
         return text_to_uuid(self.text)
@@ -54,6 +62,7 @@ class ParagraphPublic(BaseModel):
 
     text: str
     hash: uuid.UUID
+    index: int
 
     created_at: datetime
     updated_at: datetime | None

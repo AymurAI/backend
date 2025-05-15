@@ -38,3 +38,19 @@ class Entity(BaseModel):
     context_pre: str = ""
     context_post: str = ""
     attrs: EntityAttributes | None = None
+
+
+class DocLabel(BaseModel):
+    """Datatype for a document label"""
+
+    text: str = Field(
+        description="raw text of entity",
+        # alias=AliasChoices(["text", "document"]),
+    )
+    start_char: int = Field(
+        description="start character of the span in relation of the full text"
+    )
+    end_char: int = Field(
+        description="last character of the span in relation of the full text"
+    )
+    attrs: EntityAttributes

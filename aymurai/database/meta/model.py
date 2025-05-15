@@ -1,27 +1,29 @@
+import enum
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel
 from sqlalchemy import text
-from sqlmodel import Field, SQLModel, Relationship
-from aymurai.database.utils import text_to_uuid
-
+from sqlmodel import Field, Relationship, SQLModel
 from typing_extensions import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from aymurai.database.meta.prediction import Prediction
 
 
+class ModelType(str, enum.Enum):
+    ANONYMIZATION = "anonymization"
+    DATAPUBLIC = "datapublic"
+
+
 class ModelBase(SQLModel):
-    id: uuid.UUID | None = Field(None, primary_key=True)
+    id: uuid.UUID | None = Field(default_factory=uuid.uuid4, primary_key=True)
 
     name: str = Field(nullable=False)
     version: str = Field(nullable=False)
 
-    @model_validator(mode="after")
-    def validate_name_version(self) -> "ModelBase":
-        self.id = text_to_uuid(f"{self.name}-{self.version}")
-        return self
+    type: ModelType = Field(nullable=False)
+    pipeline_path: str = Field(nullable=False)
 
 
 class Model(ModelBase, table=True):
@@ -33,12 +35,6 @@ class Model(ModelBase, table=True):
 
     predictions: list["Prediction"] = Relationship(back_populates="model")
 
-    # @model_validator(mode="before")
-    # def generate_id(cls, values: dict):
-    #     if values.get("id") is None and set(values.keys()) & {"name", "version"}:
-    #         values["id"] = text_to_uuid(f"{values['name']}-{values['version']}")
-    #     return values
-
 
 class ModelCreate(ModelBase):
     def compile(self) -> Model:
@@ -47,7 +43,10 @@ class ModelCreate(ModelBase):
 
 class ModelPublic(BaseModel):
     id: uuid.UUID
+
+    type: ModelType
     name: str
     version: str
+    pipeline_path: str
 
     created_at: datetime

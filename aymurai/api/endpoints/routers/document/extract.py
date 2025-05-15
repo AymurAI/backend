@@ -9,11 +9,10 @@ from more_itertools import unique_justseen
 from sqlmodel import Session
 
 from aymurai.api.utils import get_pipeline_doc_extract
-from aymurai.database.schema import Paragraph, Document, DocumentPublic
+from aymurai.database.schema import Document, DocumentPublic, Paragraph
 from aymurai.database.session import get_session
 from aymurai.database.utils import data_to_uuid
 from aymurai.logger import get_logger
-
 from aymurai.pipeline import AymurAIPipeline
 from aymurai.text.extraction import MIMETYPE_EXTENSION_MAPPER
 from aymurai.utils.misc import get_element
@@ -24,7 +23,7 @@ pipeline_lock = Lock()
 router = APIRouter()
 
 
-@router.post("/document-extract", response_model=DocumentPublic)
+@router.post("/extract", response_model=DocumentPublic)
 def plain_text_extractor(
     file: UploadFile,
     pipeline: AymurAIPipeline = Depends(get_pipeline_doc_extract),
@@ -78,7 +77,7 @@ def plain_text_extractor(
     # Add paragraphs to the database
     # validation MUST be at least an empty list, to remember user feedback
     paragraphs = [
-        Paragraph(text=paragraph, order=i) for i, paragraph in enumerate(paragraph_text)
+        Paragraph(text=paragraph, index=i) for i, paragraph in enumerate(paragraph_text)
     ]
 
     paragraph_text = Document(

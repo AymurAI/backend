@@ -1,18 +1,16 @@
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, model_validator
-from sqlmodel import Field, SQLModel, Relationship
+from pydantic import BaseModel, computed_field, model_validator
 from sqlalchemy import JSON, Column, DateTime, func, text
-
-from aymurai.meta.api_interfaces import DocLabel
+from sqlmodel import Field, Relationship, SQLModel
 
 from aymurai.database.meta.model import ModelPublic
-from typing import TYPE_CHECKING
-from aymurai.database.utils import text_to_hash
 
 # if TYPE_CHECKING:
 from aymurai.database.schema import Model, Paragraph
+from aymurai.database.utils import text_to_hash
+from aymurai.meta.api_interfaces import DocLabel
 
 
 class PredictionBase(SQLModel):
@@ -62,7 +60,13 @@ class PredictionPublic(BaseModel):
     updated_at: datetime | None = None
 
     input: str
-    prediction: list[DocLabel] = Field(default_factory=list)
-    validation: list[DocLabel] = Field(default_factory=list)
+    prediction: list[DocLabel] | None = Field(None, exclude=True)
+    validation: list[DocLabel] | None = Field(None, exclude=True)
 
     model: ModelPublic
+
+    @computed_field
+    @property
+    def labels(self) -> list[DocLabel]:
+        """Return the labels of the prediction"""
+        return self.validation or self.prediction or []
