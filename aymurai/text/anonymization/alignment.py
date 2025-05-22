@@ -29,124 +29,43 @@ def merge_consecutive_labels(text: str, labels: list[DocLabel]) -> list[DocLabel
     """
     Merge consecutive labels in the paragraph prediction.
     Args:
-        paragraph (XMLParagraphWithParagraphPrediction): A dictionary representing the prediction.
+        text (str): The original text.
         labels (list[DocLabel]): A list of labels to merge.
     Returns:
-        list[DocLabel]: A list of dictionaries representing the joined labels.
+        list[DocLabel]: A list of merged DocLabel objects.
     """
+    if not labels:
+        return []
 
-    # Reorder labels based on start indices
     labels = sorted(labels, key=lambda x: x.start_char)
+    merged = []
+    current = labels[0]
 
-    # merge_labels = []
-    # pivot_label_attrs = None
-
-    # # Iterate over labels
-    # for label in labels:
-    #     # Get attributes
-    #     label_text = label.attrs.aymurai_alt_text or label.text
-    #     label_start_char = label.attrs.aymurai_alt_start_char or label.start_char
-    #     label_end_char = label.attrs.aymurai_alt_end_char or label.end_char
-    #     label_aymurai_label = label.attrs.aymurai_label
-
-    #     # Start a new group with the current label
-    #     if pivot_label_attrs is None:
-    #         pivot_label_attrs = label.attrs
-    #         pivot_label_attrs.text = label_text
-    #         pivot_label_attrs.start_char = label_start_char
-    #         pivot_label_attrs.end_char = label_end_char
-    #         pivot_label_attrs.aymurai_label = label_aymurai_label
-
-    #     # Extend the current group with the current label
-    #     elif (
-    #         pivot_label_attrs.attrs.aymurai_label == label_aymurai_label
-    #         and (label_start_char - pivot_label_attrs.end_char) <= 1
-    #     ):
-    #         pivot_label_attrs.end_char = label_end_char
-
-    #     # Finish the current group and start a new one
-    #     else:
-    #         pivot_label_attrs.text = text[
-    #             pivot_label_attrs.start_char : pivot_label_attrs.end_char + 1
-    #         ]
-    #         merge_labels.append(pivot_label_attrs)
-
-    #         pivot_label_attrs = label
-    #         pivot_label_attrs.text = label_text
-    #         pivot_label_attrs.start_char = label_start_char
-    #         pivot_label_attrs.end_char = label_end_char
-    #         pivot_label_attrs.attrs.aymurai_label = label_aymurai_label
-
-    # # Finish the last group
-    # if pivot_label_attrs is not None:
-    #     pivot_label_attrs.text = text[
-    #         pivot_label_attrs.start_char : pivot_label_attrs.end_char + 1
-    #     ]
-    #     merge_labels.append(pivot_label_attrs)
-
-    unified_labels = []
-    current_group = None
-
-    # Iterate over labels
-    for label in labels:
-        label = label.model_dump()
-        # Get attributes
-        label_text = label["attrs"]["aymurai_alt_text"] or label["text"]
-        start_char = label["attrs"]["aymurai_alt_start_char"] or label["start_char"]
-        end_char = label["attrs"]["aymurai_alt_end_char"] or label["end_char"]
-        aymurai_label = label["attrs"]["aymurai_label"]
-
-        if current_group is None:
-            # Start a new group with the current label
-            current_group = {
-                "text": label_text,
-                "start_char": start_char,
-                "end_char": end_char,
-                "aymurai_label": aymurai_label,
-            }
-        elif (
-            current_group["aymurai_label"] == aymurai_label
-            and (start_char - current_group["end_char"]) <= 1
-        ):
-            # Extend the current group with the current label
-            current_group["end_char"] = end_char
+    for label in labels[1:]:
+        # Get label info
+        cur_label = current.attrs.aymurai_label
+        next_label = label.attrs.aymurai_label
+        cur_end = current.attrs.aymurai_alt_end_char or current.end_char
+        next_start = label.attrs.aymurai_alt_start_char or label.start_char
+        # If same label and adjacent or overlapping
+        if cur_label == next_label and (next_start - cur_end) <= 1:
+            # Extend current label
+            current = DocLabel(
+                text=text[current.start_char : (label.end_char + 1)],
+                start_char=current.start_char,
+                end_char=label.end_char,
+                attrs=EntityAttributes(
+                    aymurai_label=cur_label,
+                    aymurai_alt_text=text[current.start_char : (label.end_char + 1)],
+                    aymurai_alt_start_char=current.start_char,
+                    aymurai_alt_end_char=label.end_char,
+                ),
+            )
         else:
-            # Finish the current group and start a new one
-            current_group["text"] = text[
-                current_group["start_char"] : current_group["end_char"] + 1
-            ]
-            unified_labels.append(current_group)
-            current_group = {
-                "text": label_text,
-                "start_char": start_char,
-                "end_char": end_char,
-                "aymurai_label": aymurai_label,
-            }
-
-    # Finish the last group
-    if current_group is not None:
-        current_group["text"] = text[
-            current_group["start_char"] : current_group["end_char"] + 1
-        ]
-        unified_labels.append(current_group)
-
-    # return unified_labels
-    return [
-        DocLabel(
-            text=label["text"],
-            start_char=label["start_char"],
-            end_char=label["end_char"],
-            attrs=EntityAttributes(
-                aymurai_label=label["aymurai_label"],
-                aymurai_alt_text=label["text"],
-                aymurai_alt_start_char=label["start_char"],
-                aymurai_alt_end_char=label["end_char"],
-            ),
-        )
-        for label in unified_labels
-    ]
-
-    # return merge_labels
+            merged.append(current)
+            current = label
+    merged.append(current)
+    return merged
 
 
 def replace_labels_in_text(text: str, prediction: PredictionPublic | None) -> str:
