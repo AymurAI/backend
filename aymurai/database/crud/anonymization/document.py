@@ -24,6 +24,8 @@ def anonymization_document_create(
     exists = session.get(AnonymizationDocument, id)
     if exists and override:
         session.delete(exists)
+    if exists and not override:
+        return exists
 
     session.add(document)
     session.commit()

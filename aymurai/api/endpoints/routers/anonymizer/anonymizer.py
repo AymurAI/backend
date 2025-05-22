@@ -199,7 +199,7 @@ async def anonymizer_compile_document(
         name=file.filename,
         paragraphs=paragraphs,
         session=session,
-        override=True,
+        override=False,
     )
 
     # Anonymize the document
