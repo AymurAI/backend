@@ -1,36 +1,46 @@
 import os
 import re
 import tempfile
-from threading import Lock
+import threading
 
 from fastapi import Depends, UploadFile
 from fastapi.routing import APIRouter
 from more_itertools import unique_justseen
+from sqlmodel import Session
 
 from aymurai.api.utils import get_pipeline_doc_extract
+from aymurai.database.schema import Document, DocumentPublic, Paragraph
+from aymurai.database.session import get_session
 from aymurai.database.utils import data_to_uuid
 from aymurai.logger import get_logger
-from aymurai.meta.api_interfaces import Document
 from aymurai.pipeline import AymurAIPipeline
 from aymurai.text.extraction import MIMETYPE_EXTENSION_MAPPER
 from aymurai.utils.misc import get_element
 
 logger = get_logger(__name__)
-pipeline_lock = Lock()
 
+lock = threading.Lock()
 router = APIRouter()
 
 
-@router.post("/document-extract", response_model=Document)
+@router.post("/extract", response_model=DocumentPublic)
 def plain_text_extractor(
     file: UploadFile,
     pipeline: AymurAIPipeline = Depends(get_pipeline_doc_extract),
-) -> Document:
+    session: Session = Depends(get_session),
+    use_cache: bool = True,
+) -> DocumentPublic:
     logger.info(f"receiving => {file.filename}")
     extension = MIMETYPE_EXTENSION_MAPPER.get(file.content_type)
     logger.info(f"detected extension: {extension} ({file.content_type})")
 
     data = file.file.read()
+    document_id = data_to_uuid(data)
+
+    document = session.get(Document, document_id)
+    if document and use_cache:
+        logger.warning(f"Document already exists: {document_id}. skipping creation.")
+        return document
 
     # Use delete=False to avoid the file being deleted when the NamedTemporaryFile object is closed
     # This is necessary on Windows, as the file is locked by the file object and cannot be deleted
@@ -48,7 +58,7 @@ def plain_text_extractor(
             logger.info("processing data item")
             logger.info(f"{item}")
 
-            with pipeline_lock:
+            with lock:
                 processed = pipeline.preprocess([item])
 
         except Exception as e:
@@ -58,11 +68,27 @@ def plain_text_extractor(
     os.remove(tmp_filename)
     logger.info(f"removed temp file from local storage => {tmp_filename}")
 
-    document_id = data_to_uuid(data)
     doc_text: str = get_element(processed[0], ["data", "doc.text"], "")
 
-    document = [text.strip() for text in doc_text.split("\n") if text.strip()]
-    document = [re.sub(r"\s{2,}", " ", text) for text in document]
-    document = list(unique_justseen(document))
+    paragraph_text = [text.strip() for text in doc_text.split("\n") if text.strip()]
+    paragraph_text = [re.sub(r"\s{2,}", " ", text) for text in paragraph_text]
+    paragraph_text = list(unique_justseen(paragraph_text))
 
-    return Document(document=document, document_id=document_id)
+    # Add paragraphs to the database
+    # validation MUST be at least an empty list, to remember user feedback
+    paragraphs = [
+        Paragraph(text=paragraph, index=i) for i, paragraph in enumerate(paragraph_text)
+    ]
+
+    paragraph_text = Document(
+        id=document_id,
+        data=data,
+        name=file.filename,
+        paragraphs=paragraphs,
+    )
+
+    session.add_all([paragraph_text] + paragraphs)
+    session.commit()
+    session.refresh(paragraph_text)
+
+    return paragraph_text

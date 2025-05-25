@@ -6,24 +6,21 @@ import torch
 from alembic import command
 from alembic.config import Config
 from fastapi import FastAPI, Request
-from fastapi.responses import RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import RedirectResponse
 
 from aymurai.api import core
-from aymurai.logger import get_logger
-from aymurai.settings import settings
-from aymurai.pipeline import AymurAIPipeline
 from aymurai.api.startup.database import check_db_connection
-
-try:
-    from aymurai.version import __version__
-except ImportError:
-    __version__ = "0.0.0"
+from aymurai.database.crud.model import ModelType, register_model
+from aymurai.database.session import get_session
+from aymurai.logger import get_logger
+from aymurai.pipeline import AymurAIPipeline
+from aymurai.settings import Settings, settings
 
 logger = get_logger(__name__)
 
 
-torch.set_num_threads = 100  # FIXME: polemic ?
+torch.set_num_threads(100)  # FIXME: polemic ?
 
 RESOURCES_BASEPATH = settings.RESOURCES_BASEPATH
 
@@ -31,21 +28,49 @@ RESOURCES_BASEPATH = settings.RESOURCES_BASEPATH
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("> Initializing service")
+
+    # ------ Check DB connection and run migrations ----------------------------------
     logger.info(f">> Checking DB connection: `{settings.SQLALCHEMY_DATABASE_URI}`")
     try:
         check_db_connection()
         logger.info(">> Running Alembic migrations")
-        alembic_cfg = Config(str(settings.ALEMBIC_INI_PATH))
+        alembic_cfg = Config(str(settings.ALEMBIC_CONFIG))
         command.upgrade(alembic_cfg, "head")
     except Exception as error:
-        logger.error("Error while starting up:", error)
+        logger.exception(f"Error while starting up: {error}")
+
+    # ------ Register pipelines ------------------------------------------------------
+    logger.info(">> Registering models")
+    session = next(get_session())
+    PIPELINES_PATH = os.path.join(RESOURCES_BASEPATH, "pipelines", "production")
+    model = register_model(
+        model_name="flair-anonymizer",
+        model_type=ModelType.ANONYMIZATION,
+        app_version=settings.APP_VERSION,
+        pipeline_path=os.path.join(PIPELINES_PATH, "flair-anonymizer"),
+        session=session,
+    )
+    logger.info(
+        f">>> Registering `{model.type}` model: {model.name} (version: {model.version})"
+    )
+
+    model = register_model(
+        model_name="datapublic",
+        model_type=ModelType.DATAPUBLIC,
+        app_version=settings.APP_VERSION,
+        pipeline_path=os.path.join(PIPELINES_PATH, "full-paragraph"),
+        session=session,
+    )
+    logger.info(
+        f">>> Registering `{model.type}` model: {model.name} (version: {model.version})"
+    )
 
     yield
 
 
 api = FastAPI(
     title="AymurAI API",
-    version=__version__,
+    version=settings.APP_VERSION,
     lifespan=lifespan,
 )
 
@@ -60,7 +85,7 @@ api.add_middleware(
 )
 
 
-logger.info("Loading server ...")
+logger.info(f"Loading server (Aymurai API - {settings.APP_VERSION})...")
 logger.info(f"CORS_ORIGINS: {settings.CORS_ORIGINS}")
 
 
@@ -75,16 +100,7 @@ async def add_process_time_header(request: Request, call_next):
 
 @api.get("/", response_class=RedirectResponse, include_in_schema=False)
 async def index():
-    return "/docs"
-
-
-# @api.get("/docs", include_in_schema=False)
-# async def custom_swagger_ui_html():
-#     return get_swagger_ui_html(
-#         openapi_url=api.openapi_url,
-#         title=f"{api.title} - Swagger UI",
-#         swagger_css_url="https://cdn.jsdelivr.net/gh/danielperezrubio/swagger-dark-theme@main/assets/swagger-ui.min.css",
-#     )
+    return RedirectResponse(url="/docs")
 
 
 ################################################################################
@@ -96,6 +112,20 @@ async def index():
 @api.get("/server/healthcheck", status_code=200, tags=["server"])
 def healthcheck():
     return {"status": "ok"}
+
+
+# API settings
+if settings.DEVELOPMENT_MODE:
+    logger.warning("Development mode enabled")
+
+    @api.get(
+        "/server/environment",
+        status_code=200,
+        tags=["server"],
+        response_model=Settings,
+    )
+    def environment():
+        return settings.model_dump()
 
 
 # Api endpoints

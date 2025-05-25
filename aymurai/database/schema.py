@@ -1,31 +1,6 @@
 # ruff: noqa: F401
-
-from .meta.datapublic.paragraph import (
-    DataPublicParagraph,
-    DataPublicParagraphRead,
-    DataPublicParagraphCreate,
-    DataPublicParagraphUpdate,
-)
-from .meta.datapublic.document import (
-    DataPublicDocumentBase,
-    DataPublicDocument,
-    DataPublicDocumentRead,
-    DataPublicDocumentCreate,
-    DataPublicDocumentUpdate,
-)
-from .meta.anonymization.paragraph import (
-    AnonymizationParagraph,
-    AnonymizationParagraphRead,
-    AnonymizationParagraphCreate,
-    AnonymizationParagraphUpdate,
-)
-from .meta.anonymization.document import (
-    AnonymizationDocument,
-    AnonymizationDocumentRead,
-    AnonymizationDocumentCreate,
-    AnonymizationDocumentUpdate,
-    AnonymizationDocumentParagraph,
-)
-from .meta.datapublic.document_paragraph import (
-    DataPublicDocumentParagraph,
-)
+from .meta.datapublic import Datapublic, DatapublicFormat, DatapublicPublic
+from .meta.document import Document, DocumentPublic, DocumentUpdate
+from .meta.model import Model, ModelCreate, ModelPublic, ModelType
+from .meta.paragraph import Paragraph, ParagraphPublic, ParagraphUpdate
+from .meta.prediction import Prediction, PredictionCreate, PredictionPublic

@@ -1,0 +1,45 @@
+{
+    "python.analysis.typeCheckingMode": "off",
+    "extensions.verifySignature": false,
+    "files.trimFinalNewlines": true,
+    "files.trimTrailingWhitespace": true,
+    "files.watcherExclude": {
+        "**/.git/objects/**": true,
+        "**/.git/subtree-cache/**": true
+    },
+    "python.analysis.exclude": [
+        "**/node_modules",
+        "**/__pycache__",
+        "**/build",
+        ".git",
+        ".venv/**"
+    ],
+    "editor.formatOnSave": true,
+    "notebook.formatOnSave.enabled": true,
+    "notebook.output.scrolling": true,
+    "notebook.codeActionsOnSave": {
+        "notebook.source.organizeImports": "explicit"
+    },
+    "[python]": {
+        "editor.defaultFormatter": "charliermarsh.ruff",
+        "editor.codeActionsOnSave": {
+            "source.fixAll": "never",
+            "source.organizeImports.ruff": "always"
+        }
+    },
+    "ruff.format.preview": true,
+    "ruff.organizeImports": true,
+    "dbcode.connections": [
+        {
+            "connectionId": "1oe_iPSN7LlyCERrXeOdw",
+            "name": "aymurai",
+            "driver": "sqlite",
+            "socket": "workspace/resources/cache/sqlite/database.db",
+            "readOnly": false,
+            "driverOptions": {
+                "extensions": []
+            },
+            "connectionType": "socket"
+        }
+    ]
+}

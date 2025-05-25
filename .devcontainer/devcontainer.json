@@ -11,27 +11,6 @@
 	"workspaceFolder": "/workspace",
 	"customizations": {
 		"vscode": {
-			"settings": {
-				"extensions.verifySignature": false,
-				"files.trimFinalNewlines": true,
-				"files.trimTrailingWhitespace": true,
-				"files.watcherExclude": {
-					"**/.git/objects/**": true,
-					"**/.git/subtree-cache/**": true
-				},
-				"editor.formatOnSave": true,
-				"notebook.formatOnSave.enabled": true,
-				"notebook.output.scrolling": true,
-				"notebook.codeActionsOnSave": {
-					"notebook.source.organizeImports": "explicit"
-				},
-				"[python]": {
-					"editor.defaultFormatter": "charliermarsh.ruff",
-					"editor.codeActionsOnSave": {
-						"source.fixAll": "never"
-					}
-				}
-			},
 			// Add the IDs of extensions you want installed when the container is created.
 			"extensions": [
 				"ms-python.python",
@@ -40,14 +19,13 @@
 				"charliermarsh.ruff",
 				"ms-toolsai.jupyter",
 				"GitHub.vscode-pull-request-github",
-				"njpwerner.autodocstring",
 				"GrapeCity.gc-excelviewer",
 				"tamasfe.even-better-toml",
 				"redhat.vscode-xml",
-				"cweijan.vscode-database-client2",
 				"christian-kohler.path-intellisense",
 				"github.vscode-github-actions",
-				"seatonjiang.gitmoji-vscode"
+				"seatonjiang.gitmoji-vscode",
+				"dbcode.dbcode"
 			]
 		}
 	},

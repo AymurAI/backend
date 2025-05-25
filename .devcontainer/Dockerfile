@@ -110,3 +110,4 @@ WORKDIR /workspace
 COPY .devcontainer/entrypoint.sh /home/$DEVCONTAINER_USER/
 
 ENV UV_CACHE_DIR=/resources/cache/uv
+ENV ALAMBIC_CONFIG=/workspace/aymurai/alambic.yml
