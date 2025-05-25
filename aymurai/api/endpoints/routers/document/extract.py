@@ -1,7 +1,7 @@
 import os
 import re
 import tempfile
-from threading import Lock
+import threading
 
 from fastapi import Depends, UploadFile
 from fastapi.routing import APIRouter
@@ -18,8 +18,8 @@ from aymurai.text.extraction import MIMETYPE_EXTENSION_MAPPER
 from aymurai.utils.misc import get_element
 
 logger = get_logger(__name__)
-pipeline_lock = Lock()
 
+lock = threading.Lock()
 router = APIRouter()
 
 
@@ -58,7 +58,7 @@ def plain_text_extractor(
             logger.info("processing data item")
             logger.info(f"{item}")
 
-            with pipeline_lock:
+            with lock:
                 processed = pipeline.preprocess([item])
 
         except Exception as e:

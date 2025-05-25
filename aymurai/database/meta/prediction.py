@@ -28,6 +28,15 @@ class PredictionBase(SQLModel):
     @model_validator(mode="after")
     def validate_input(self) -> "PredictionBase":
         self.input_hash = text_to_hash(self.input)
+
+        # set the paragraph id in doc labels
+        if self.validation:
+            for label in self.validation:
+                label.fk_paragraph = str(self.fk_paragraph)
+        if self.prediction:
+            for label in self.prediction:
+                label.fk_paragraph = str(self.fk_paragraph)
+
         return self
 
 

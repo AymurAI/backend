@@ -15,12 +15,12 @@ from aymurai.database.crud.model import ModelType, register_model
 from aymurai.database.session import get_session
 from aymurai.logger import get_logger
 from aymurai.pipeline import AymurAIPipeline
-from aymurai.settings import settings, Settings
+from aymurai.settings import Settings, settings
 
 logger = get_logger(__name__)
 
 
-torch.set_num_threads = 100  # FIXME: polemic ?
+torch.set_num_threads(100)  # FIXME: polemic ?
 
 RESOURCES_BASEPATH = settings.RESOURCES_BASEPATH
 
@@ -34,10 +34,10 @@ async def lifespan(app: FastAPI):
     try:
         check_db_connection()
         logger.info(">> Running Alembic migrations")
-        alembic_cfg = Config(str(settings.ALEMBIC_INI_PATH))
+        alembic_cfg = Config(str(settings.ALEMBIC_CONFIG))
         command.upgrade(alembic_cfg, "head")
     except Exception as error:
-        logger.error("Error while starting up:", error)
+        logger.exception(f"Error while starting up: {error}")
 
     # ------ Register pipelines ------------------------------------------------------
     logger.info(">> Registering models")
@@ -72,7 +72,6 @@ api = FastAPI(
     title="AymurAI API",
     version=settings.APP_VERSION,
     lifespan=lifespan,
-    docs_url="/docs" if not settings.SWAGGER_UI_DARK_MODE else None,
 )
 
 
@@ -101,21 +100,7 @@ async def add_process_time_header(request: Request, call_next):
 
 @api.get("/", response_class=RedirectResponse, include_in_schema=False)
 async def index():
-    return "/docs"
-
-
-if settings.SWAGGER_UI_DARK_MODE:
-    from fastapi.openapi.docs import get_swagger_ui_html
-
-    api.docs_url = None
-
-    @api.get("/docs", include_in_schema=False)
-    async def custom_swagger_ui_html():
-        return get_swagger_ui_html(
-            openapi_url=api.openapi_url,
-            title=f"{api.title} - Swagger UI",
-            swagger_css_url="https://cdn.jsdelivr.net/gh/danielperezrubio/swagger-dark-theme@main/assets/swagger-ui.min.css",
-        )
+    return RedirectResponse(url="/docs")
 
 
 ################################################################################

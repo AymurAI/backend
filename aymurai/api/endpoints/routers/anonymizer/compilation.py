@@ -2,7 +2,7 @@ import os
 import subprocess
 import tempfile
 
-from fastapi import Depends
+from fastapi import Depends, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.routing import APIRouter
 from pydantic import UUID4, UUID5
@@ -25,7 +25,7 @@ router = APIRouter()
 
 # MARK: Document Compilation
 @router.get(
-    f"/document/{{document_id}}/pipeline/{ModelType.ANONYMIZATION}/compile",
+    f"/pipeline/{ModelType.ANONYMIZATION}/document/{{document_id}}/compile",
     response_class=FileResponse,
 )
 async def anonymizer_compile_document(
@@ -47,7 +47,10 @@ async def anonymizer_compile_document(
     # ———————— Sanity check ———————————————————————————————————————————————————————————
     # Check if the document exists
     if not document:
-        raise ValueError(f"Document not found: {document_id}")
+        raise HTTPException(
+            status_code=404,
+            detail=f"Document not found: {document_id}",
+        )
 
     # ———————— Get annotations ————————————————————————————————————————————————————————
     annotations = read_document_prediction_paragraphs(

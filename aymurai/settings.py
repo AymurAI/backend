@@ -5,8 +5,9 @@ from typing import Literal
 from dotenv import load_dotenv
 from pydantic import ConfigDict, FilePath, field_validator
 from pydantic_settings import BaseSettings
-from aymurai.logger import get_logger
+
 import aymurai
+from aymurai.logger import get_logger
 
 try:
     from aymurai.version import __version__
@@ -66,7 +67,7 @@ class Settings(BaseSettings):
     RESOURCES_BASEPATH: str = "/resources"
 
     # Alembic Config for running migrations
-    ALEMBIC_INI_PATH: FilePath = PARENT / "alembic.ini"
+    ALEMBIC_CONFIG: FilePath = PARENT / "alembic.ini"
 
     ENV: str | None = None
 
@@ -77,7 +78,6 @@ class Settings(BaseSettings):
     LIBREOFFICE_BIN: str = "libreoffice"
 
     # ----- Miscellaneous settings -----
-    SWAGGER_UI_DARK_MODE: bool = False
     DEVELOPMENT_MODE: bool = False
 
 

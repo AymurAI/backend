@@ -1,6 +1,5 @@
-from threading import Lock
+import threading
 
-import torch
 from fastapi import Depends, HTTPException, Query
 from fastapi.routing import APIRouter
 from pydantic import UUID4
@@ -27,16 +26,15 @@ logger = get_logger(__name__)
 
 
 RESOURCES_BASEPATH = settings.RESOURCES_BASEPATH
-torch.set_num_threads(100)  # FIXME: polemic ?
-pipeline_lock = Lock()
 
+prediction_lock = threading.Lock()
 
 router = APIRouter()
 
 
 # MARK: Paragraph Predict
 @router.get(
-    "/paragraph/{paragraph_id}/pipeline/{pipeline_type}/predict",
+    "/pipeline/{pipeline_type}/paragraph/{paragraph_id}/predict",
     response_model=ParagraphPredictionPublic,
 )
 async def paragraph_predict(
@@ -101,7 +99,7 @@ async def paragraph_predict(
     logger.info("Running prediction")
     item = [{"path": "empty", "data": {"doc.text": input_text}}]
 
-    with pipeline_lock:
+    with prediction_lock:
         processed = pipeline.preprocess(item)
         processed = pipeline.predict_single(processed[0])
         processed = pipeline.postprocess([processed])
@@ -157,7 +155,7 @@ async def paragraph_predict(
 
 
 # MARK: Paragraph Validate
-@router.patch("/paragraph/{paragraph_id}/pipeline/{pipeline_type}/validate")
+@router.patch("/pipeline/{pipeline_type}/paragraph/{paragraph_id}/validate")
 async def save_paragraph_validation(
     paragraph_id: UUID4,
     pipeline_type: ModelType,

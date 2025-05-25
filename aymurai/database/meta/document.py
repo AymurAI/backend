@@ -1,11 +1,17 @@
 import uuid
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from pydantic import BaseModel
-from sqlmodel import Field, SQLModel, Relationship
-from sqlalchemy import Column, DateTime, func, text, LargeBinary
+from sqlalchemy import Column, DateTime, LargeBinary, func, text
+from sqlalchemy.orm import deferred
+from sqlmodel import Field, Relationship, SQLModel
 
-from aymurai.database.meta.paragraph import Paragraph, ParagraphPublic
+from aymurai.database.meta.paragraph import ParagraphPublic
+
+if TYPE_CHECKING:
+    from aymurai.database.meta.datapublic import Datapublic
+    from aymurai.database.meta.paragraph import Paragraph, ParagraphPublic
 
 
 class Document(SQLModel, table=True):
@@ -13,7 +19,7 @@ class Document(SQLModel, table=True):
 
     id: uuid.UUID | None = Field(None, primary_key=True)
     data: bytes = Field(
-        sa_column=Column(LargeBinary),
+        sa_column=deferred(Column(LargeBinary)),
         description="binary data of the document",
     )
     created_at: datetime = Field(
@@ -26,6 +32,7 @@ class Document(SQLModel, table=True):
     name: str = Field(nullable=False)
 
     paragraphs: list["Paragraph"] = Relationship(back_populates="document")
+    datapublic: list["Datapublic"] = Relationship(back_populates="document")
 
 
 class DocumentUpdate(BaseModel):

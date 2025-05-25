@@ -6,12 +6,12 @@ from typing import Literal
 
 import pymupdf4llm
 import pypandoc
-from fastapi import Path, Query, UploadFile
+from fastapi import HTTPException, Path, Query, UploadFile
 from fastapi.responses import FileResponse
 from fastapi.routing import APIRouter
+from starlette import status
 from starlette.background import BackgroundTask
 
-from aymurai.api.exceptions import UnsupportedFileType
 from aymurai.logger import get_logger
 from aymurai.settings import settings
 
@@ -76,7 +76,10 @@ async def convert_pdf_pandoc(
 ) -> FileResponse:
     _, suffix = os.path.splitext(file.filename)
     if suffix != ".pdf":
-        raise UnsupportedFileType(detail="Expected a .pdf file")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Expected a .pdf file",
+        )
 
     with tempfile.NamedTemporaryFile(suffix=".pdf", delete=True) as tmp_file:
         tmp_file.write(file.file.read())
@@ -109,9 +112,15 @@ async def convert_file(
 ) -> FileResponse:
     _, suffix = os.path.splitext(file.filename)
     if suffix.lower() != f".{source.value}":
-        raise UnsupportedFileType(detail=f"Expected a .{source.value} file")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUES,
+            detail=f"Expected a .{source.value} file",
+        )
     if source == target:
-        raise UnsupportedFileType(detail="Source and target formats are the same.")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Source and target formats are the same.",
+        )
 
     # Set extra_args for libreoffice conversions
     extra_args = '--infilter="writer_pdf_import"' if source == FileFormat.pdf else ""
@@ -126,9 +135,10 @@ async def convert_file(
                 extra_args=extra_args,
             )
         case _:
-            raise UnsupportedFileType(
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
                 detail=(
                     f"Conversion from {source.value} to {target.value} "
                     f"with backend {backend} is not supported."
-                )
+                ),
             )

@@ -1,2 +1,2 @@
 # ruff: noqa: F401
-from . import anonymizer, convert, extract
+from . import convert, extract, predict

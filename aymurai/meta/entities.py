@@ -1,4 +1,6 @@
-from pydantic import BaseModel, Field
+import uuid
+
+from pydantic import BaseModel, Field, model_validator
 
 
 class EntityAttributes(BaseModel):
@@ -43,6 +45,9 @@ class Entity(BaseModel):
 class DocLabel(BaseModel):
     """Datatype for a document label"""
 
+    id: str | None = None
+    fk_paragraph: str | None = None
+
     text: str = Field(
         description="raw text of entity",
         # alias=AliasChoices(["text", "document"]),
@@ -54,3 +59,10 @@ class DocLabel(BaseModel):
         description="last character of the span in relation of the full text"
     )
     attrs: EntityAttributes
+
+    @model_validator(mode="after")
+    def _(self) -> "DocLabel":
+        """Validate the DocLabel attributes."""
+        if not self.id:
+            self.id = str(uuid.uuid5(uuid.NAMESPACE_DNS, self.attrs.model_dump_json()))
+        return self
