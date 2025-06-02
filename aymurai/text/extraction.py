@@ -42,44 +42,6 @@ class InvalidFile(Exception):
     pass
 
 
-class FulltextExtract(Transform):
-    """
-    Extract plain text from document files (doc, docx, odt, pdf).
-    """
-
-    def __init__(self, use_cache: bool = False, **kwargs):
-        self.use_cache = use_cache
-        self.kwargs = kwargs
-
-    def __call__(self, item: dict) -> dict:
-        """
-        Extract plain text from document files (doc, docx, odt, pdf).
-
-        Args:
-            item (dict): data item.
-
-        Returns:
-            dict: data item with extracted text.
-        """
-
-        if not item.get("data"):
-            item["data"] = {}
-
-        cache_key = get_cache_key(item["path"], self.__name__)
-        if self.use_cache and (cache_data := cache_load(key=cache_key)):
-            text = cache_data
-        else:
-            text = extract_document(item["path"], **self.kwargs) or ""
-
-        if self.use_cache:
-            cache_save(text, key=cache_key)  # type: ignore
-
-        item["data"]["doc.text"] = text
-        item["data"]["doc.valid"] = bool(len(text))
-
-        return item
-
-
 def get_extension(path: str) -> str:
     mimetype = magic.from_file(path, mime=True)
     return MIMETYPE_EXTENSION_MAPPER.get(mimetype, mimetype)

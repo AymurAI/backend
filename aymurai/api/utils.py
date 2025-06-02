@@ -1,6 +1,3 @@
-import os
-from functools import lru_cache
-
 import cachetools
 
 from aymurai.logger import get_logger
@@ -22,10 +19,3 @@ RESOURCES_BASEPATH = settings.RESOURCES_BASEPATH
 @cachetools.cached(cache=mem_cache)
 def load_pipeline(path: str):
     return AymurAIPipeline.load(path)
-
-
-@lru_cache(maxsize=1)
-def get_pipeline_doc_extract():
-    return AymurAIPipeline.load(
-        os.path.join(RESOURCES_BASEPATH, "pipelines", "production", "doc-extraction")
-    )
