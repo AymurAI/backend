@@ -1,18 +1,5 @@
 import re
 import unicodedata
-from copy import deepcopy
-
-from aymurai.meta.pipeline_interfaces import Transform
-
-
-class TextNormalize(Transform):
-    def __call__(self, item: dict) -> dict:
-        item = deepcopy(item)
-        if not item.get("data"):
-            item["data"] = {}
-
-        item["data"]["doc.text"] = document_normalize(item["data"]["doc.text"])
-        return item
 
 
 def document_normalize(text: str) -> str:
