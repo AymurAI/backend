@@ -27,7 +27,7 @@ The models were trained using closed datasets from an Argentine criminal court a
 AymurAI's backend is deployed using [Docker](https://www.docker.com/). The Docker images are available at the following registry:
 
 ```bash
-registry.gitlab.com/collective.ai/datagenero-public/aymurai-api-prod
+ghcr.io/aymurai/api:latest-full
 ```
 
 ### Quick Start
