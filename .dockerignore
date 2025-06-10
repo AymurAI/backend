@@ -1,5 +1,8 @@
 resources/
+!resources/api
 !resources/pipelines
 !resources/cache/aymurai
 !resources/cache/tfhub_modules
 notebooks/
+
+*.egg-info/

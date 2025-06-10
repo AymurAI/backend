@@ -1,0 +1,8 @@
+!*.ipynb
+!**/*.ipynbs
+runs
+checkpoint-*
+model
+*.csv
+adapter_config.json
+**/README.md

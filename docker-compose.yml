@@ -1,50 +1,29 @@
-version: "3.8"
 services:
-    aymurai-core:
-        image: ${CORE_IMAGE_CUDA}:latest
-        container_name: aymurai-core
-        build:
-            context: .
-            dockerfile: ./build/core/Dockerfile
-            args:
-                - BASE_IMAGE=nvidia/cuda:11.3.1-cudnn8-devel-ubuntu20.04
-
-    aymurai-core-cpu:
-        image: ${CORE_IMAGE_CPU}:latest
-        container_name: aymurai-core
-        build:
-            context: .
-            dockerfile: ./build/core/Dockerfile
-            args:
-                - BASE_IMAGE=ubuntu:20.04
-
-    aymurai-api-dev:
-        image: ${API_IMAGE}:dev
-        container_name: aymurai-api
+    aymurai-api:
+        image: ghcr.io/aymurai/api:latest
         ports:
             - "8899:8899"
         build:
             context: .
-            dockerfile: ./build/api/Dockerfile
-            args:
-                - BASE_IMAGE=${CORE_IMAGE_CPU}:latest
-            target: api-base
-        env_file: common.env
-        environment:
-            - TEST_MODE
-            - API_HOST
-            - API_PORT
+            dockerfile: ./docker/api/Dockerfile
+            target: aymurai-api
+        env_file:
+            - .env
+            - .env.common
         volumes:
-            - ./resources/:/resources
+            - ./resources/cache:/resources/cache
 
-    aymurai-api-prod:
-        image: ${API_IMAGE}:prod
-        container_name: aymurai-api-prod
+    aymurai-api-full:
+        image: ghcr.io/aymurai/api:full
         ports:
             - "8899:8899"
         build:
             context: .
-            dockerfile: ./build/api/Dockerfile
-            args:
-                - BASE_IMAGE=${CORE_IMAGE_CPU}:latest
-            target: api-prod
+            dockerfile: ./docker/api/Dockerfile
+            target: aymurai-api-full
+        restart: always
+        deploy:
+            resources:
+                limits:
+                    memory: 4g
+                    cpus: "4.0"

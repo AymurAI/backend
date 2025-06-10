@@ -1,0 +1,26 @@
+{
+    "preprocess": [
+        [
+            "aymurai.models.flair.utils.FlairTextNormalize",
+            {}
+        ]
+    ],
+    "models": [
+        [
+            "aymurai.models.flair.core.FlairModel",
+            {
+                "basepath": "aymurai/anonymizer-beto-cased-flair",
+                "split_doc": true,
+                "device": "cpu",
+                "use_tokenizer": false
+            }
+        ]
+    ],
+    "postprocess": [
+        [
+            "aymurai.transforms.anonymization_postprocess.core.AnonymizationEntityCleaner",
+            {}
+        ]
+    ],
+    "use_cache": false
+}

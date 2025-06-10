@@ -1,12 +1,10 @@
 #!/bin/sh
 
+# install dependencies
+uv sync --frozen --all-extras
+
 # configure precommit
-pre-commit install
-chown $USER_NAME .git/hooks/pre-commit
-
-
-# install src packages
-sudo pip install --no-deps -e /workspace/src/aymurai
+uv run pre-commit install
 
 # Run the CMD, as the main container process
 # exec "$@"
