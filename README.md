@@ -27,15 +27,14 @@ The models were trained using closed datasets from an Argentine criminal court a
 AymurAI's backend is deployed using [Docker](https://www.docker.com/). The Docker images are available at the following registry:
 
 ```bash
-registry.gitlab.com/collective.ai/datagenero-public/aymurai-api-prod
+ghcr.io/aymurai/api:full
 ```
 
 ### Quick Start
 To deploy a production-ready instance of the API, run:
 
 ```bash
-docker run -d -p 8899:8899 \
-registry.gitlab.com/collective.ai/datagenero-public/aymurai-api-prod:latest
+docker run -d -p 8899:8899 ghcr.io/aymurai/api:full
 ```
 
 This command will start the API on port `8899` on your local machine. You can access the API documentation through OpenAPI at:
@@ -50,8 +49,7 @@ Once it is deployed, it doesn't require an internet connection to work.
 If you need to deploy in an environment without internet access, export the Docker image by running:
 
 ```bash
-docker image save \
-registry.gitlab.com/collective.ai/datagenero-public/aymurai-api-prod:latest -o aymurai-api.tar
+docker image save ghcr.io/aymurai/api:full -o aymurai-api.tar
 ```
 
 Transfer the image to the target machine and load it:
