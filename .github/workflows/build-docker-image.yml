@@ -38,7 +38,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: build/api/Dockerfile
+          file: docker/api/Dockerfile
           push: true
           target: aymurai-api
           build-args: |
@@ -51,7 +51,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: build/api/Dockerfile
+          file: docker/api/Dockerfile
           push: true
           target: aymurai-api-full
           build-args: |
