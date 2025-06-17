@@ -136,9 +136,6 @@ if __name__ == "__main__":
     # download the necessary data
     logger.info("Loading pipelines and exit.")
     AymurAIPipeline.load(
-        os.path.join(RESOURCES_BASEPATH, "pipelines", "production", "doc-extraction")
-    )
-    AymurAIPipeline.load(
         os.path.join(RESOURCES_BASEPATH, "pipelines", "production", "flair-anonymizer")
     )
     AymurAIPipeline.load(
