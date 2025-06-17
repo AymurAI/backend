@@ -10,7 +10,6 @@ x-template: &template
     - /var/run/docker.sock:/var/run/docker.sock
   env_file:
     - ../.env.common
-    - ../.env
   command: /bin/sh -c "while true; do :; done"
 
 services:

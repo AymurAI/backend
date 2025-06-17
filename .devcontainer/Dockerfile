@@ -80,8 +80,6 @@ RUN apt update && apt install -y \
     default-jre \
     # Pandoc
     pandoc \
-    # Libmagic
-    libmagic1 \
     sqlite3 \
     && apt-get autoremove -y \
     && apt-get clean \

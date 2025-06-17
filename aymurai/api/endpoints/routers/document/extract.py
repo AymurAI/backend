@@ -9,13 +9,11 @@ from more_itertools import unique_justseen
 from sqlmodel import Session
 from starlette import status
 
-from aymurai.api.utils import get_pipeline_doc_extract
 from aymurai.database.schema import Document, DocumentPublic, Paragraph
 from aymurai.database.session import get_session
 from aymurai.database.utils import data_to_uuid
 from aymurai.logger import get_logger
-from aymurai.pipeline import AymurAIPipeline
-from aymurai.text.extraction import MIMETYPE_EXTENSION_MAPPER, extract_document
+from aymurai.text.extraction import extract_document
 from aymurai.text.normalize import document_normalize
 
 logger = get_logger(__name__)
@@ -45,7 +43,7 @@ def run_safe_text_extraction(path: str, timeout_s: float = 5) -> str:
         TimeoutError: If the extraction process exceeds the specified timeout.
     """
 
-    with concurrent.futures.ProcessPoolExecutor(max_workers=1) as executor:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
         future = executor.submit(extraction, path)
         try:
             return future.result(timeout=timeout_s)
@@ -58,12 +56,12 @@ def run_safe_text_extraction(path: str, timeout_s: float = 5) -> str:
 @router.post("/extract", response_model=DocumentPublic)
 def plain_text_extractor(
     file: UploadFile,
-    pipeline: AymurAIPipeline = Depends(get_pipeline_doc_extract),
     session: Session = Depends(get_session),
     use_cache: bool = True,
 ) -> DocumentPublic:
     logger.info(f"receiving => {file.filename}")
-    extension = MIMETYPE_EXTENSION_MAPPER.get(file.content_type)
+    _, extension = os.path.splitext(file.filename)
+    extension = extension.lstrip(".").lower()
     logger.info(f"detected extension: {extension} ({file.content_type})")
 
     data = file.file.read()

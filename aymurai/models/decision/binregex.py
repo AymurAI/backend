@@ -7,7 +7,8 @@ import torch
 from unidecode import unidecode
 
 from aymurai.logger import get_logger
-from aymurai.meta.api_interfaces import DocLabel, EntityAttributes
+from aymurai.meta.api_interfaces import DocLabel
+from aymurai.meta.entities import EntityAttributes
 from aymurai.meta.pipeline_interfaces import TrainModule
 from aymurai.meta.types import DataBlock, DataItem
 from aymurai.models.decision.conv1d import Conv1dTextClassifier

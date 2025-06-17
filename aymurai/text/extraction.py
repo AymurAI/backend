@@ -1,13 +1,12 @@
-import os
 import logging
-import zipfile
+import os
 import statistics
 import unicodedata
+import zipfile
 from pathlib import Path
 from typing import Any
 from zipfile import BadZipFile
 
-import magic
 import numpy as np
 import pymupdf
 import textract
@@ -78,11 +77,6 @@ class FulltextExtract(Transform):
         item["data"]["doc.valid"] = bool(len(text))
 
         return item
-
-
-def get_extension(path: str) -> str:
-    mimetype = magic.from_file(path, mime=True)
-    return MIMETYPE_EXTENSION_MAPPER.get(mimetype, mimetype)
 
 
 def _load_xml_from_odt(path: str, xmlfile: str = "styles.xml") -> str:
@@ -239,7 +233,8 @@ def extract_document(
     if errors not in ERRORS:
         raise ValueError(f"errors argument must be in {ERRORS}")
 
-    ext = get_extension(filename)
+    _, ext = os.path.splitext(filename)
+    ext = ext.lstrip(".").lower()
 
     kwargs["extension"] = kwargs.get("extension", ext)
     kwargs["output_encoding"] = kwargs.get("output_encoding", "utf-8")

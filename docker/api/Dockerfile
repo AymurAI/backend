@@ -1,3 +1,6 @@
+###############################################################################
+# Stage - aymurai builder
+###############################################################################
 FROM python:3.10-slim AS builder
 
 # install git
@@ -18,6 +21,8 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 COPY aymurai /app/aymurai
 
 # Sync the package
+ARG SETUPTOOLS_SCM_PRETEND_VERSION
+ENV SETUPTOOLS_SCM_PRETEND_VERSION=${SETUPTOOLS_SCM_PRETEND_VERSION}
 RUN --mount=type=bind,source=.git,target=.git \
     --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=uv.lock,target=uv.lock \
@@ -25,8 +30,9 @@ RUN --mount=type=bind,source=.git,target=.git \
     uv sync --frozen --no-editable
 
 
+###############################################################################
 # Stage - aymurai-api
-# -------------------
+###############################################################################
 FROM python:3.10-slim AS aymurai-api
 
 ENV LANG=C.UTF-8 LC_ALL=C.UTF-8
@@ -43,11 +49,9 @@ ENV LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
 # install libreoffice
 RUN apt update \
     && apt-get install -y --no-install-recommends \
-    # antiword \
     libreoffice-writer \
     libreoffice-common \
     default-jre \
-    libmagic1 \
     && apt-get autoremove -y \
     && apt-get clean \
     && rm -rf /tmp/* /var/tmp/* \
@@ -56,23 +60,20 @@ RUN apt update \
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 COPY --from=builder --chown=app:app /app/.venv /app/.venv
 
-COPY resources/api/static /resources/api/static
 COPY resources/pipelines /resources/pipelines
 
 WORKDIR /app
 CMD uv run fastapi run --port 8899 .venv/lib/python3.10/site-packages/aymurai/api/main.py
 
-
-
-
+###############################################################################
+# Stage - aymurai-api-full
+###############################################################################
 FROM aymurai-api AS aymurai-api-full
 
 ENV TF_CPP_MIN_LOG_LEVEL=3
 ENV TFHUB_CACHE_DIR=resources/cache/tfhub_modules
 ENV RESOURCES_BASEPATH=resources
 
-# copy api resources
-COPY ./resources/api resources/api
 
 # copy pipelines & run app startup to download models
 COPY ./resources/pipelines/production resources/pipelines/production

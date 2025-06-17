@@ -15,6 +15,17 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
+      - name: Extract tag name
+        id: envs
+        run: |
+          TAG_NAME="${GITHUB_REF#refs/tags/}"
+          echo "TAG=${TAG_NAME}" >> $GITHUB_OUTPUT
+          if [[ "$TAG_NAME" == *"rc"* ]]; then
+            echo "SUFFIX=-rc" >> $GITHUB_OUTPUT
+          else
+            echo "SUFFIX=" >> $GITHUB_OUTPUT
+          fi
+
       # Step 2: Log in to GitHub Container Registry
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v2
@@ -23,22 +34,28 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Step 3: Build the Docker image
-      - name: Build Docker Image
-        run: |
-          touch .env
-          docker compose build aymurai-api
-          docker compose build aymurai-api-full
+      - name: Build and push Docker image (aymurai-api)
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: build/api/Dockerfile
+          push: true
+          target: aymurai-api
+          build-args: |
+            SETUPTOOLS_SCM_PRETEND_VERSION=${{ steps.envs.outputs.TAG }}
+          tags: |
+            ghcr.io/aymurai/api:latest${{ steps.envs.outputs.SUFFIX }}
+            ghcr.io/aymurai/api:${{ github.ref_name }}
 
-      # Step 4: Push the Docker image to GHCR
-      - name: Push Docker Image
-        run: |
-          docker tag ghcr.io/aymurai/api:latest ghcr.io/aymurai/api:${{ github.ref_name }}
-          docker tag ghcr.io/aymurai/api:full ghcr.io/aymurai/api:full-${{ github.ref_name }}
-
-          docker push ghcr.io/aymurai/api:full-${{ github.ref_name }}
-          docker push ghcr.io/aymurai/api:${{ github.ref_name }}
-          if [[ "${{ github.ref_name }}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            docker push ghcr.io/aymurai/api:latest
-            docker push ghcr.io/aymurai/api:full
-          fi
+      - name: Build and push Docker image (aymurai-api-full)
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: build/api/Dockerfile
+          push: true
+          target: aymurai-api-full
+          build-args: |
+            SETUPTOOLS_SCM_PRETEND_VERSION=${{ steps.envs.outputs.TAG }}
+          tags: |
+            ghcr.io/aymurai/api:full${{ steps.envs.outputs.SUFFIX }}
+            ghcr.io/aymurai/api:${{ github.ref_name }}-full

@@ -7,9 +7,6 @@ services:
             context: .
             dockerfile: ./docker/api/Dockerfile
             target: aymurai-api
-        env_file:
-            - .env
-            - .env.common
         volumes:
             - ./resources/cache:/resources/cache
 
