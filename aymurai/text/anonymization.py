@@ -1,23 +1,23 @@
 import os
 import re
-import zipfile
 import tempfile
-from glob import glob
 import xml.sax.saxutils
+import zipfile
 from copy import deepcopy
+from glob import glob
 from unicodedata import normalize
 
 import numpy as np
 import pandas as pd
 from jiwer import cer
-from lxml import etree
 from joblib import hash
+from lxml import etree
 from more_itertools import flatten
 
 from aymurai.logger import get_logger
 from aymurai.meta.pipeline_interfaces import Transform
 from aymurai.models.flair.utils import FlairTextNormalize
-from aymurai.utils.alignment.core import tokenize, align_text
+from aymurai.utils.alignment.core import align_text, tokenize
 from aymurai.utils.cache import cache_load, cache_save, get_cache_key
 
 logger = get_logger(__file__)
@@ -293,9 +293,7 @@ class DocAnonymizer(Transform):
             len_text_to_replace = end_char - start_char
 
             # Replace the text with the anonymized token
-            aymurai_label = xml.sax.saxutils.escape(
-                f" <{unified_label['aymurai_label']}>"
-            )
+            aymurai_label = f" <{unified_label['aymurai_label']}>"
             len_aymurai_label = len(aymurai_label)
 
             doc = doc[:start_char] + aymurai_label + doc[end_char:]
@@ -487,6 +485,9 @@ class DocAnonymizer(Transform):
 
                     target = r["target"]
                     target = re.sub(r"[^\S\r\n]+", " ", target)
+
+                    # Escape XML special characters
+                    target = xml.sax.saxutils.escape(target)
 
                     content = content[:start_char] + target + content[end_char:]
 
