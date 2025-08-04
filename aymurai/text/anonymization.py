@@ -9,6 +9,11 @@ from unicodedata import normalize
 
 import numpy as np
 import pandas as pd
+from docx import Document
+from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.opc.constants import RELATIONSHIP_TYPE
+from docx.oxml.shared import OxmlElement, qn
+from docx.shared import Inches, Pt, RGBColor
 from jiwer import cer
 from joblib import hash
 from lxml import etree
@@ -511,6 +516,183 @@ class DocAnonymizer(Transform):
                 file_path = os.path.join(root, file)
                 zip_file.write(file_path, os.path.relpath(file_path, directory))
 
+    def add_hyperlink(
+        self,
+        paragraph,
+        text,
+        url,
+        font_name="Archivo",
+        size=10,
+        color=RGBColor(115, 190, 250),
+        italic=False,
+        bold=True,
+        underline=True,
+    ) -> None:
+        """
+        Adds a formatted hyperlink to a given paragraph in a Word document.
+
+        Notes:
+            - This method directly manipulates the underlying XML of the paragraph to insert a hyperlink,
+                as python-docx does not natively support hyperlinks.
+            - The hyperlink will be appended to the end of the given paragraph.
+            - Formatting options (font, size, color, italic, bold, underline) are applied to the hyperlink text.
+
+        Args:
+            paragraph: The python-docx paragraph object to which the hyperlink will be added.
+            text (str): The display text for the hyperlink.
+            url (str): The URL that the hyperlink points to.
+            font_name (str, optional): The font name to use for the hyperlink text. Defaults to "Archivo".
+            size (int, optional): The font size (in points) for the hyperlink text. Defaults to 10.
+            color (RGBColor, optional): The font color as an RGBColor tuple. Defaults to RGBColor(115, 190, 250).
+            italic (bool, optional): Whether the hyperlink text should be italicized. Defaults to False.
+            bold (bool, optional): Whether the hyperlink text should be bold. Defaults to True.
+            underline (bool, optional): Whether the hyperlink text should be underlined. Defaults to True.
+
+        Raises:
+            ValueError: If the paragraph is not a valid python-docx paragraph object.
+        """  # noqa: E501
+        # Create the hyperlink relationship
+        part = paragraph.part
+        r_id = part.relate_to(url, RELATIONSHIP_TYPE.HYPERLINK, is_external=True)
+
+        # Create the hyperlink element
+        hyperlink = OxmlElement("w:hyperlink")
+        hyperlink.set(qn("r:id"), r_id)
+
+        # Create a new run
+        new_run = OxmlElement("w:r")
+
+        # Set run properties (formatting)
+        rPr = OxmlElement("w:rPr")
+
+        # Set font
+        if font_name:
+            font = OxmlElement("w:rFonts")
+            font.set(qn("w:ascii"), font_name)
+            font.set(qn("w:hAnsi"), font_name)
+            rPr.append(font)
+
+        # Set color
+        if color:
+            c = OxmlElement("w:color")
+            c.set(qn("w:val"), f"{color[0]:02x}{color[1]:02x}{color[2]:02x}")
+            rPr.append(c)
+
+        # Set italic
+        if italic:
+            i = OxmlElement("w:i")
+            rPr.append(i)
+
+        # Set bold
+        if bold:
+            b = OxmlElement("w:b")
+            rPr.append(b)
+
+        # Set underline - added for links
+        if underline:
+            u = OxmlElement("w:u")
+            u.set(qn("w:val"), "single")  # single underline
+            rPr.append(u)
+
+        # Set size
+        sz = OxmlElement("w:sz")
+        sz.set(qn("w:val"), str(size * 2))  # Word uses half-points
+        rPr.append(sz)
+
+        # Add properties to run
+        new_run.append(rPr)
+
+        # Set text
+        t = OxmlElement("w:t")
+        t.text = text
+        new_run.append(t)
+
+        # Add run to hyperlink
+        hyperlink.append(new_run)
+
+        # Add hyperlink to paragraph
+        paragraph._p.append(hyperlink)
+
+    def _add_watermark_to_footer(
+        self,
+        footer,
+        alignment,
+        font_name="Archivo",
+        hyperlink_text="AymurAI",
+        hyperlink_url="https://www.aymurai.info/",
+        watermark_text="Documento anonimizado por AymurAI",
+    ) -> None:
+        """
+        Adds a watermark text to the footer of a document.
+
+        Args:
+            footer: The footer object to which the watermark will be added.
+            alignment: The alignment setting for the paragraph (e.g., left, center, right).
+            font_name (str, optional): The font name to use for the watermark text. Defaults to "Archivo".
+            hyperlink_text (str, optional): The text to be hyperlinked. Defaults to "AymurAI".
+            hyperlink_url (str, optional): The URL to link "AymurAI" to. Defaults to "https://www.aymurai.info/".
+            watermark_text (str): The text to be used as the watermark. Defaults to "Documento anonimizado por AymurAI".
+        """  # noqa: E501
+        paragraph = footer.add_paragraph()
+        paragraph.alignment = alignment
+
+        if hyperlink_url and hyperlink_text in watermark_text:
+            # Split the text at
+            parts = watermark_text.split(hyperlink_text, 1)
+            before_text = parts[0]
+            after_text = parts[1] if len(parts) > 1 else ""
+
+            # Add text before the hyperlink
+            if before_text:
+                run = paragraph.add_run(before_text)
+                run.font.name = "Archivo"
+                run.font.color.rgb = RGBColor(192, 192, 192)
+                run.font.size = Pt(10)
+
+            # Add hyperlink
+            self.add_hyperlink(paragraph, hyperlink_text, hyperlink_url)
+
+            # Add text after the hyperlink
+            if after_text:
+                run = paragraph.add_run(after_text)
+                run.font.name = font_name
+                run.font.color.rgb = RGBColor(192, 192, 192)
+                run.font.size = Pt(10)
+
+        else:
+            # Just add the full text without a hyperlink
+            run = paragraph.add_run(watermark_text)
+            run.font.name = font_name
+            run.font.color.rgb = RGBColor(192, 192, 192)
+            run.font.size = Pt(10)
+
+    def add_footer_watermark(self, doc_path) -> None:
+        """
+        Adds a watermark to the footer of each section in a Word document.
+
+        Args:
+            doc_path: Path to the document
+        """
+        document = Document(doc_path)
+        processed_footers = set()
+
+        for section in document.sections:
+            section.footer_distance = Inches(0.1)
+
+            # List of (footer_obj, alignment) tuples
+            footers = [(section.footer, WD_ALIGN_PARAGRAPH.RIGHT)]  # Odd/default
+            if section.even_page_footer is not None:
+                footers.append((section.even_page_footer, WD_ALIGN_PARAGRAPH.LEFT))
+            if section.different_first_page_header_footer:
+                footers.append((section.first_page_footer, WD_ALIGN_PARAGRAPH.RIGHT))
+
+            for footer, alignment in footers:
+                if id(footer) not in processed_footers:
+                    self._add_watermark_to_footer(footer, alignment)
+                    processed_footers.add(id(footer))
+
+        document.save(doc_path)
+
     def create_docx(self, xml_directory, output_file) -> None:
         """
         Creates a new DOCX file by adding XML components from the specified directory.
@@ -577,6 +759,9 @@ class DocAnonymizer(Transform):
                     tempdir,
                     f"{output_dir}/{os.path.basename(item_path)}",
                 )
+
+                # Add watermark to the footer
+                self.add_footer_watermark(f"{output_dir}/{os.path.basename(item_path)}")
 
         if self.use_cache:
             cache_save(paragraphs, key=cache_key)
