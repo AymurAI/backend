@@ -66,27 +66,6 @@ RUN apt update && \
     rm -rf /tmp/* /var/tmp/* && \
     rm -rf /var/lib/apt/lists/*
 
-# Install the Archivo font with rate limit handling
-RUN apt-get update && apt-get install -y --no-install-recommends wget fontconfig ca-certificates && \
-    mkdir -p /usr/share/fonts/truetype/archivo && \
-    wget --wait=2 --random-wait --retry-connrefused --retry-on-http-error=429 --tries=5 \
-        -P /usr/share/fonts/truetype/archivo "https://github.com/Omnibus-Type/Archivo/raw/master/fonts/ttf/Archivo-Regular.ttf" && \
-    sleep 3 && \
-    wget --wait=2 --random-wait --retry-connrefused --retry-on-http-error=429 --tries=5 \
-        -P /usr/share/fonts/truetype/archivo "https://github.com/Omnibus-Type/Archivo/raw/master/fonts/ttf/Archivo-Bold.ttf" && \
-    sleep 3 && \
-    wget --wait=2 --random-wait --retry-connrefused --retry-on-http-error=429 --tries=5 \
-        -P /usr/share/fonts/truetype/archivo "https://github.com/Omnibus-Type/Archivo/raw/master/fonts/ttf/Archivo-Italic.ttf" && \
-    sleep 3 && \
-    wget --wait=2 --random-wait --retry-connrefused --retry-on-http-error=429 --tries=5 \
-        -P /usr/share/fonts/truetype/archivo "https://github.com/Omnibus-Type/Archivo/raw/master/fonts/ttf/Archivo-BoldItalic.ttf" && \
-    sleep 3 && \
-    wget --wait=2 --random-wait --retry-connrefused --retry-on-http-error=429 --tries=5 \
-        -P /usr/share/fonts/truetype/archivo "https://github.com/Omnibus-Type/Archivo/raw/master/fonts/ttf/Archivo-Medium.ttf" && \
-    fc-cache -fv && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
-
 # Copy UV tool and virtual environment
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 COPY --from=builder --chown=app:app /app/.venv /app/.venv
