@@ -225,6 +225,11 @@ async def anonymizer_compile_document(
         with open(tmp_filename, "w") as f:
             f.write("\n".join(anonymized_doc))
 
+            # Add watermark to the end of the document
+            f.write(
+                "\n\nDocumento anonimizado por AymurAI\n\nhttps://www.aymurai.info/"
+            )
+
     # Convert to ODT
     cmd = [
         settings.LIBREOFFICE_BIN,
