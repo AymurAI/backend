@@ -4,9 +4,9 @@
 	"name": "aymurai",
 	// "initializeCommand": "make core-build",
 	"dockerComposeFile": "docker-compose.yml",
-	"service": "aymurai-devcontainer-gpu",
+	"service": "aymurai-devcontainer",
 	"runServices": [
-		"aymurai-devcontainer-gpu"
+		"aymurai-devcontainer"
 	],
 	"workspaceFolder": "/workspace",
 	"customizations": {
