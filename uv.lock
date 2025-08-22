@@ -238,7 +238,7 @@ wheels = [
 
 [[package]]
 name = "aymurai"
-version = "1.1.11"
+version = "1.1.12.dev0+g695a15fa1.d20250822"
 source = { editable = "." }
 dependencies = [
     { name = "alembic" },
@@ -252,6 +252,7 @@ dependencies = [
     { name = "gdown" },
     { name = "jiwer" },
     { name = "joblib" },
+    { name = "langextract" },
     { name = "more-itertools" },
     { name = "numpy" },
     { name = "odfpy" },
@@ -306,6 +307,7 @@ requires-dist = [
     { name = "gdown", specifier = "==4.6.0" },
     { name = "jiwer", specifier = "==3.0.5" },
     { name = "joblib", specifier = ">=1.4.2" },
+    { name = "langextract", specifier = "==1.0.8" },
     { name = "more-itertools", specifier = ">=10.5.0" },
     { name = "numpy", specifier = "<2.0.0" },
     { name = "odfpy", specifier = ">=1.4.1" },
@@ -1024,6 +1026,25 @@ wheels = [
 ]
 
 [[package]]
+name = "google-genai"
+version = "1.31.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "anyio" },
+    { name = "google-auth" },
+    { name = "httpx" },
+    { name = "pydantic" },
+    { name = "requests" },
+    { name = "tenacity" },
+    { name = "typing-extensions" },
+    { name = "websockets" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/e0/1b/da30fa6e2966942d7028a58eb7aa7d04544dcc3aa66194365b2e0adac570/google_genai-1.31.0.tar.gz", hash = "sha256:8572b47aa684357c3e5e10d290ec772c65414114939e3ad2955203e27cd2fcbc", size = 233482 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/41/27/1525bc9cbec58660f0842ebcbfe910a1dde908c2672373804879666e0bb8/google_genai-1.31.0-py3-none-any.whl", hash = "sha256:5c6959bcf862714e8ed0922db3aaf41885bacf6318751b3421bf1e459f78892f", size = 231876 },
+]
+
+[[package]]
 name = "google-pasta"
 version = "0.2.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1652,6 +1673,32 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/0e/72/a3add0e4eec4eb9e2569554f7c70f4a3c27712f40e3284d483e88094cc0e/langdetect-1.0.9.tar.gz", hash = "sha256:cbc1fef89f8d062739774bd51eda3da3274006b3661d199c2655f6b3f6d605a0", size = 981474 }
 
 [[package]]
+name = "langextract"
+version = "1.0.8"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "absl-py" },
+    { name = "aiohttp" },
+    { name = "async-timeout" },
+    { name = "exceptiongroup" },
+    { name = "google-genai" },
+    { name = "ml-collections" },
+    { name = "more-itertools" },
+    { name = "numpy" },
+    { name = "pandas" },
+    { name = "pydantic" },
+    { name = "python-dotenv" },
+    { name = "pyyaml" },
+    { name = "requests" },
+    { name = "tqdm" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/2e/d8/95666e87f02f3c83420ed030f14085c9c6acd986da336b514443dee6d649/langextract-1.0.8.tar.gz", hash = "sha256:dc4c65058969486faf119d2c0cd82a12ccdff1d9785212b96fd67c52cbbe74c7", size = 78418 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/f7/70/f5eba44ee7a8c8fe651b14585618a4ca600dd41a6fdc156b4377f4f53bb1/langextract-1.0.8-py3-none-any.whl", hash = "sha256:17b5985154ec1d58f5dd8fe4d6135d0cd4b4d650a075f8cf36eca705e2459263", size = 84987 },
+]
+
+[[package]]
 name = "libclang"
 version = "18.1.1"
 source = { registry = "https://pypi.org/simple" }
@@ -1821,6 +1868,19 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/79/6e/96fc7cb3288666c5de2c396eb0e338dc95f7a8e4920e43e38783a22d0084/mistune-3.1.0.tar.gz", hash = "sha256:dbcac2f78292b9dc066cd03b7a3a26b62d85f8159f2ea5fd28e55df79908d667", size = 94401 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/b4/b3/743ffc3f59da380da504d84ccd1faf9a857a1445991ff19bf2ec754163c2/mistune-3.1.0-py3-none-any.whl", hash = "sha256:b05198cf6d671b3deba6c87ec6cf0d4eb7b72c524636eddb6dbf13823b52cee1", size = 53694 },
+]
+
+[[package]]
+name = "ml-collections"
+version = "1.1.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "absl-py" },
+    { name = "pyyaml" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/b8/f8/1a9ae6696dbb6bc9c44ddf5c5e84710d77fe9a35a57e8a06722e1836a4a6/ml_collections-1.1.0.tar.gz", hash = "sha256:0ac1ac6511b9f1566863e0bb0afad0c64e906ea278ad3f4d2144a55322671f6f", size = 61356 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ab/8a/18d4ff2c7bd83f30d6924bd4ad97abf418488c3f908dea228d6f0961ad68/ml_collections-1.1.0-py3-none-any.whl", hash = "sha256:23b6fa4772aac1ae745a96044b925a5746145a70734f087eaca6626e92c05cbc", size = 76707 },
 ]
 
 [[package]]
