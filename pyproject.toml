@@ -90,7 +90,7 @@ dependencies = [
     "pymupdf4llm>=0.0.17",
     "pypandoc>=1.15",
     "python-docx>=1.2.0",
-    "langextract==1.0.8",
+    "langextract[openai]==1.0.8",
     # Platform-specific TensorFlow deps
     "tensorflow-macos==2.15 ; sys_platform == 'darwin' and platform_machine == 'arm64'",
     "tensorflow==2.15 ; sys_platform != 'darwin'",
