@@ -12,7 +12,7 @@ from aymurai.utils.json_encoding import EnhancedJSONEncoder
 
 logger = get_logger(__name__)
 
-DISKCACHE_ROOT = os.getenv("DISKCACHE_ROOT", "/resources/cache/diskcache")
+DISKCACHE_ROOT = os.getenv("DISKCACHE_ROOT", "/Users/sofi/Desktop/collectiveai/projects/AymurAI/backend/resources/cache/diskcache")
 cache = diskcache.Cache(DISKCACHE_ROOT)
 
 
