@@ -1,13 +1,13 @@
-import os
 import logging
-import zipfile
+import mimetypes
+import os
 import statistics
 import unicodedata
+import zipfile
 from pathlib import Path
 from typing import Any
 from zipfile import BadZipFile
 
-import magic
 import numpy as np
 import pymupdf
 import textract
@@ -18,8 +18,6 @@ from textract.exceptions import ShellError
 from textract.parsers import _get_available_extensions
 
 from aymurai.logger import get_logger
-from aymurai.meta.pipeline_interfaces import Transform
-from aymurai.utils.cache import cache_load, cache_save, get_cache_key
 from aymurai.utils.misc import get_element, get_recursively
 
 logger = get_logger(__file__)
@@ -43,8 +41,43 @@ class InvalidFile(Exception):
 
 
 def get_extension(path: str) -> str:
-    mimetype = magic.from_file(path, mime=True)
-    return MIMETYPE_EXTENSION_MAPPER.get(mimetype, mimetype)
+    # First, try by extension
+    ext = os.path.splitext(path)[1].lower()
+
+    if ext == ".pdf":
+        # Quick PDF header check
+        with open(path, "rb") as f:
+            if f.read(4) == b"%PDF":
+                return "pdf"
+
+    if ext == ".docx":
+        # Check for docx structure (zip with word/document.xml)
+        try:
+            with zipfile.ZipFile(path, "r") as z:
+                if "word/document.xml" in z.namelist():
+                    return "docx"
+        except Exception:
+            pass
+
+    if ext == ".odt":
+        # Check for odt structure (zip with content.xml)
+        try:
+            with zipfile.ZipFile(path, "r") as z:
+                if "content.xml" in z.namelist():
+                    return "odt"
+        except Exception:
+            pass
+
+    # Fallback to mimetypes
+    mimetype, _ = mimetypes.guess_type(path)
+    if mimetype in MIMETYPE_EXTENSION_MAPPER:
+        return MIMETYPE_EXTENSION_MAPPER[mimetype]
+
+    # Fallback: return extension without dot
+    if ext:
+        return ext[1:]
+
+    return "unknown"
 
 
 def _load_xml_from_odt(path: str, xmlfile: str = "styles.xml") -> str:
