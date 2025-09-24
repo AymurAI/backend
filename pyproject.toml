@@ -95,6 +95,7 @@ dependencies = [
     "tensorflow-macos==2.15 ; sys_platform == 'darwin' and platform_machine == 'arm64'",
     "tensorflow==2.15 ; sys_platform != 'darwin'",
     "libmagic>=1.0",
+    "logfire>=4.6.0",
 ]
 [project.optional-dependencies]
 tftext = ["tensorflow-text==2.15 ; sys_platform == 'linux'"]
