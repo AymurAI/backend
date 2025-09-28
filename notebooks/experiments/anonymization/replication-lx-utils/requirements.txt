@@ -1,0 +1,23 @@
+# Minimal requirements for JSON to langextract conversion
+# Core langextract dependencies
+absl-py>=2.0.0
+google-cloud-aiplatform>=1.38.0
+google-generativeai>=0.3.0
+google-auth>=2.0.0
+google-auth-oauthlib>=1.0.0
+google-auth-httplib2>=0.1.0
+protobuf>=4.21.0
+pyyaml>=6.0
+requests>=2.28.0
+tqdm>=4.64.0
+
+# Data processing dependencies
+pandas>=1.5.0
+numpy>=1.21.0
+
+# Optional: for better JSON handling
+ujson>=5.0.0
+
+# Development dependencies (optional)
+pytest>=7.0.0
+black>=22.0.0
