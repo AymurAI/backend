@@ -324,7 +324,7 @@ requires-dist = [
     { name = "gdown", specifier = "==4.6.0" },
     { name = "jiwer", specifier = "==3.0.5" },
     { name = "joblib", specifier = ">=1.4.2" },
-    { name = "langextract", extras = ["openai"], specifier = "==1.0.8" },
+    { name = "langextract", extras = ["openai"], specifier = "==1.0.9" },
     { name = "libmagic", specifier = ">=1.0" },
     { name = "logfire", specifier = ">=4.6.0" },
     { name = "more-itertools", specifier = ">=10.5.0" },
@@ -1780,7 +1780,7 @@ sdist = { url = "https://files.pythonhosted.org/packages/0e/72/a3add0e4eec4eb9e2
 
 [[package]]
 name = "langextract"
-version = "1.0.8"
+version = "1.0.9"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "absl-py" },
@@ -1799,9 +1799,9 @@ dependencies = [
     { name = "tqdm" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/2e/d8/95666e87f02f3c83420ed030f14085c9c6acd986da336b514443dee6d649/langextract-1.0.8.tar.gz", hash = "sha256:dc4c65058969486faf119d2c0cd82a12ccdff1d9785212b96fd67c52cbbe74c7", size = 78418, upload-time = "2025-08-15T07:19:33.732Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/1d/a5/e919799e6f27aace0e0cc92c9e561ffba637d43644d5293b018abda4d4b4/langextract-1.0.9.tar.gz", hash = "sha256:4941f1619f3e3df82b38858382e4f713b6f992f2756c9233bbb5f1b0e8723797", size = 91699, upload-time = "2025-08-31T19:50:56.6Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/f7/70/f5eba44ee7a8c8fe651b14585618a4ca600dd41a6fdc156b4377f4f53bb1/langextract-1.0.8-py3-none-any.whl", hash = "sha256:17b5985154ec1d58f5dd8fe4d6135d0cd4b4d650a075f8cf36eca705e2459263", size = 84987, upload-time = "2025-08-15T07:19:32.587Z" },
+    { url = "https://files.pythonhosted.org/packages/b7/05/f202e56c896a35bfb46675ad3b4e56204b0dfb3b3b20ace7b552e8b04ce2/langextract-1.0.9-py3-none-any.whl", hash = "sha256:69b9d7ade0e040945b5affda61f74cbabb31c7cb58433d5a110f2d983523bebd", size = 106246, upload-time = "2025-08-31T19:50:55.126Z" },
 ]
 
 [package.optional-dependencies]
