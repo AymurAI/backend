@@ -23,12 +23,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Step 3: Extract the tag name from the Git reference
-      - name: Extract tag name
-        id: tag
-        run: echo "TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
-
-      # Step 4: Build and push the Docker images
+      # Step 3: Build and push the Docker images
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
@@ -37,9 +32,9 @@ jobs:
           push: true
           target: aymurai-api
           build-args: |
-            SETUPTOOLS_SCM_PRETEND_VERSION=${{ steps.tag.outputs.TAG }}
+            SETUPTOOLS_SCM_PRETEND_VERSION=${{ github.ref_name }}
           tags: |
-            ghcr.io/aymurai/api:${{ steps.tag.outputs.TAG }}
+            ghcr.io/aymurai/api:${{ github.ref_name }}
             ghcr.io/aymurai/api:latest
 
       - name: Build and push Docker full image
@@ -50,7 +45,7 @@ jobs:
           push: true
           target: aymurai-api-full
           build-args: |
-            SETUPTOOLS_SCM_PRETEND_VERSION=${{ steps.tag.outputs.TAG }}
+            SETUPTOOLS_SCM_PRETEND_VERSION=${{ github.ref_name }}
           tags: |
-            ghcr.io/aymurai/api:full-${{ steps.tag.outputs.TAG }}
+            ghcr.io/aymurai/api:full-${{ github.ref_name }}
             ghcr.io/aymurai/api:full
