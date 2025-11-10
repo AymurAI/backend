@@ -4,18 +4,17 @@ include .env.common
 export $(shell sed 's/=.*//' .env.common)
 
 
-
 api-build:
-	docker compose build aymurai-api-dev
+	docker compose build aymurai-api
 api-run:
-	docker compose run --service-ports aymurai-api-dev
+	docker compose run --service-ports aymurai-api
 api-pull:
 	docker compose pull aymurai-api
 
 api-full-build:
 	docker compose build aymurai-api-full
 api-full-run:
-	docker compose run aymurai-api-full
+	docker compose run --service-ports aymurai-api-full
 api-full-pull:
 	docker compose pull aymurai-api-full
 

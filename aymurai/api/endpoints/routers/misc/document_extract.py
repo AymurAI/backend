@@ -1,19 +1,18 @@
+import concurrent.futures
 import os
 import re
 import tempfile
 
-from fastapi import UploadFile, HTTPException
-from starlette import status
+from fastapi import HTTPException, UploadFile
 from fastapi.routing import APIRouter
 from more_itertools import unique_justseen
+from starlette import status
 
 from aymurai.database.utils import data_to_uuid
 from aymurai.logger import get_logger
 from aymurai.meta.api_interfaces import Document
-from aymurai.text.extraction import MIMETYPE_EXTENSION_MAPPER
-from aymurai.text.extraction import extract_document
+from aymurai.text.extraction import MIMETYPE_EXTENSION_MAPPER, extract_document
 from aymurai.text.normalize import document_normalize
-import concurrent.futures
 
 logger = get_logger(__name__)
 
@@ -29,15 +28,18 @@ def extraction(path: str) -> str:
     return document_normalize(text) if text else ""
 
 
-def run_safe_text_extraction(path: str, timeout_s: float = 5) -> str:
+def run_safe_text_extraction(path: str, timeout_s: float = 30) -> str:
     """
     Runs the text extraction in a separate process to avoid blocking the main thread.
     This is useful for long-running tasks or when the extraction might hang.
+
     Args:
         path (str): Path to the file to be processed.
-        timeout_s (float): Timeout in seconds for the extraction process.
+        timeout_s (float): Timeout in seconds for the extraction process. Defaults to 30 seconds.
+
     Returns:
         str: Extracted text from the document.
+
     Raises:
         TimeoutError: If the extraction process exceeds the specified timeout.
     """
@@ -71,7 +73,7 @@ def plain_text_extractor(file: UploadFile) -> Document:
 
             logger.info(f"saved temp file on local storage => {tmp_filename}")
 
-            document = run_safe_text_extraction(tmp_filename, timeout_s=5)
+            document = run_safe_text_extraction(tmp_filename)
 
         except concurrent.futures.TimeoutError:
             logger.error(f"Timeout while extracting text from {file.filename}")
