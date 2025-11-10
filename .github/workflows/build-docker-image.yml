@@ -23,7 +23,12 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Step 3: Build and push the Docker images
+      # Step 3: Extract the tag name from the Git reference
+      - name: Extract tag name
+        id: tag
+        run: echo "TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      # Step 4: Build and push the Docker images
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
