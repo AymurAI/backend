@@ -1,7 +1,7 @@
 # -------------------
 # Build Stage
 # -------------------
-FROM python:3.10-slim AS builder
+FROM python:3.10-slim-bullseye AS builder
 
 # Install Git
 RUN apt-get update && \
@@ -35,7 +35,7 @@ RUN --mount=type=bind,source=.git,target=.git \
 # -------------------
 # Base API Stage
 # -------------------
-FROM python:3.10-slim AS aymurai-api
+FROM python:3.10-slim-bullseye AS aymurai-api
 
 # Set environment variables
 ENV LANG=C.UTF-8 \
