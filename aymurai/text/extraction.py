@@ -40,43 +40,63 @@ class InvalidFile(Exception):
     pass
 
 
+def _zip_contains(path: str, member: str) -> bool:
+    """
+    Check if a zip file contains a specific member.
+
+    Args:
+        path (str): Path to the zip file.
+        member (str): Member name to check for.
+
+    Returns:
+        bool: True if the member exists in the zip file, False otherwise.
+    """
+    try:
+        with zipfile.ZipFile(path, "r") as archive:
+            return member in archive.namelist()
+
+    except (FileNotFoundError, PermissionError, OSError) as exc:
+        logger.warning("Cannot access '%s': %s", path, exc)
+
+    except BadZipFile as exc:
+        logger.warning("Invalid zip structure for '%s': %s", path, exc)
+
+    return False
+
+
 def get_extension(path: str) -> str:
     # First, try by extension
     ext = os.path.splitext(path)[1].lower()
 
     if ext == ".pdf":
-        # Quick PDF header check
-        with open(path, "rb") as f:
-            if f.read(4) == b"%PDF":
+        try:
+            with open(path, "rb") as file_handle:
+                header = file_handle.read(1024)
+
+        except (FileNotFoundError, PermissionError, OSError) as exc:
+            logger.warning("Cannot open '%s': %s", path, exc)
+
+        else:
+            # PDF header check: scan for %PDF within the first 1KB
+            if b"%PDF" in header:
                 return "pdf"
 
-    if ext == ".docx":
-        # Check for docx structure (zip with word/document.xml)
-        try:
-            with zipfile.ZipFile(path, "r") as z:
-                if "word/document.xml" in z.namelist():
-                    return "docx"
-        except Exception:
-            pass
+    if ext == ".docx" and _zip_contains(path, "word/document.xml"):
+        return "docx"
 
-    if ext == ".odt":
-        # Check for odt structure (zip with content.xml)
-        try:
-            with zipfile.ZipFile(path, "r") as z:
-                if "content.xml" in z.namelist():
-                    return "odt"
-        except Exception:
-            pass
+    if ext == ".odt" and _zip_contains(path, "content.xml"):
+        return "odt"
 
     # Fallback to mimetypes
     mimetype, _ = mimetypes.guess_type(path)
     if mimetype in MIMETYPE_EXTENSION_MAPPER:
         return MIMETYPE_EXTENSION_MAPPER[mimetype]
 
-    # Fallback: return extension without dot
     if ext:
+        logger.debug("Falling back to raw extension for '%s'", path)
         return ext[1:]
 
+    logger.warning("Unable to identify file type for '%s'", path)
     return "unknown"
 
 
