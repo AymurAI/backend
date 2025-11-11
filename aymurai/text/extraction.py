@@ -1,13 +1,13 @@
-import os
 import logging
-import zipfile
+import mimetypes
+import os
 import statistics
 import unicodedata
+import zipfile
 from pathlib import Path
 from typing import Any
 from zipfile import BadZipFile
 
-import magic
 import numpy as np
 import pymupdf
 import textract
@@ -18,8 +18,6 @@ from textract.exceptions import ShellError
 from textract.parsers import _get_available_extensions
 
 from aymurai.logger import get_logger
-from aymurai.meta.pipeline_interfaces import Transform
-from aymurai.utils.cache import cache_load, cache_save, get_cache_key
 from aymurai.utils.misc import get_element, get_recursively
 
 logger = get_logger(__file__)
@@ -42,9 +40,64 @@ class InvalidFile(Exception):
     pass
 
 
+def _zip_contains(path: str, member: str) -> bool:
+    """
+    Check if a zip file contains a specific member.
+
+    Args:
+        path (str): Path to the zip file.
+        member (str): Member name to check for.
+
+    Returns:
+        bool: True if the member exists in the zip file, False otherwise.
+    """
+    try:
+        with zipfile.ZipFile(path, "r") as archive:
+            return member in archive.namelist()
+
+    except (FileNotFoundError, PermissionError, OSError) as exc:
+        logger.warning("Cannot access '%s': %s", path, exc)
+
+    except BadZipFile as exc:
+        logger.warning("Invalid zip structure for '%s': %s", path, exc)
+
+    return False
+
+
 def get_extension(path: str) -> str:
-    mimetype = magic.from_file(path, mime=True)
-    return MIMETYPE_EXTENSION_MAPPER.get(mimetype, mimetype)
+    # First, try by extension
+    ext = os.path.splitext(path)[1].lower()
+
+    if ext == ".pdf":
+        try:
+            with open(path, "rb") as file_handle:
+                header = file_handle.read(1024)
+
+        except (FileNotFoundError, PermissionError, OSError) as exc:
+            logger.warning("Cannot open '%s': %s", path, exc)
+
+        else:
+            # PDF header check: scan for %PDF within the first 1KB
+            if b"%PDF" in header:
+                return "pdf"
+
+    if ext == ".docx" and _zip_contains(path, "word/document.xml"):
+        return "docx"
+
+    if ext == ".odt" and _zip_contains(path, "content.xml"):
+        return "odt"
+
+    # Fallback to mimetypes
+    mimetype, _ = mimetypes.guess_type(path)
+    if mimetype in MIMETYPE_EXTENSION_MAPPER:
+        return MIMETYPE_EXTENSION_MAPPER[mimetype]
+
+    if ext:
+        logger.debug("Falling back to raw extension for '%s'", path)
+        return ext[1:]
+
+    logger.warning("Unable to identify file type for '%s'", path)
+    return "unknown"
 
 
 def _load_xml_from_odt(path: str, xmlfile: str = "styles.xml") -> str:

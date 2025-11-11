@@ -1,7 +1,7 @@
 # -------------------
 # Build Stage
 # -------------------
-FROM python:3.10-slim AS builder
+FROM python:3.10-slim-bullseye AS builder
 
 # Install Git
 RUN apt-get update && \
@@ -25,6 +25,8 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 COPY aymurai /app/aymurai
 
 # Finalize package installation
+ARG SETUPTOOLS_SCM_PRETEND_VERSION
+ENV SETUPTOOLS_SCM_PRETEND_VERSION=${SETUPTOOLS_SCM_PRETEND_VERSION}
 RUN --mount=type=bind,source=.git,target=.git \
     --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=uv.lock,target=uv.lock \
@@ -35,7 +37,7 @@ RUN --mount=type=bind,source=.git,target=.git \
 # -------------------
 # Base API Stage
 # -------------------
-FROM python:3.10-slim AS aymurai-api
+FROM python:3.10-slim-bullseye AS aymurai-api
 
 # Set environment variables
 ENV LANG=C.UTF-8 \
