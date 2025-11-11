@@ -26,7 +26,12 @@ jobs:
       # Step 3: Extract the tag name from the Git reference
       - name: Extract tag name
         id: tag
-        run: echo "TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          if [[ -z "$TAG" || "$TAG" == "$GITHUB_REF" ]]; then
+            TAG="dev-${GITHUB_SHA::7}"
+          fi
+          echo "TAG=$TAG" >> $GITHUB_OUTPUT
 
       # Step 4: Build and push the Docker images
       - name: Build and push Docker image
