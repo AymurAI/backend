@@ -23,22 +23,39 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Step 3: Build the Docker image
-      - name: Build Docker Image
+      # Step 3: Extract the tag name from the Git reference
+      - name: Extract tag name
+        id: tag
         run: |
-          touch .env
-          docker compose build aymurai-api
-          docker compose build aymurai-api-full
-
-      # Step 4: Push the Docker image to GHCR
-      - name: Push Docker Image
-        run: |
-          docker tag ghcr.io/aymurai/api:latest ghcr.io/aymurai/api:${{ github.ref_name }}
-          docker tag ghcr.io/aymurai/api:full ghcr.io/aymurai/api:full-${{ github.ref_name }}
-
-          docker push ghcr.io/aymurai/api:full-${{ github.ref_name }}
-          docker push ghcr.io/aymurai/api:${{ github.ref_name }}
-          if [[ "${{ github.ref_name }}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            docker push ghcr.io/aymurai/api:latest
-            docker push ghcr.io/aymurai/api:full
+          TAG="${GITHUB_REF#refs/tags/}"
+          if [[ -z "$TAG" || "$TAG" == "$GITHUB_REF" ]]; then
+            TAG="dev-${GITHUB_SHA::7}"
           fi
+          echo "TAG=$TAG" >> $GITHUB_OUTPUT
+
+      # Step 4: Build and push the Docker images
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: docker/api/Dockerfile
+          push: true
+          target: aymurai-api
+          build-args: |
+            SETUPTOOLS_SCM_PRETEND_VERSION=${{ steps.tag.outputs.TAG }}
+          tags: |
+            ghcr.io/aymurai/api:${{ steps.tag.outputs.TAG }}
+            ghcr.io/aymurai/api:latest
+
+      - name: Build and push Docker full image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: docker/api/Dockerfile
+          push: true
+          target: aymurai-api-full
+          build-args: |
+            SETUPTOOLS_SCM_PRETEND_VERSION=${{ steps.tag.outputs.TAG }}
+          tags: |
+            ghcr.io/aymurai/api:full-${{ steps.tag.outputs.TAG }}
+            ghcr.io/aymurai/api:full
