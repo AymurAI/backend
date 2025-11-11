@@ -25,6 +25,8 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 COPY aymurai /app/aymurai
 
 # Finalize package installation
+ARG SETUPTOOLS_SCM_PRETEND_VERSION
+ENV SETUPTOOLS_SCM_PRETEND_VERSION=${SETUPTOOLS_SCM_PRETEND_VERSION}
 RUN --mount=type=bind,source=.git,target=.git \
     --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=uv.lock,target=uv.lock \
