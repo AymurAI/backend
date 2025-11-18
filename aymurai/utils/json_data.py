@@ -20,7 +20,7 @@ def json_serial(obj: Any) -> str:
     """  # noqa: E501
     if isinstance(obj, (datetime, date)):
         return obj.isoformat()
-    raise TypeError("Type %s not serializable" % type(obj))
+    raise TypeError(f"Type {type(obj)} not serializable")
 
 
 def get_pretty(obj: dict | list[Any]) -> str:
