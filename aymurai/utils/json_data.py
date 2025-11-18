@@ -33,8 +33,7 @@ def get_pretty(obj: dict | list[Any]) -> str:
     Returns:
         str: the pretty json string.
     """
-    pretty_json_str = json.dumps(obj, indent=4, ensure_ascii=False, default=json_serial)
-    return pretty_json_str
+    return json.dumps(obj, indent=4, ensure_ascii=False, default=json_serial)
 
 
 def save_json(json_data: dict | list[dict], file_path: str) -> None:
