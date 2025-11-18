@@ -46,7 +46,9 @@ def save_json(json_data: dict | list[dict], file_path: str) -> None:
         file_path (str): The path to the file where the JSON data will be saved.
     """
     with open(file_path, "w") as f:
-        f.write(json.dumps(json_data, indent=4, ensure_ascii=False, default=json_serial))
+        f.write(
+            json.dumps(json_data, indent=4, ensure_ascii=False, default=json_serial)
+        )
 
 
 def load_json(json_file_path: str) -> dict | list[dict]:
