@@ -637,7 +637,6 @@ class DocAnonymizer(Transform):
         paragraph.alignment = alignment
 
         if hyperlink_url and hyperlink_text in watermark_text:
-            # Split the text at
             parts = watermark_text.split(hyperlink_text, 1)
             before_text = parts[0]
             after_text = parts[1] if len(parts) > 1 else ""
