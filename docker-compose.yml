@@ -3,6 +3,8 @@ services:
         image: ghcr.io/aymurai/api:latest
         ports:
             - "8899:8899"
+        depends_on:
+            - ollama
         build:
             context: .
             dockerfile: ./docker/api/Dockerfile
@@ -17,6 +19,8 @@ services:
         image: ghcr.io/aymurai/api:full
         ports:
             - "8899:8899"
+        depends_on:
+            - ollama
         build:
             context: .
             dockerfile: ./docker/api/Dockerfile
@@ -27,3 +31,22 @@ services:
                 limits:
                     memory: 4g
                     cpus: "4.0"
+
+    ollama:
+        image: ollama/ollama
+        container_name: ollama
+        deploy:
+            resources:
+                reservations:
+                    devices:
+                        - driver: nvidia
+                          count: all
+                          capabilities: [gpu]
+        ports:
+            - "11434:11434"
+        volumes:
+            - ollama:/root/.ollama
+        restart: always
+
+volumes:
+    ollama:

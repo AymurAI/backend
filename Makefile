@@ -18,6 +18,40 @@ api-full-run:
 api-full-pull:
 	docker compose pull aymurai-api-full
 
+ollama-up:
+	docker compose up -d --no-recreate ollama
+
+ollama-stop:
+	docker compose stop ollama
+
+ollama-restart:
+	docker compose restart ollama
+
+ollama-pull:
+ifndef MODEL
+	$(error MODEL variable is required, e.g. make ollama-pull MODEL=llama3)
+endif
+	docker compose up -d --no-recreate ollama
+	docker compose exec ollama ollama pull $(MODEL)
+
+ollama-run:
+ifndef MODEL
+	$(error MODEL variable is required, e.g. make ollama-run MODEL=llama3)
+endif
+	docker compose up -d --no-recreate ollama
+	docker compose exec -it ollama ollama run $(MODEL)
+
+ollama-list:
+	docker compose up -d --no-recreate ollama
+	docker compose exec ollama ollama list
+
+ollama-rm:
+ifndef MODEL
+	$(error MODEL variable is required, e.g. make ollama-rm MODEL=llama3)
+endif
+	docker compose up -d --no-recreate ollama
+	docker compose exec ollama ollama rm $(MODEL)
+
 stress-test:
 	locust -f locustfile.py --host http://localhost:8899
 
