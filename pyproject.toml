@@ -76,10 +76,10 @@ dependencies = [
     "cachetools>=5.5.0",
     "diskcache>=5.6.3",
     "scipy<1.14.1",
-    "torch==1.12.1", # for decision model
-    "torchtext==0.13.1", # for decision model
+    "torch==2.9.0",
+    "torchtext==0.18.0",
     "pytorch-lightning==1.8.3.post1",
-    "tensorflow_text==2.10.0", # last version compatible with Windows
+    "tensorflow_text==2.10.0",        # last version compatible with Windows
     "psutil==6.1.0",
     "sqlmodel==0.0.22",
     "alembic>=1.13.3",
@@ -90,6 +90,8 @@ dependencies = [
     "pymupdf4llm>=0.0.17",
     "pypandoc>=1.15",
     "python-docx>=1.2.0",
+    "langextract[openai]==1.1.0",
+    "ollama==0.6.1",
 ]
 
 [project.urls]
@@ -113,6 +115,7 @@ dev = [
     "nbstripout>=0.8.0",
     "jupyter>=1.1.1",
     "pip>=24.3.1",
+    "streamlit>=1.21.0",
 ]
 
 [tool.setuptools.packages.find]
@@ -127,6 +130,7 @@ aymurai-api = "aymurai.api.main:main"
 
 [tool.setuptools_scm]
 version_file = "aymurai/version.py"
+local_scheme = "no-local-version"
 
 
 [tool.pylint.messages_control]
