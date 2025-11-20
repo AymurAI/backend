@@ -123,12 +123,10 @@ class LLMProvider(abc.ABC):
                 current_words = [word]
                 current_tokens = self.count_tokens(" ".join(current_words))
                 if current_tokens > limit:
-                    chunks.append(
-                        DocumentChunk(
-                            text=current_words[0],
-                            token_count=current_tokens,
-                            index=len(chunks),
-                        )
+                    self._append_chunk(
+                        chunks=chunks,
+                        text=current_words[0],
+                        token_count=current_tokens,
                     )
                     current_words = []
                     current_tokens = 0
@@ -144,10 +142,10 @@ class LLMProvider(abc.ABC):
                 continue
 
             chunk_text = " ".join(current_words)
-            chunks.append(
-                DocumentChunk(
-                    text=chunk_text, token_count=current_tokens, index=len(chunks)
-                )
+            self._append_chunk(
+                chunks=chunks,
+                text=chunk_text,
+                token_count=current_tokens,
             )
 
             carry_over = self._overlap_tail(current_words, overlap_tokens)
@@ -156,22 +154,21 @@ class LLMProvider(abc.ABC):
 
             if current_tokens > limit:
                 chunk_text = " ".join(current_words)
-                chunks.append(
-                    DocumentChunk(
-                        text=chunk_text, token_count=current_tokens, index=len(chunks)
-                    )
+                self._append_chunk(
+                    chunks=chunks,
+                    text=chunk_text,
+                    token_count=current_tokens,
                 )
                 current_words = []
                 current_tokens = 0
 
         if current_words:
             chunk_text = " ".join(current_words)
-            chunks.append(
-                DocumentChunk(
-                    text=chunk_text,
-                    token_count=current_tokens or self.count_tokens(chunk_text),
-                    index=len(chunks),
-                )
+            self._append_chunk(
+                chunks=chunks,
+                text=chunk_text,
+                token_count=current_tokens,
+                fallback_count=True,
             )
 
         return chunks
@@ -191,7 +188,7 @@ class LLMProvider(abc.ABC):
 
         tokenizer = self._tokenizer
         if hasattr(tokenizer, "encode"):
-            return tokenizer.encode(text, add_special_tokens=False)
+            return tokenizer.encode(text)
 
         if callable(tokenizer):
             tokens = tokenizer(text)
@@ -226,6 +223,34 @@ class LLMProvider(abc.ABC):
                 break
 
         return tail
+
+    def _append_chunk(
+        self,
+        *,
+        chunks: list[DocumentChunk],
+        text: str,
+        token_count: int,
+        fallback_count: bool = False,
+    ) -> None:
+        """
+        Append a chunk with consistent indexing, optionally recomputing token count if missing.
+
+        Args:
+            chunks (list[DocumentChunk]): Accumulated chunk list.
+            text (str): Chunk text.
+            token_count (int): Token count for the chunk.
+            fallback_count (bool): Recompute token count when provided count is falsy. Defaults to False.
+        """
+        count = token_count or (
+            self.count_tokens(text) if fallback_count else token_count
+        )
+        chunks.append(
+            DocumentChunk(
+                text=text,
+                token_count=count,
+                index=len(chunks),
+            )
+        )
 
 
 __all__ = ["DocumentChunk", "LLMProvider", "LLMResponse"]
