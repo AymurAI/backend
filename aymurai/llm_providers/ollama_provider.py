@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from typing import Iterator
+from typing import Any, AsyncIterator, Iterator
 
 import ollama
+from ollama import AsyncClient
 
 from aymurai.llm_providers.provider import LLMProvider, LLMResponse
 
@@ -29,6 +30,16 @@ class OllamaLLMProvider(LLMProvider):
         messages: list[dict[str, str]] | None = None,
         **kwargs,
     ) -> LLMResponse:
+        """
+        Generate text using the configured Ollama model.
+
+        Args:
+            prompt (str | None, optional): Optional single prompt string to be transformed into a chat message. Defaults to None.
+            messages (list[dict[str, str]] | None, optional): Optional list of pre-formatted chat messages to send. Defaults to None.
+
+        Returns:
+            LLMResponse: Response containing the generated text, metadata about the request, and the raw payload.
+        """
         # Build the message payload
         payload = self._build_messages(prompt=prompt, messages=messages)
 
@@ -40,16 +51,51 @@ class OllamaLLMProvider(LLMProvider):
             **kwargs,
         )
 
-        # Extract text and metadata
-        text = response.get("message", {}).get("content", "")
-        metadata = {
-            "model": self.model_name,
-            "provider": "ollama",
-            "eval_count": response.get("eval_count"),
-            "eval_duration": response.get("eval_duration"),
-        }
+        return self._build_llm_response(
+            response,
+            extra_metadata={
+                "eval_count": response.get("eval_count"),
+                "eval_duration": response.get("eval_duration"),
+            },
+        )
 
-        return LLMResponse(text=text, metadata=metadata, raw=response)
+    async def async_generate(
+        self,
+        prompt: str | None = None,
+        *,
+        messages: list[dict[str, str]] | None = None,
+        **kwargs,
+    ) -> LLMResponse:
+        """
+        Asynchronously generate text using the configured Ollama model.
+
+        Args:
+            prompt (str | None): Optional single prompt string to be transformed into a chat message. Defaults to None.
+            messages (list[dict[str, str]] | None): Optional list of pre-formatted chat messages to send. Defaults to None.
+            **kwargs: Additional keyword arguments forwarded to the Ollama AsyncClient chat endpoint.
+
+        Returns:
+            LLMResponse: Response containing the generated text, metadata about the request, and the raw payload.
+        """
+        # Build the message payload
+        payload = self._build_messages(prompt=prompt, messages=messages)
+
+        # Call ollama.chat asynchronously
+        client = AsyncClient()
+        response = await client.chat(
+            model=self.model_name,
+            messages=payload,
+            keep_alive=self.keep_alive,
+            **kwargs,
+        )
+
+        return self._build_llm_response(
+            response,
+            extra_metadata={
+                "eval_count": response.get("eval_count"),
+                "eval_duration": response.get("eval_duration"),
+            },
+        )
 
     def stream(
         self,
@@ -58,6 +104,16 @@ class OllamaLLMProvider(LLMProvider):
         messages: list[dict[str, str]] | None = None,
         **kwargs,
     ) -> Iterator[LLMResponse]:
+        """
+        Stream the response from the model using the provided prompt or messages.
+
+        Args:
+            prompt (str | None, optional): Optional single prompt string to be transformed into a chat message. Defaults to None.
+            messages (list[dict[str, str]] | None, optional): Optional list of pre-formatted chat messages to send. Defaults to None.
+
+        Yields:
+            Iterator[LLMResponse]: Response chunks containing generated text, metadata, and raw payloads.
+        """
         # Build the message payload
         payload = self._build_messages(prompt=prompt, messages=messages)
 
@@ -71,15 +127,40 @@ class OllamaLLMProvider(LLMProvider):
             keep_alive=self.keep_alive,
             **stream_kwargs,
         ):
-            # Extract text and metadata from each chunk
-            text = chunk.get("message", {}).get("content", "")
-            metadata = {
-                "model": self.model_name,
-                "provider": "ollama",
-                "done": chunk.get("done"),
-            }
+            yield self._build_stream_response(chunk)
 
-            yield LLMResponse(text=text, metadata=metadata, raw=chunk)
+    async def async_stream(
+        self,
+        prompt: str | None = None,
+        *,
+        messages: list[dict[str, str]] | None = None,
+        **kwargs,
+    ) -> AsyncIterator[LLMResponse]:
+        """
+        Asynchronously stream the response from the model using the provided prompt or messages.
+
+        Args:
+            prompt (str | None, optional): Optional single prompt string to be transformed into a chat message. Defaults to None.
+            messages (list[dict[str, str]] | None, optional): Optional list of pre-formatted chat messages to send. Defaults to None.
+
+        Yields:
+            AsyncIterator[LLMResponse]: Asynchronous iterator yielding response chunks containing generated text, metadata, and raw payloads.
+        """
+        # Build the message payload
+        payload = self._build_messages(prompt=prompt, messages=messages)
+
+        # Call ollama.chat with streaming enabled
+        stream_kwargs = {**kwargs, "stream": True}
+
+        # Iterate over the streamed responses asynchronously
+        client = AsyncClient()
+        async for chunk in await client.chat(
+            model=self.model_name,
+            messages=payload,
+            keep_alive=self.keep_alive,
+            **stream_kwargs,
+        ):
+            yield self._build_stream_response(chunk)
 
     def _build_messages(
         self,
@@ -107,7 +188,7 @@ class OllamaLLMProvider(LLMProvider):
         if prompt is None:
             raise ValueError("Either prompt or messages must be provided.")
 
-        payload: list[dict[str, str]] = []
+        payload = []
 
         if self.system_prompt:
             payload.append({"role": "system", "content": self.system_prompt})
@@ -115,6 +196,49 @@ class OllamaLLMProvider(LLMProvider):
         payload.append({"role": "user", "content": prompt})
 
         return payload
+
+    def _build_llm_response(
+        self, response: dict[str, Any], *, extra_metadata: dict[str, Any] | None = None
+    ) -> LLMResponse:
+        """
+        Build an LLMResponse with consistent metadata from the response payload.
+
+        Args:
+            response (dict[str, Any]): The response payload from the Ollama model.
+            extra_metadata (dict[str, Any] | None, optional): Additional metadata to include in the response. Defaults to None.
+
+        Returns:
+            LLMResponse: The constructed LLMResponse object containing text, metadata, and raw response.
+        """
+        # Extract the generated text
+        text = response.get("message", {}).get("content", "")
+
+        # Build metadata
+        metadata = {
+            "model": self.model_name,
+            "provider": "ollama",
+        }
+
+        # Include any extra metadata
+        if extra_metadata:
+            metadata.update(extra_metadata)
+
+        return LLMResponse(text=text, metadata=metadata, raw=response)
+
+    def _build_stream_response(self, chunk: dict[str, Any]) -> LLMResponse:
+        """
+        Build stream responses with consistent metadata from chunk payloads.
+
+        Args:
+            chunk (dict[str, Any]): The chunk payload from the Ollama model.
+
+        Returns:
+            LLMResponse: The constructed LLMResponse object containing text, metadata, and raw chunk.
+        """
+        return self._build_llm_response(
+            chunk,
+            extra_metadata={"done": chunk.get("done")},
+        )
 
 
 __all__ = ["OllamaLLMProvider"]
