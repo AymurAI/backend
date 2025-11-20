@@ -22,7 +22,6 @@ class OllamaLLMProvider(LLMProvider):
         super().__init__(model=model, **kwargs)
         self.system_prompt = system_prompt
         self.keep_alive = keep_alive
-        self._async_client: AsyncClient | None = None
 
     def generate(
         self,
@@ -155,12 +154,13 @@ class OllamaLLMProvider(LLMProvider):
 
         # Iterate over the streamed responses asynchronously
         client = self._get_async_client()
-        async for chunk in await client.chat(
+        stream = await client.chat(
             model=self.model_name,
             messages=payload,
             keep_alive=self.keep_alive,
             **stream_kwargs,
-        ):
+        )
+        async for chunk in stream:
             yield self._build_stream_response(chunk)
 
     def _build_messages(
@@ -200,14 +200,12 @@ class OllamaLLMProvider(LLMProvider):
 
     def _get_async_client(self) -> AsyncClient:
         """
-        Lazily instantiate and reuse an AsyncClient instance.
+        Create a fresh AsyncClient instance.
 
         Returns:
-            AsyncClient: The AsyncClient instance for making asynchronous requests.
+            AsyncClient: A new AsyncClient instance for making asynchronous requests.
         """
-        if self._async_client is None:
-            self._async_client = AsyncClient()
-        return self._async_client
+        return AsyncClient()
 
     def _build_llm_response(
         self, response: dict[str, Any], *, extra_metadata: dict[str, Any] | None = None
