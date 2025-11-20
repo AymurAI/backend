@@ -191,7 +191,7 @@ class LLMProvider(abc.ABC):
 
         tokenizer = self._tokenizer
         if hasattr(tokenizer, "encode"):
-            return tokenizer.encode(text, add_special_tokens=False)
+            return tokenizer.encode(text)
 
         if callable(tokenizer):
             tokens = tokenizer(text)
