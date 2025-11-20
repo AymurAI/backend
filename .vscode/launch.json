@@ -19,7 +19,8 @@
             ],
             "subProcess": false,
             "envFile": "${workspaceFolder}/.env",
-            "python": "${workspaceFolder}/.venv/bin/python"
+            "python": "${workspaceFolder}/.venv/bin/python",
+            "preLaunchTask": "Start Ollama service"
         },
     ]
 }
