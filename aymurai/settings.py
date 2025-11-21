@@ -2,8 +2,8 @@ import os
 from pathlib import Path
 
 from dotenv import load_dotenv
-from pydantic_settings import BaseSettings
-from pydantic import FilePath, ConfigDict, field_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import FilePath, field_validator
 
 import aymurai
 
@@ -22,7 +22,12 @@ def load_env():
 
 
 class Settings(BaseSettings):
-    model_config = ConfigDict(case_sensitive=True)
+    model_config = SettingsConfigDict(
+        case_sensitive=True,
+        env_file=(".env", ".env.common"),
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
 
     CORS_ORIGINS: list[str] | str = ",".join(
         [
@@ -47,7 +52,6 @@ class Settings(BaseSettings):
         return [i.strip() for i in v.split(",")]
 
     SQLALCHEMY_DATABASE_URI: str = "sqlite:////resources/cache/sqlite/database.db"
-
     RESOURCES_BASEPATH: str = "/resources"
 
     # Alembic Config for running migrations
@@ -62,5 +66,5 @@ class Settings(BaseSettings):
     LIBREOFFICE_BIN: str = "libreoffice"
 
 
-load_env()
+load_dotenv(".env")
 settings = Settings()

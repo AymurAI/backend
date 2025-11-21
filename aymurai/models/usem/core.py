@@ -5,13 +5,20 @@ from typing import Iterable, Optional
 import numpy as np
 import tensorflow as tf
 import tensorflow_hub as hub
-import tensorflow_text  # noqa
+
 from more_itertools import chunked
 from tqdm.auto import tqdm
 
 from aymurai.logger import get_logger
 
 logger = get_logger(__name__)
+
+try:
+    import tensorflow_text  # noqa: F401
+except ImportError:
+    logger.warning(
+        "tensorflow_text is not installed. Some embedding models may not work."
+    )
 
 N_JOBS = cpu_count()
 
@@ -25,6 +32,13 @@ class USEMQA:
         self,
         usem_qa_url: str = "https://tfhub.dev/google/universal-sentence-encoder-multilingual-qa/3",
     ):
+        try:
+            import tensorflow_text  # noqa: F401
+        except ImportError:
+            raise ImportError(
+                "tensorflow_text is not installed. "
+                "Universal Sentence Encoder Multilingual QA cannot be instantiated."
+            )
         self.embed = hub.load(usem_qa_url)
 
     def normalize_text(self, text: str) -> str:
