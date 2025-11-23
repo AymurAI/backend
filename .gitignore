@@ -85,6 +85,8 @@ workspace.xml
 
 # exclude data from source control by default
 /data/
+notebooks/experiments/entity-disambiguation/entities-reviewed/
+notebooks/experiments/entity-disambiguation/entities-to-review/
 
 # Mac OS-specific storage files
 .DS_Store
