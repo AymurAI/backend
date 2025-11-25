@@ -419,7 +419,7 @@ def evaluate_disambiguation(
     w_label: float = 0.2,
     w_role: float = 0.05,
     sim_threshold: float = 0.3,
-) -> float:
+) -> Tuple[float, Dict[str, float]]:
     if isinstance(gold_json, str):
         gold_entities = json.loads(gold_json)
     else:
