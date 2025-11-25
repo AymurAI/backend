@@ -117,6 +117,7 @@ dev = [
     "jupyter>=1.1.1",
     "pip>=24.3.1",
     "streamlit>=1.21.0",
+    "dspy>=3.0.4",
 ]
 
 [tool.setuptools.packages.find]
