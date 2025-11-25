@@ -28,7 +28,7 @@ system-prompts:
         [Listado de entidades identificadas, agrupadas por tipo y, cuando sea posible, indicando relaciones o correspondencias.]
 
 defaults:
-    information_to_extract: |
+    information-to-extract: |
         - Hechos relevantes (qué ocurrió).
         - Actores clave (quiénes están involucrados).
             * Denunciante(s).
@@ -44,7 +44,7 @@ defaults:
         - Fundamentos (normas legales, precedentes judiciales, doctrinas aplicadas).
         - Decisión (resultado/medida adoptada).
 
-    entities_to_identify: |
+    entities-to-identify: |
         - "BANCO": Nombre de una entidad bancaria, pública o privada.
         - "CBU": Código Bancario Uniforme (22 dígitos) de una cuenta.
         - "CORREO_ELECTRONICO": Dirección de correo electrónico.
