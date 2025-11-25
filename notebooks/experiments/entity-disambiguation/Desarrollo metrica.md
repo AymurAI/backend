@@ -55,7 +55,7 @@ Para cada entidad $e \in G \cup P$:
 
 - $\text{label}(e)$ es su `aymurai_label`.
 - $\text{aliases}(e)$ es el conjunto de aliases (incluyendo `canonical_text`).
-- $\text{rol}(e)$ es `attributes["rol"]` si existe (en caso contrario es `None`).
+- $\text{rol}(e)$ es `attributes["role"]` si existe (en caso contrario es `None`).
 
 La métrica está inspirada en trabajos de **entity resolution** y **coreference**, donde interesa comparar la formación de clusters más que strings exactos.
 
@@ -418,7 +418,7 @@ def evaluate_disambiguation(
     w_alias: float = 0.35,
     w_label: float = 0.2,
     w_role: float = 0.05,
-    sim_threshold: float = 0.0,
+    sim_threshold: float = 0.3,
 ) -> float:
     if isinstance(gold_json, str):
         gold_entities = json.loads(gold_json)
@@ -464,7 +464,7 @@ gold = [
         "aymurai_label": "PER",
         "canonical_text": "Juan Pérez",
         "aliases": ["Juan Pérez", "Pérez, Juan"],
-        "attributes": {"rol": "imputado"},
+        "attributes": {"role": "imputado"},
         "relations": []
     }
 ]
@@ -475,15 +475,13 @@ pred = [
         "aymurai_label": "PER",
         "canonical_text": "juan perez",
         "aliases": ["juan perez", "perez juan"],
-        "attributes": {"rol": "imputado"},
+        "attributes": {"role": "imputado"},
         "relations": []
     }
 ]
 
-score = evaluate_disambiguation(gold, pred)
+score, components = evaluate_disambiguation(gold, pred)
 print("Score global:", score)
-
-components = compute_metrics_components(gold, pred)
 print(components)
 ```
 
