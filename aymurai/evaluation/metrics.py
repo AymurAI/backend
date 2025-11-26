@@ -3,38 +3,60 @@ from __future__ import annotations
 import json
 import unicodedata
 from pathlib import Path
-from typing import Any, Dict, List, Set, Tuple
+from typing import Any
 
-# Métrica para Desambiguación
+from aymurai.logger import get_logger
+from aymurai.utils.json_data import load_json
+
+logger = get_logger(__name__)
 
 
 def normalize_text(text: str) -> str:
     """
-    Normaliza un alias:
-    - pasa a minúsculas
-    - elimina espacios extra
-    - quita tildes/acentos
+    Normalize text by lowercasing, stripping, and removing accents.
+
+    Args:
+        text (str): Input text.
+
+    Returns:
+        str: Normalized text.
     """
-    if text is None:
+    if not text:
         return ""
+
+    # Lowercase and strip
     text = text.strip().lower()
-    # eliminar acentos
+
+    # Remove accents
     text = unicodedata.normalize("NFD", text)
     text = "".join(ch for ch in text if unicodedata.category(ch) != "Mn")
+
     return text
 
 
-def get_alias_set(entity: Dict[str, Any], normalize: bool = True) -> Set[str]:
+def get_alias_set(entity: dict[str, Any], normalize: bool = True) -> set[str]:
     """
-    Devuelve el conjunto de aliases normalizados para una entidad,
-    asegurándose de incluir el canonical_text como alias.
+    Returns the set of normalized aliases for an entity, ensuring that the
+    canonical_text is included as an alias.
+
+    Args:
+        entity (dict[str, Any]): A dictionary containing entity information with
+            optional 'aliases' (list of strings) and 'canonical_text' (string) keys.
+        normalize (bool, optional): If True, normalizes the alias texts using
+            normalize_text function. Defaults to True.
+    Returns:
+        set[str]: A set of alias strings (normalized if normalize=True) including
+            both explicit aliases and the canonical text.
     """
     aliases = set()
-    # aliases explícitos
+
+    # Get aliases from the entity
     for alias in entity.get("aliases", []):
         text = normalize_text(alias) if normalize else alias
         if text:
             aliases.add(text)
+
+    # Get canonical text from the entity
     canonical = (
         normalize_text(entity.get("canonical_text", ""))
         if normalize
@@ -46,42 +68,58 @@ def get_alias_set(entity: Dict[str, Any], normalize: bool = True) -> Set[str]:
     return aliases
 
 
-def alias_jaccard(aliases_gold: Set[str], aliases_pred: Set[str]) -> float:
+def alias_jaccard(aliases_gold: set[str], aliases_pred: set[str]) -> float:
     """
-    Similaridad Jaccard entre conjuntos de aliases.
+    Jaccard similarity between two sets of aliases.
+
+    Args:
+        aliases_gold (set[str]): Set of gold aliases.
+        aliases_pred (set[str]): Set of predicted aliases.
+
+    Returns:
+        float: Jaccard similarity score.
     """
+    # If both sets are empty, define similarity as 1.0
     if not aliases_gold and not aliases_pred:
         return 1.0
+
+    # Calculate Jaccard similarity
     union = aliases_gold | aliases_pred
-    if not union:
-        return 0.0
     inter = aliases_gold & aliases_pred
+
     return len(inter) / len(union)
 
 
 def greedy_matching(
-    sim_matrix: List[List[float]], sim_threshold: float
-) -> List[Tuple[int, int, float]]:
+    sim_matrix: list[list[float]], sim_threshold: float
+) -> list[tuple[int, int, float]]:
     """
-    Emparejamiento greedy máximo por similitud:
-    - sim_matrix[i][j] = similitud entre entidad gold i y pred j
-    - sim_threshold: mínimo para considerar un match
+    Perform greedy maximum matching based on similarity scores.
 
-    Devuelve una lista de tuplas (i_gold, j_pred, sim).
+    Args:
+        sim_matrix (list[list[float]]): Similarity matrix where sim_matrix[i][j]
+            represents the similarity between the gold entity i and predicted
+            entity j.
+        sim_threshold (float): Minimum similarity required to consider a match
+            between two entities.
+
+    Returns:
+        list[tuple[int, int, float]]: Tuples containing the matched gold index,
+            predicted index, and their similarity score.
     """
-    matches: List[Tuple[int, int, float]] = []
+    matches: list[tuple[int, int, float]] = []
     num_gold = len(sim_matrix)
     num_pred = len(sim_matrix[0]) if num_gold > 0 else 0
 
-    # Generar la lista de candidatos (i, j, sim) por encima del umbral
-    candidates: List[Tuple[float, int, int]] = []
+    # Build the list of candidate matches above the threshold
+    candidates: list[tuple[float, int, int]] = []
     for i in range(num_gold):
         for j in range(num_pred):
             sim = sim_matrix[i][j]
             if sim >= sim_threshold:
                 candidates.append((sim, i, j))
 
-    # Ordenar descendente por similitud
+    # Sort descending by similarity so higher matches are selected first
     candidates.sort(reverse=True, key=lambda x: x[0])
 
     used_gold = set()
@@ -98,20 +136,30 @@ def greedy_matching(
 
 
 def compute_metrics_components(
-    gold_entities: List[Dict[str, Any]],
-    pred_entities: List[Dict[str, Any]],
+    gold_entities: list[dict[str, Any]],
+    pred_entities: list[dict[str, Any]],
     sim_threshold: float = 0.3,
     normalize: bool = True,
-) -> Dict[str, float]:
+) -> dict[str, float]:
     """
-    Calcula los componentes de la métrica:
-    - F1_ent: F1 de entidades (detección de entidades canónicas)
-    - AliasF1_macro: F1 macro promedio sobre aliases por entidad emparejada
-    - Acc_label: accuracy de labels en entidades emparejadas
-    - Acc_role: accuracy de roles en entidades emparejadas
+    Compute each component of the disambiguation metric.
+
+    The metric includes entity-level F1, macro average alias F1, and accuracy
+    for labels and roles on matched entities.
+
+    Args:
+        gold_entities (list[dict[str, Any]]): Ground-truth entities.
+        pred_entities (list[dict[str, Any]]): Predicted entities.
+        sim_threshold (float): Minimum alias similarity to consider entities a match.
+            Defaults to 0.3.
+        normalize (bool): If True normalizes aliases before comparison.
+            Defaults to True.
+
+    Returns:
+        dict[str, float]: Mapping with the keys F1_ent, AliasF1_macro, Acc_label, and Acc_role.
     """
 
-    # Caso trivial: sin entidades en ambos
+    # Handle the trivial case where both sets are empty
     if not gold_entities and not pred_entities:
         return {
             "F1_ent": 1.0,
@@ -120,7 +168,7 @@ def compute_metrics_components(
             "Acc_role": 1.0,
         }
 
-    # Preprocesar aliases, labels y roles
+    # Preprocess aliases, labels and roles
     gold_aliases = [get_alias_set(e, normalize=normalize) for e in gold_entities]
     pred_aliases = [get_alias_set(e, normalize=normalize) for e in pred_entities]
 
@@ -133,8 +181,8 @@ def compute_metrics_components(
     num_gold = len(gold_entities)
     num_pred = len(pred_entities)
 
-    # Matriz de similitud de aliases
-    sim_matrix: List[List[float]] = []
+    # Build the alias similarity matrix
+    sim_matrix = []
     for i in range(num_gold):
         row = []
         for j in range(num_pred):
@@ -142,14 +190,14 @@ def compute_metrics_components(
             row.append(sim)
         sim_matrix.append(row)
 
-    # Matching greedy
+    # Perform greedy matching
     matches = greedy_matching(sim_matrix, sim_threshold=sim_threshold)
 
     TP = len(matches)
     FN = num_gold - TP
     FP = num_pred - TP
 
-    # Entidad-level precision/recall/F1
+    # Entity-level precision/recall/F1
     if TP + FP > 0:
         P_ent = TP / (TP + FP)
     else:
@@ -185,11 +233,11 @@ def compute_metrics_components(
 
             alias_f1_sum += F1_alias
 
-            # label
+            # Label accuracy on matched entities
             if gold_labels[i] == pred_labels[j]:
                 label_correct += 1
 
-            # rol
+            # Role accuracy on matched entities
             if gold_roles[i] == pred_roles[j]:
                 role_correct += 1
 
@@ -218,20 +266,27 @@ def evaluate_disambiguation(
     w_role: float = 0.05,
     sim_threshold: float = 0.3,
     normalize: bool = True,
-) -> Tuple[float, Dict[str, float]]:
+) -> tuple[float, dict[str, float]]:
     """
-    Función principal de evaluación:
-    - gold_json: JSON ground truth (lista de entidades o string JSON)
-    - pred_json: JSON predicho (lista de entidades o string JSON)
-    - w_ent, w_alias, w_label, w_role: pesos de cada componente
-    - sim_threshold: umbral mínimo de similitud de aliases para emparejar entidades
+    Evaluate disambiguation predictions against ground truth entities.
 
-    Devuelve una tupla (Score_global, métricas_componentes) donde:
-    - Score_global es un escalar entre 0 y 1.
-    - métricas_componentes es un dict con los valores individuales de cada métrica.
+    Args:
+        gold_json (Any): Ground-truth entities as a parsed list or JSON string.
+        pred_json (Any): Predicted entities as a parsed list or JSON string.
+        w_ent (float): Weight assigned to entity-level F1. Defaults to 0.4.
+        w_alias (float): Weight assigned to alias macro F1. Defaults to 0.35.
+        w_label (float): Weight assigned to label accuracy. Defaults to 0.2.
+        w_role (float): Weight assigned to role accuracy. Defaults to 0.05.
+        sim_threshold (float): Minimum alias similarity to consider entities a match.
+            Defaults to 0.3.
+        normalize (bool): If True normalizes aliases before comparison.
+            Defaults to True.
+
+    Returns:
+        tuple[float, dict[str, float]]: Overall disambiguation score and detailed metrics components.
     """
 
-    # Si vienen como string, parsear JSON
+    # Parse JSON strings if necessary
     if isinstance(gold_json, str):
         gold_entities = json.loads(gold_json)
     else:
@@ -262,28 +317,37 @@ def evaluate_prediction_directories(
     *,
     sim_threshold: float = 0.3,
     normalize: bool = True,
-) -> Tuple[List[Tuple[str, float, Dict[str, float]]], float]:
-    """Evalúa predicciones contra el set gold utilizando la métrica de desambiguación.
+) -> tuple[list[tuple[str, float, dict[str, float]]], float]:
+    """
+    Evaluate predictions stored on disk against the gold standard set.
 
-    Devuelve una lista con tuplas (documento, score, métricas) y el score promedio.
+    Args:
+        test_dir (Path): Directory containing gold json files.
+        preds_dir (Path): Directory containing predicted json files.
+        sim_threshold (float): Minimum alias similarity to consider entities a match.
+            Defaults to 0.3.
+        normalize (bool): If True normalizes aliases before comparison.
+            Defaults to True.
+
+    Returns:
+        tuple[list[tuple[str, float, dict[str, float]]], float]: Detailed results
+        per document and the average score across all evaluated documents.
     """
     test_dir = Path(test_dir)
     preds_dir = Path(preds_dir)
 
-    results: List[Tuple[str, float, Dict[str, float]]] = []
+    results = []
 
-    for test_path in sorted(test_dir.glob("*_test.json")):
-        prefix = test_path.name[: -len("_test.json")]
-        pred_path = preds_dir / f"{prefix}_pred.json"
+    for test_path in sorted(test_dir.glob("*.json")):
+        prefix = test_path.name[: -len(".json")]
+        pred_path = preds_dir / f"{prefix}.json"
 
         if not pred_path.exists():
-            print(f"[WARN] No se encontró predicción para {test_path.name}; se omite.")
+            logger.warning(f"Prediction for {test_path.name} was not found; skipping.")
             continue
 
-        with test_path.open(encoding="utf-8") as fh:
-            gold_data = json.load(fh)
-        with pred_path.open(encoding="utf-8") as fh:
-            pred_data = json.load(fh)
+        gold_data = load_json(test_path)
+        pred_data = load_json(pred_path)
 
         score, metrics = evaluate_disambiguation(
             gold_data,
@@ -298,4 +362,5 @@ def evaluate_prediction_directories(
         if results
         else float("nan")
     )
+
     return results, average_score
