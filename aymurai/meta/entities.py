@@ -130,3 +130,9 @@ class CanonicalEntity(BaseModel):
         object.__setattr__(self, "entity_id", uuid5(NAMESPACE_URL, seed))
 
         return self
+
+
+class CanonicalEntities(BaseModel):
+    """Collection of canonical entities."""
+
+    canonical_entities: list[CanonicalEntity]
