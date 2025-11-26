@@ -7,16 +7,24 @@ OLLAMA_CONTAINER := $(shell docker ps -q -f name=^ollama$$)
 
 api-build:
 	docker compose build aymurai-api
+api-run:
+	docker compose run --service-ports aymurai-api
 api-up:
 	docker compose up -d aymurai-api
+api-stop:
+	docker compose stop aymurai-api
+api-logs:
+	docker compose logs -f aymurai-api
 api-pull:
 	docker compose pull aymurai-api
 
 api-full-build:
 	docker compose build aymurai-api-full
+api-full-run:
+	docker compose run --service-ports aymurai-api-full
 api-full-up:
 	docker compose up -d aymurai-api-full
-api-full-down:
+api-full-stop:
 	docker compose stop aymurai-api-full
 api-full-logs:
 	docker compose logs -f aymurai-api-full
