@@ -11,7 +11,7 @@ La métrica:
 - $F1_{\text{ent}}$: calidad en la **detección de entidades canónicas**,
 - $\text{AliasF1}_{\text{macro}}$: calidad en la **agrupación de aliases**,
 - $Acc_{\text{label}}$: exactitud del **label** (`aymurai_label`),
-- $Acc_{\text{rol}}$: exactitud del **rol** (`attributes["rol"]`);
+- $Acc_{\text{rol}}$: exactitud del **rol** (`attributes["role"]`);
 - devuelve un escalar final como combinación ponderada:
 
 $$
