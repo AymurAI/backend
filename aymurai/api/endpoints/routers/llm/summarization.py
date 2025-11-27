@@ -41,8 +41,8 @@ def _load_prompt_defaults(path: Path) -> tuple[str, str]:
     """
     content = load_yaml(str(path))
     defaults = content.get("defaults", {})
-    info = (defaults.get("information_to_extract") or "").strip()
-    entities = (defaults.get("entities_to_identify") or "").strip()
+    info = (defaults.get("information-to-extract") or "").strip()
+    entities = (defaults.get("entities-to-identify") or "").strip()
     if not info or not entities:
         raise RuntimeError("summarization defaults missing in YAML")
     return info, entities
