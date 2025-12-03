@@ -79,13 +79,14 @@ dependencies = [
     "torch==1.12.1", # for decision model
     "torchtext==0.13.1", # for decision model
     "pytorch-lightning==1.8.3.post1",
-    "tensorflow_text==2.10.0", # last version compatible with Windows
+    "tensorflow_text==2.10.0; sys_platform == 'linux' or (sys_platform == 'darwin' and platform_machine == 'x86_64') or sys_platform == 'win32'", # no ARM64 macOS wheels
     "psutil==6.1.0",
     "sqlmodel==0.0.22",
     "alembic>=1.13.3",
     "tenacity>=9.0.0",
     "python-dotenv>=1.0.1",
     "tensorflow-hub>=0.16.1",
+    "sentence-transformers>=2.2.0",
     "pymupdf>=1.25.2",
     "pymupdf4llm>=0.0.17",
     "pypandoc>=1.15",
