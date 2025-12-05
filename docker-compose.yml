@@ -12,6 +12,8 @@ services:
         env_file:
             - .env
             - .env.common
+        environment:
+            OLLAMA_HOST: http://ollama:11434
         volumes:
             - ./resources/cache:/resources/cache
 
@@ -26,6 +28,8 @@ services:
             dockerfile: ./docker/api/Dockerfile
             target: aymurai-api-full
         restart: always
+        environment:
+            OLLAMA_HOST: http://ollama:11434
         deploy:
             resources:
                 limits:
