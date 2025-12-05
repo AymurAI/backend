@@ -74,8 +74,8 @@ dependencies = [
     "cachetools>=5.5.0",
     "diskcache>=5.6.3",
     "scipy<1.14.1",
-    "torch==2.9.0",
-    "torchtext==0.18.0",
+    "torch==1.12.1",
+    "torchtext==0.13.1",
     "pytorch-lightning==1.8.3.post1",
     "tensorflow_text==2.10.0; sys_platform == 'linux' or (sys_platform == 'darwin' and platform_machine == 'x86_64') or sys_platform == 'win32'", # no ARM64 macOS wheels
     "psutil==6.1.0",
