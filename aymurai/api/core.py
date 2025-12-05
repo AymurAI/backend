@@ -3,6 +3,7 @@ from fastapi.routing import APIRouter
 from .endpoints.routers.anonymizer import anonymizer
 from .endpoints.routers.anonymizer import database as anonymizer_database
 from .endpoints.routers.datapublic import datapublic
+from .endpoints.routers.llm import summarization
 
 from .endpoints.routers.misc import convert, document_extract
 from .endpoints.routers.server import stats
@@ -34,6 +35,13 @@ router.include_router(
     datapublic.router,
     prefix="/datapublic",
     tags=["datapublic/model"],
+)
+
+# LLM
+router.include_router(
+    summarization.router,
+    prefix="/llm",
+    tags=["llm/summarization"],
 )
 
 
