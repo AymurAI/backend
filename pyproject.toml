@@ -59,12 +59,10 @@ dependencies = [
     "joblib>=1.4.2",
     "textract==1.6.5",
     "datetime_matcher @ git+https://github.com/jedzill4/datetime_matcher",
-    # "scikit-learn==1.5.2",
     "jiwer==3.0.5",
     "datasets>=3.2.0",
     "unidecode==1.3.8",
     "sentencepiece==0.2.0",
-    # "flair @ git+https://github.com/flairNLP/flair@v0.13.1",
     "flair==0.14.0",
     "fastapi[standard]>=0.115.6",
     "uvicorn>=0.34.0",
@@ -91,6 +89,9 @@ dependencies = [
     "pymupdf4llm>=0.0.17",
     "pypandoc>=1.15",
     "python-docx>=1.2.0",
+    "langextract[openai]==1.1.0",
+    "ollama==0.6.1",
+    "tiktoken==0.12.0",
 ]
 
 [project.urls]
@@ -114,6 +115,8 @@ dev = [
     "nbstripout>=0.8.0",
     "jupyter>=1.1.1",
     "pip>=24.3.1",
+    "streamlit>=1.21.0",
+    "dspy>=3.0.4",
 ]
 
 [tool.setuptools.packages.find]
@@ -128,6 +131,7 @@ aymurai-api = "aymurai.api.main:main"
 
 [tool.setuptools_scm]
 version_file = "aymurai/version.py"
+local_scheme = "no-local-version"
 
 
 [tool.pylint.messages_control]
