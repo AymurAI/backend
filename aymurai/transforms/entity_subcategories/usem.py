@@ -3,11 +3,10 @@ from hashlib import md5
 from copy import deepcopy
 
 import numpy as np
-import tensorflow as tf
 
 from aymurai.logger import get_logger
 from aymurai.meta.types import DataItem
-from aymurai.models.usem.core import USEMQA
+from aymurai.models.usem import create_encoder
 from aymurai.utils.download import download
 from aymurai.utils.misc import is_url, get_element
 from aymurai.meta.pipeline_interfaces import Transform
@@ -22,7 +21,7 @@ class USEMSubcategorizer(Transform):
     Use USEM to retrieve subcategories
     """
 
-    usem = USEMQA()
+    usem = create_encoder()
 
     def __init__(
         self,
@@ -81,11 +80,10 @@ class USEMSubcategorizer(Transform):
         """
         Retrieve similar sentences using USEM
         """
-        with tf.device(self.device):
-            query_vector = self.usem.encode(
-                [text],
-                encoder_type="question_encoder",
-            )
+        query_vector = self.usem.encode(
+            [text],
+            encoder_type="question_encoder",
+        )
 
         products = np.inner(query_vector, self.usem_vectors)[0]
         similar_idx = np.flip(products.argsort())[:top_k]
