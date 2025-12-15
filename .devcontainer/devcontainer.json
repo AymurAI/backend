@@ -51,5 +51,5 @@
 			]
 		}
 	},
-	"postCreateCommand": "bash /home/ubuntu/entrypoint.sh"
+	"postCreateCommand": "bash /home/ubuntu/entrypoint.sh && uv pip install \"beautifulsoup4==4.14.2\" && uv pip install \"marker-pdf[full]==1.10.1\""
 }
