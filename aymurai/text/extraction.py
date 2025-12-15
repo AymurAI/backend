@@ -1,18 +1,22 @@
 import logging
 import mimetypes
 import os
-import statistics
 import unicodedata
 import zipfile
+from functools import cache
 from pathlib import Path
 from typing import Any
 from zipfile import BadZipFile
 
-import numpy as np
-import pymupdf
+import markdown2
 import textract
 import xmltodict
+from bs4 import BeautifulSoup
 from lxml import etree
+from marker.converters.pdf import PdfConverter
+from marker.models import create_model_dict
+from marker.renderers.markdown import MarkdownRenderer
+from marker.schema import BlockTypes
 from more_itertools import flatten
 from textract.exceptions import ShellError
 from textract.parsers import _get_available_extensions
@@ -32,6 +36,32 @@ MIMETYPE_EXTENSION_MAPPER = {
 
 
 ERRORS = ["ignore", "coerce", "raise"]
+
+
+MARKER_PDF_CONFIG = {
+    "layout_batch_size": 8,
+    "detection_batch_size": 8,
+    "table_rec_batch_size": 8,
+    "recognition_batch_size": 8,
+    "ocr_error_batch_size": 8,
+    "force_ocr": True,
+    "strip_existing_ocr": True,
+}
+
+INCLUDE_BLOCKS = {
+    BlockTypes.PageHeader,
+    BlockTypes.PageFooter,
+    BlockTypes.SectionHeader,
+    BlockTypes.Text,
+    BlockTypes.Table,
+    BlockTypes.Figure,
+    BlockTypes.Picture,
+    BlockTypes.Footnote,
+    BlockTypes.ListGroup,
+    BlockTypes.Code,
+}
+
+BLOCK_TAGS = {"h1", "h2", "h3", "h4", "h5", "h6", "p", "li", "blockquote", "pre"}
 
 
 class InvalidFile(Exception):
@@ -203,25 +233,100 @@ def get_footnotes(path: str) -> list[str] | None:
     return footnotes_texts
 
 
-def pdf_to_text(filename: str, y_tolerance: float | None = None) -> str:
-    """
-    Extract text from a PDF file.
+def _build_marker_pdf_config() -> dict[str, int | str | bool]:
+    """Return marker config patched with runtime device/env overrides."""
+    config = MARKER_PDF_CONFIG.copy()
 
-    Args:
-        filename (str): Path to the PDF file.
-        y_tolerance (float, optional):
-            Maximum vertical gap (in points) to consider blocks part of the same paragraph.
+    # Configure TORCH_DEVICE if set (e.g., "cuda" or "cpu").
+    torch_device = os.getenv("TORCH_DEVICE")
+    if torch_device:
+        config["TORCH_DEVICE"] = torch_device
+
+    # Enable verbose marker traces when LOG_LEVEL is set to debug (matches logger pattern).
+    log_level = os.getenv("LOG_LEVEL", "").lower()
+    if log_level == "debug":
+        config["debug"] = True
+
+    return config
+
+
+@cache
+def _get_marker_pdf_converter_and_md_renderer() -> tuple[
+    PdfConverter, MarkdownRenderer
+]:
+    """
+    Return cached marker PDF converter and markdown renderer.
 
     Returns:
-        str: Extracted text.
+        tuple: (PdfConverter, MarkdownRenderer)
     """
-    if y_tolerance is None:
-        y_tolerance = compute_median_margin_between_blocks(filename)
+    pdf_converter = PdfConverter(
+        artifact_dict=create_model_dict(),
+        config=_build_marker_pdf_config(),
+    )
 
-    paragraphs = extract_and_merge_paragraphs(filename, np.ceil(y_tolerance))
-    docu = "\n\n".join(paragraphs)
-    docu = unicodedata.normalize("NFKC", docu)
-    return docu
+    markdown_renderer = MarkdownRenderer(
+        {
+            "keep_pageheader_in_output": True,
+            "keep_pagefooter_in_output": True,
+        }
+    )
+
+    return pdf_converter, markdown_renderer
+
+
+def markdown_to_text(md: str) -> str:
+    """
+    Convert Markdown content to plain text by extracting relevant blocks.
+
+    Args:
+        md (str): Markdown content.
+
+    Returns:
+        str: Extracted plain text content.
+    """
+    html = markdown2.markdown(md, extras=["tables"])
+    soup = BeautifulSoup(html, "html.parser")
+
+    chunks = []
+    for block in soup.find_all(BLOCK_TAGS):
+        if block.find_parent(BLOCK_TAGS):
+            continue
+        chunks.append(block.get_text(" ", strip=True))
+
+    return "\n\n".join(filter(None, chunks))
+
+
+def pdf_to_text(file_path: str | Path) -> str:
+    """
+    Extract text from a PDF file using marker-pdf and return plain text.
+
+    Args:
+        file_path (str | Path): Path to the PDF file.
+
+    Raises:
+        InvalidFile: If the file does not exist.
+
+    Returns:
+        str: Extracted plain text content.
+    """
+    # Ensure file exists
+    filepath = Path(file_path)
+    if not filepath.exists():
+        raise InvalidFile(f"Invalid path: {filepath}")
+
+    logger.info(f"Extracting text from PDF: {filepath}")
+
+    # Get marker converter and build document
+    pdf_converter, markdown_renderer = _get_marker_pdf_converter_and_md_renderer()
+    document = pdf_converter.build_document(filepath=filepath.as_posix())
+
+    # Render the document in Markdown format
+    markdown_output = markdown_renderer(document)
+
+    # Convert Markdown to plain text
+    plain_text = markdown_to_text(markdown_output.markdown)
+    return unicodedata.normalize("NFKC", plain_text)
 
 
 def extract_document(
@@ -271,18 +376,23 @@ def extract_document(
     ):
         if errors == "raise":
             raise InvalidFile(f"Invalid path: {filename}")
-        logger.warn(f"skipping (invalid): {filename}")
+        logger.warning(f"Skipping (invalid): {filename}")
         return
 
     try:
         if ext == "pdf":
-            return pdf_to_text(filename, y_tolerance=kwargs.get("y_tolerance"))
+            return pdf_to_text(filename)
 
         docu = textract.process(filename, **kwargs).decode("utf-8")
-    except (BadZipFile, KeyError, ShellError):
+    except (BadZipFile, KeyError, ShellError, ImportError) as exc:
         if errors == "raise":
             raise
-        logger.warn(f"skipping (corrupted): {filename}")
+        logger.warning(f"Skipping (corrupted): {filename} ({exc})")
+        return
+    except Exception as exc:
+        if errors == "raise":
+            raise
+        logger.warning(f"Skipping (corrupted): {filename} ({exc})")
         return
 
     # patch header loading in odt files
@@ -299,85 +409,3 @@ def extract_document(
 
     docu = unicodedata.normalize("NFKC", docu)
     return docu
-
-
-def compute_median_margin_between_blocks(pdf_path: str) -> float:
-    """
-    Computes the median vertical margin between text blocks in a PDF.
-
-    Args:
-        pdf_path (str): Path to the PDF file.
-
-    Returns:
-        float: Median margin between text blocks (in points).
-    """
-    margins = []
-
-    with pymupdf.open(pdf_path) as doc:
-        for page in doc:
-            # Extract all text blocks from the page
-            blocks = page.get_text("blocks")
-
-            # Sort blocks by their top y-coordinate (y0)
-            blocks_sorted = sorted(blocks, key=lambda b: b[1])
-
-            # Compute vertical margins between consecutive blocks
-            for i in range(1, len(blocks_sorted)):
-                previous_block = blocks_sorted[i - 1]
-                current_block = blocks_sorted[i]
-
-                # Calculate the vertical margin
-                previous_y1 = previous_block[3]  # Bottom of the previous block
-                current_y0 = current_block[1]  # Top of the current block
-                margin = current_y0 - previous_y1
-
-                if margin > 0:  # Ignore overlapping blocks
-                    margins.append(margin)
-
-    # Compute and return the median margin
-    if margins:
-        return statistics.median(margins)
-    else:
-        return 0.0  # Return 0 if no margins were found
-
-
-def extract_and_merge_paragraphs(pdf_path: str, y_tolerance=5) -> list[str]:
-    """
-    Extracts and merges paragraphs from a PDF by grouping close text blocks.
-
-    Args:
-        pdf_path (str): Path to the PDF file.
-        y_tolerance (float): Maximum vertical gap (in points) to consider blocks part of the same paragraph.
-
-    Returns:
-        list[str]: A list of merged paragraphs as strings.
-    """
-    paragraphs = []
-    current_paragraph = []
-    last_y1 = None
-
-    with pymupdf.open(pdf_path) as doc:
-        for page in doc:
-            # Extract all text blocks from the page
-            blocks = page.get_text("blocks")
-
-            # Sort blocks by their top y-coordinate (y0)
-            blocks_sorted = sorted(blocks, key=lambda b: b[1])
-
-            for block in blocks_sorted:
-                x0, y0, x1, y1, text, *_ = block
-
-                if last_y1 is not None and (y0 - last_y1) > y_tolerance:
-                    # If the gap between blocks is too large, start a new paragraph
-                    if current_paragraph:
-                        paragraphs.append(" ".join(current_paragraph))
-                    current_paragraph = []
-
-                current_paragraph.append(text)
-                last_y1 = y1
-
-            if current_paragraph:
-                paragraphs.append(" ".join(current_paragraph))
-                current_paragraph = []
-
-    return paragraphs
