@@ -1,6 +1,7 @@
 resources/
 !resources/api
 !resources/pipelines
+!resources/llm
 !resources/cache/aymurai
 !resources/cache/tfhub_modules
 notebooks/
