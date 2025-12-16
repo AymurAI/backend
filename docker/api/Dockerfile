@@ -33,9 +33,6 @@ RUN --mount=type=bind,source=.git,target=.git \
     --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
     uv sync --frozen --no-editable
 
-# Install additional PDF tooling to mirror devcontainer setup
-RUN uv pip install "beautifulsoup4==4.14.2" "marker-pdf[full]==1.10.1"
-
 # -------------------
 # Base API Stage
 # -------------------

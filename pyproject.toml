@@ -57,7 +57,6 @@ dependencies = [
     "odfpy>=1.4.1",
     "gdown==4.6.0",
     "joblib>=1.4.2",
-    "textract==1.6.5",
     "datetime_matcher @ git+https://github.com/jedzill4/datetime_matcher",
     "jiwer==3.0.5",
     "datasets>=3.2.0",
@@ -91,6 +90,8 @@ dependencies = [
     "langextract[openai]==1.1.0",
     "ollama==0.6.1",
     "tiktoken==0.12.0",
+    "marker-pdf==1.10.1",
+    "docx2txt>=0.9",
 ]
 
 [project.urls]
@@ -116,8 +117,7 @@ dev = [
     "pip>=24.3.1",
     "streamlit>=1.21.0",
     "dspy>=3.0.4",
-    "playwright==1.56.0",
-    # "torchtext>=0.13.1",
+    "playwright==1.56.0"
 ]
 
 [tool.setuptools.packages.find]
