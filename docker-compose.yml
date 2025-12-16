@@ -49,7 +49,7 @@ services:
         depends_on:
             - ollama-gpu
         environment:
-            OLLAMA_HOST: http://ollama:11434
+            OLLAMA_HOST: http://ollama-gpu:11434
             TORCH_DEVICE: cuda
         deploy:
             resources:
@@ -79,7 +79,7 @@ services:
         depends_on:
             - ollama-gpu
         environment:
-            OLLAMA_HOST: http://ollama:11434
+            OLLAMA_HOST: http://ollama-gpu:11434
             TORCH_DEVICE: cuda
         deploy:
             resources:
