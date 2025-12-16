@@ -112,8 +112,4 @@ if __name__ == "__main__":
     AymurAIPipeline.load(
         os.path.join(RESOURCES_BASEPATH, "pipelines", "production", "full-paragraph")
     )
-    try:
-        logger.info("Warming up marker models")
-        warm_marker_models()
-    except Exception as error:
-        logger.error("Error while warming up marker models:", error)
+    warm_marker_models()
