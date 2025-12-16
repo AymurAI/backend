@@ -1,3 +1,4 @@
+from hashlib import blake2b
 from pathlib import Path
 
 from aymurai.logger import get_logger
@@ -38,13 +39,13 @@ class PdfExtractor(BaseExtractor):
     @staticmethod
     def _cache_key(file_path: Path) -> str | None:
         """
-        Generate a cache key based on the file path and its metadata.
+        Compute a stable cache key for the PDF payload.
 
         Args:
-            file_path (Path): Path to the PDF file.
+            file_path (Path): Location of the PDF file to fingerprint.
 
         Returns:
-            str | None: Cache key string or None if stat fails.
+            str | None: Deterministic cache key, or ``None`` when the file is unreadable.
         """
         try:
             stat = file_path.stat()
@@ -52,11 +53,22 @@ class PdfExtractor(BaseExtractor):
             logger.warning("Unable to stat PDF %s for caching: %s", file_path, exc)
             return None
 
-        return get_cache_key(
-            file_path.resolve().as_posix(),
-            context={
-                "component": "pdf-extractor",
-                "mtime_ns": stat.st_mtime_ns,
-                "size": stat.st_size,
-            },
-        )
+        try:
+            hasher = blake2b(digest_size=32)
+            with file_path.open("rb") as handle:
+                for chunk in iter(lambda: handle.read(65536), b""):
+                    hasher.update(chunk)
+            fingerprint = hasher.hexdigest()
+        except OSError as exc:
+            logger.warning("Unable to hash PDF %s for caching: %s", file_path, exc)
+            fingerprint = None
+
+        item = fingerprint or file_path.resolve().as_posix()
+        context = {
+            "component": "pdf-extractor",
+            "size": stat.st_size,
+        }
+        if fingerprint is None:
+            context["mtime_ns"] = stat.st_mtime_ns
+
+        return get_cache_key(item, context=context)
