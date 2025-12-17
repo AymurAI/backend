@@ -2,70 +2,118 @@ include .env
 export $(shell sed 's/=.*//' .env)
 include .env.common
 export $(shell sed 's/=.*//' .env.common)
-OLLAMA_CONTAINER := $(shell docker ps -q -f name=^ollama$$)
+
+# Select which Ollama service to control (ollama or ollama-gpu)
+OLLAMA_SERVICE ?= ollama
+OLLAMA_CONTAINER := $(shell docker ps -q -f name=^$(OLLAMA_SERVICE)$$)
+
+# Select which API service to control (override with API_SERVICE=aymurai-api-gpu)
+API_SERVICE ?= aymurai-api
+# Select which full API service to control (override with API_FULL_SERVICE=aymurai-api-full-gpu)
+API_FULL_SERVICE ?= aymurai-api-full
 
 
 api-build:
-	docker compose build aymurai-api
+	docker compose build $(API_SERVICE)
 api-run:
-	docker compose run --service-ports aymurai-api
+	@if [ "$(API_SERVICE)" = "aymurai-api-gpu" ]; then \
+		docker compose stop ollama || true; \
+	else \
+		docker compose stop ollama-gpu || true; \
+	fi
+	docker compose run --service-ports $(API_SERVICE)
 api-up:
-	docker compose up -d aymurai-api
+	@if [ "$(API_SERVICE)" = "aymurai-api-gpu" ]; then \
+		docker compose stop ollama || true; \
+	else \
+		docker compose stop ollama-gpu || true; \
+	fi
+	docker compose up -d $(API_SERVICE)
 api-stop:
-	docker compose stop aymurai-api
+	docker compose stop $(API_SERVICE)
 api-logs:
-	docker compose logs -f aymurai-api
+	docker compose logs -f $(API_SERVICE)
 api-pull:
-	docker compose pull aymurai-api
+	docker compose pull $(API_SERVICE)
 
 api-full-build:
-	docker compose build aymurai-api-full
+	docker compose build $(API_FULL_SERVICE)
 api-full-run:
-	docker compose run --service-ports aymurai-api-full
+	@if [ "$(API_FULL_SERVICE)" = "aymurai-api-full-gpu" ]; then \
+		docker compose stop ollama || true; \
+	else \
+		docker compose stop ollama-gpu || true; \
+	fi
+	docker compose run --service-ports $(API_FULL_SERVICE)
 api-full-up:
-	docker compose up -d aymurai-api-full
+	@if [ "$(API_FULL_SERVICE)" = "aymurai-api-full-gpu" ]; then \
+		docker compose stop ollama || true; \
+	else \
+		docker compose stop ollama-gpu || true; \
+	fi
+	docker compose up -d $(API_FULL_SERVICE)
 api-full-stop:
-	docker compose stop aymurai-api-full
+	docker compose stop $(API_FULL_SERVICE)
 api-full-logs:
-	docker compose logs -f aymurai-api-full
+	docker compose logs -f $(API_FULL_SERVICE)
 api-full-pull:
-	docker compose pull aymurai-api-full
+	docker compose pull $(API_FULL_SERVICE)
 
 ollama-up:
-	docker compose up -d --no-recreate ollama
+	@if [ "$(OLLAMA_SERVICE)" = "ollama-gpu" ]; then \
+		docker compose stop ollama || true; \
+	else \
+		docker compose stop ollama-gpu || true; \
+	fi
+	docker compose up -d --no-recreate $(OLLAMA_SERVICE)
 
 ollama-stop:
-	docker compose stop ollama
+	docker compose stop $(OLLAMA_SERVICE)
 
 ollama-restart:
-	docker compose restart ollama
+	docker compose restart $(OLLAMA_SERVICE)
 
 ollama-pull:
 ifndef MODEL
 	$(error MODEL variable is required, e.g. make ollama-pull MODEL=llama3)
 endif
 ifndef OLLAMA_CONTAINER
-	$(error Ollama container 'ollama' is not running. Start it first with 'make ollama-up')
+	$(error Ollama container '$(OLLAMA_SERVICE)' is not running. Start it first with 'make ollama-up OLLAMA_SERVICE=$(OLLAMA_SERVICE)')
 endif
-	docker exec ollama ollama pull $(MODEL)
+	docker exec $(OLLAMA_SERVICE) ollama pull $(MODEL)
 
 ollama-run:
 ifndef MODEL
 	$(error MODEL variable is required, e.g. make ollama-run MODEL=llama3)
 endif
-	docker compose up -d --no-recreate ollama
-	docker compose exec -it ollama ollama run $(MODEL)
+	@if [ "$(OLLAMA_SERVICE)" = "ollama-gpu" ]; then \
+		docker compose stop ollama || true; \
+	else \
+		docker compose stop ollama-gpu || true; \
+	fi
+	docker compose up -d --no-recreate $(OLLAMA_SERVICE)
+	docker compose exec -it $(OLLAMA_SERVICE) ollama run $(MODEL)
 
 ollama-list:
-	docker compose up -d --no-recreate ollama
-	docker compose exec ollama ollama list
+	@if [ "$(OLLAMA_SERVICE)" = "ollama-gpu" ]; then \
+		docker compose stop ollama || true; \
+	else \
+		docker compose stop ollama-gpu || true; \
+	fi
+	docker compose up -d --no-recreate $(OLLAMA_SERVICE)
+	docker compose exec $(OLLAMA_SERVICE) ollama list
 
 ollama-rm:
 ifndef MODEL
 	$(error MODEL variable is required, e.g. make ollama-rm MODEL=llama3)
 endif
-	docker compose up -d --no-recreate ollama
-	docker compose exec ollama ollama rm $(MODEL)
+	@if [ "$(OLLAMA_SERVICE)" = "ollama-gpu" ]; then \
+		docker compose stop ollama || true; \
+	else \
+		docker compose stop ollama-gpu || true; \
+	fi
+	docker compose up -d --no-recreate $(OLLAMA_SERVICE)
+	docker compose exec $(OLLAMA_SERVICE) ollama rm $(MODEL)
 
 stress-test:
 	locust -f locustfile.py --host http://localhost:8899

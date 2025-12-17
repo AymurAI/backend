@@ -1,56 +1,111 @@
+x-api-lite: &api-lite
+    image: ghcr.io/aymurai/api:latest
+    build:
+        context: .
+        dockerfile: ./docker/api/Dockerfile
+        target: aymurai-api
+    shm_size: "2gb"
+    ports:
+        - "8899:8899"
+    volumes:
+        - ./resources/cache:/resources/cache
+    env_file:
+        - .env
+        - .env.common
+
+x-api-full: &api-full
+    image: ghcr.io/aymurai/api:full
+    build:
+        context: .
+        dockerfile: ./docker/api/Dockerfile
+        target: aymurai-api-full
+    shm_size: "2gb"
+    ports:
+        - "8899:8899"
+    restart: always
+
+x-ollama: &ollama-base
+    image: ollama/ollama
+    ports:
+        - "11434:11434"
+    volumes:
+        - ollama:/root/.ollama
+    restart: always
+    shm_size: "2gb"
+
 services:
+    # CPU-friendly API
     aymurai-api:
-        image: ghcr.io/aymurai/api:latest
-        ports:
-            - "8899:8899"
+        <<: *api-lite
         depends_on:
             - ollama
-        build:
-            context: .
-            dockerfile: ./docker/api/Dockerfile
-            target: aymurai-api
-        env_file:
-            - .env
-            - .env.common
         environment:
             OLLAMA_HOST: http://ollama:11434
-        volumes:
-            - ./resources/cache:/resources/cache
+            TORCH_DEVICE: cpu
 
-    aymurai-api-full:
-        image: ghcr.io/aymurai/api:full
-        ports:
-            - "8899:8899"
+    # GPU-enabled API
+    aymurai-api-gpu:
+        <<: *api-lite
         depends_on:
-            - ollama
-        build:
-            context: .
-            dockerfile: ./docker/api/Dockerfile
-            target: aymurai-api-full
-        restart: always
+            - ollama-gpu
         environment:
-            OLLAMA_HOST: http://ollama:11434
-        deploy:
-            resources:
-                limits:
-                    memory: 4g
-                    cpus: "4.0"
-
-    ollama:
-        image: ollama/ollama
-        container_name: ollama
+            OLLAMA_HOST: http://ollama-gpu:11434
+            TORCH_DEVICE: cuda
         deploy:
             resources:
                 reservations:
                     devices:
                         - driver: nvidia
                           count: all
-                          capabilities: [gpu]
-        ports:
-            - "11434:11434"
-        volumes:
-            - ollama:/root/.ollama
-        restart: always
+                          capabilities: [ gpu ]
+
+    # CPU-friendly Full API
+    aymurai-api-full:
+        <<: *api-full
+        depends_on:
+            - ollama
+        environment:
+            OLLAMA_HOST: http://ollama:11434
+            TORCH_DEVICE: cpu
+        deploy:
+            resources:
+                limits:
+                    memory: 4g
+                    cpus: "4.0"
+
+    # GPU-enabled Full API
+    aymurai-api-full-gpu:
+        <<: *api-full
+        depends_on:
+            - ollama-gpu
+        environment:
+            OLLAMA_HOST: http://ollama-gpu:11434
+            TORCH_DEVICE: cuda
+        deploy:
+            resources:
+                reservations:
+                    devices:
+                        - driver: nvidia
+                          count: all
+                          capabilities: [ gpu ]
+                limits:
+                    memory: 4g
+                    cpus: "4.0"
+
+    # CPU-only Ollama (default)
+    ollama:
+        <<: *ollama-base
+
+    # GPU-enabled Ollama (run instead on GPU hosts)
+    ollama-gpu:
+        <<: *ollama-base
+        deploy:
+            resources:
+                reservations:
+                    devices:
+                        - driver: nvidia
+                          count: all
+                          capabilities: [ gpu ]
 
 volumes:
     ollama:

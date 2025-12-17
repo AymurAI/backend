@@ -14,16 +14,6 @@
                 "device": "cpu",
                 "use_tokenizer": false
             }
-        ],
-        [
-            "aymurai.models.decision.binregex.DecisionConv1dBinRegex",
-            {
-                "tokenizer_path": "https://drive.google.com/uc?id=1eljQOinpObdfBREIKxVnC5Y2g_sbhPHT&confirm=true",
-                "model_checkpoint": "https://drive.google.com/uc?id=19_YmBJnO06iS0qW8ak0zl0EIsJYin8kQ&confirm=true",
-                "device": "cpu",
-                "threshold": 0.5,
-                "return_only_with_detalle": true
-            }
         ]
     ],
     "postprocess": [

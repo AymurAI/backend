@@ -1,0 +1,23 @@
+{
+    "python-envs.defaultEnvManager": "ms-python.python:system",
+    "python-envs.pythonProjects": [],
+    "files.associations": {
+        ".csv": "csv",
+        ".env*": "dotenv",
+        ".json": "json",
+        ".jsonc": "jsonc",
+        ".jsonl": "jsonl",
+        ".md": "markdown"
+    },
+    "github.copilot.enable": {
+        "*": true,
+        "dotenv": false,
+        "csv": false,
+        "json": false,
+        "jsonc": false,
+        "jsonl": false,
+        "markdown": false,
+        "plaintext": false,
+        "scminput": false
+    }
+}

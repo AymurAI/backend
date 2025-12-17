@@ -15,7 +15,7 @@ class Tokenizer(object):
 
     @classmethod
     def load(cls, path: str):
-        vocab = torch.load(path)
+        vocab = torch.load(path, weights_only=False)
         return cls(vocab=vocab)
 
     def __call__(self, text: str):
