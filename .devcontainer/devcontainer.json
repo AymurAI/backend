@@ -9,6 +9,9 @@
 		"aymurai-devcontainer-gpu"
 	],
 	"workspaceFolder": "/workspace",
+	"mounts": [
+		"source=codex-data,target=/home/ubuntu/.codex,type=volume"
+	],
 	"customizations": {
 		"vscode": {
 			"settings": {
