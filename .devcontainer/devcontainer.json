@@ -50,9 +50,11 @@
 				"cweijan.vscode-database-client2",
 				"christian-kohler.path-intellisense",
 				"github.vscode-github-actions",
-				"seatonjiang.gitmoji-vscode"
+				"seatonjiang.gitmoji-vscode",
+				"openai.chatgpt"
 			]
 		}
 	},
-	"postCreateCommand": "bash /home/ubuntu/entrypoint.sh"
+	"postCreateCommand": "bash /home/ubuntu/entrypoint.sh",
+	"postStartCommand": "sudo chown -R ubuntu:ubuntu /home/ubuntu/.codex && sudo chmod -R u+rwX /home/ubuntu/.codex"
 }
