@@ -28,6 +28,7 @@ from aymurai.llm_providers import OllamaLLMProvider
 from aymurai.logger import get_logger
 from aymurai.meta.entities import CanonicalEntities, CanonicalEntity
 from aymurai.utils.json_data import get_pretty, load_json, save_json
+from aymurai.utils.paths import prediction_filename_for_test, test_id_from_filename
 
 logger = get_logger(__name__)
 
@@ -303,8 +304,8 @@ def run_experiment(config_path: str) -> None:
         results = []
         if output_dir.exists():
             for test_path in sorted(ground_truth_dir.glob("*.json")):
-                prefix = test_path.name[: -len(".json")]
-                pred_path = output_dir / f"{prefix}.json"
+                doc_id = test_id_from_filename(test_path)
+                pred_path = output_dir / prediction_filename_for_test(test_path)
 
                 if not pred_path.exists():
                     logger.warning(
@@ -325,7 +326,7 @@ def run_experiment(config_path: str) -> None:
                     sim_threshold=config.evaluation.sim_threshold or 0.3,
                     normalize=config.evaluation.normalize,
                 )
-                results.append((prefix, score, metrics))
+                results.append((doc_id, score, metrics))
 
         average = (
             sum(score for _, score, _ in results) / len(results)

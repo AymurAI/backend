@@ -7,6 +7,7 @@ from typing import Any
 
 from aymurai.logger import get_logger
 from aymurai.utils.json_data import load_json
+from aymurai.utils.paths import prediction_filename_for_test, test_id_from_filename
 
 logger = get_logger(__name__)
 
@@ -339,8 +340,8 @@ def evaluate_prediction_directories(
     results = []
 
     for test_path in sorted(test_dir.glob("*.json")):
-        prefix = test_path.name[: -len(".json")]
-        pred_path = preds_dir / f"{prefix}.json"
+        doc_id = test_id_from_filename(test_path)
+        pred_path = preds_dir / prediction_filename_for_test(test_path)
 
         if not pred_path.exists():
             logger.warning(f"Prediction for {test_path.name} was not found; skipping.")
@@ -355,7 +356,7 @@ def evaluate_prediction_directories(
             sim_threshold=sim_threshold,
             normalize=normalize,
         )
-        results.append((prefix, score, metrics))
+        results.append((doc_id, score, metrics))
 
     average_score = (
         sum(score for _, score, _ in results) / len(results)

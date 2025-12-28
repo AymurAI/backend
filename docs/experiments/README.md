@@ -54,6 +54,15 @@ make ollama-pull MODEL=gemma3:270m
 make exp-run CONFIG=resources/experiments/entity-disambiguation/exp-gemma3-pv1.yaml
 ```
 
+## Predictions vs. ground truth filenames
+
+Ground-truth files are expected to end with `-test.json`, while predictions use
+the same base name without the suffix.
+
+Example:
+- `document-1-test.json` (ground truth)
+- `document-1.json` (prediction)
+
 Predictions are written to disk (not logged as artifacts). MLflow logs:
 - Run params (model, prompt IDs, dataset hash, etc.)
 - Aggregate metrics and per-document scores (as an artifact)
@@ -72,6 +81,10 @@ Then open `http://localhost:5000`.
 
 Experiment configs live under:
 - `resources/experiments/entity-disambiguation/`
+
+Use the template at `docs/experiments/base.yaml` when creating new experiment
+configs. Copy it into `resources/experiments/entity-disambiguation/` and adjust
+the model, prompts, and data paths as needed.
 
 The main runner is:
 - `aymurai/experiments/entity_disambiguation/runner.py`
