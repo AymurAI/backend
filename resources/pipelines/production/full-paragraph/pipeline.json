@@ -14,6 +14,15 @@
                 "device": "cpu",
                 "use_tokenizer": false
             }
+        ],
+        [
+            "aymurai.models.decision.binregex.DecisionEmbeddingBagBinRegex",
+            {
+                "model_checkpoint": "https://github.com/AymurAI/backend/releases/download/v2.0.0-alpha.1/tiny-embeddingbag.safetensors",
+                "device": "cpu",
+                "threshold": 0.5,
+                "return_only_with_detalle": true
+            }
         ]
     ],
     "postprocess": [
