@@ -285,7 +285,7 @@ wheels = [
 
 [[package]]
 name = "aymurai"
-version = "2.0.0a3.dev7"
+version = "2.0.0a3.dev9"
 source = { editable = "." }
 dependencies = [
     { name = "alembic" },
