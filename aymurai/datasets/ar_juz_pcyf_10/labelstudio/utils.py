@@ -1,13 +1,13 @@
 import re
-from glob import glob
 from copy import deepcopy
+from glob import glob
 from itertools import groupby
 
+from more_itertools import collapse, unzip
 from numpy import cumsum
-from more_itertools import unzip, collapse
 
-from aymurai.meta.types import DataItem
 from aymurai.meta.entities import Entity
+from aymurai.meta.types import DataItem
 from aymurai.utils.json_data import load_json
 
 
@@ -43,6 +43,8 @@ def reformat_entity(text: str, span: dict) -> dict:
         end=span["end"],
         label=span["labels"][0],
         text=text[span["start"] : span["end"]],
+        start_char=span["start"],
+        end_char=span["end"],
         context_pre=text[soffset : span["start"]],
         context_post=text[span["end"] : eoffset],
         attrs={"aymurai_label": span["labels"][0]},
