@@ -11,9 +11,7 @@ from aymurai.models.sentence_encoder.base import BaseSentenceEncoder
 from aymurai.models.sentence_encoder.factory import (
     EncoderType,
     create_encoder,
-    get_encoder,
 )
-from aymurai.models.sentence_encoder.core import SentenceRetrieval
 
 
 def __getattr__(name: str):
@@ -41,10 +39,7 @@ __all__ = [
     # Factory
     "EncoderType",
     "create_encoder",
-    "get_encoder",
     # Implementations (lazy loaded)
     "DistilUSEEncoder",
     "MultilingualMiniLMEncoder",
-    # Retrieval
-    "SentenceRetrieval",
 ]

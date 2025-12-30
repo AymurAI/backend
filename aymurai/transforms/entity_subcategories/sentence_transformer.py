@@ -9,12 +9,11 @@ from aymurai.logger import get_logger
 from aymurai.meta.pipeline_interfaces import Transform
 from aymurai.meta.types import DataItem
 from aymurai.models.sentence_encoder.base import BaseSentenceEncoder
-from aymurai.models.sentence_encoder.factory import EncoderType, create_encoder
+from aymurai.models.sentence_encoder.factory import create_encoder
+from aymurai.transforms.entity_subcategories.bm25 import BM25Scorer
+from aymurai.transforms.entity_subcategories.subcategories import SUBCATEGORIES
+from aymurai.transforms.entity_subcategories.utils import filter_by_category
 from aymurai.utils.misc import get_element
-
-from .bm25 import BM25Scorer
-from .subcategories import SUBCATEGORIES
-from .utils import filter_by_category
 
 logger = get_logger(__name__)
 
@@ -65,7 +64,9 @@ class SentenceTransformerSubcategorizer(Transform):
         self.subcategories = self._load_subcategories(category)
 
         self.encoder_name = encoder_name
-        self.encoder = encoder or self._resolve_encoder(encoder_name, device)
+        self.encoder = encoder or create_encoder(
+            encoder_type=encoder_name, device=device
+        )
 
         embeddings_path = Path(embeddings_path)
         if not embeddings_path.is_absolute():
@@ -101,33 +102,6 @@ class SentenceTransformerSubcategorizer(Transform):
                 f"No subcategories found for category '{category}'"
             ) from exc
 
-    def _resolve_encoder(self, name: str, device: str | None) -> BaseSentenceEncoder:
-        """
-        Map a friendly encoder name to EncoderType and instantiate via factory.
-
-        Args:
-            name (str): Friendly name of the encoder.
-            device (str | None): Device to run the encoder on.
-
-        Returns:
-            BaseSentenceEncoder: Instantiated encoder.
-        """
-
-        name = name.lower()
-        name_map = {
-            "distiluse": EncoderType.DISTILUSE,
-            "minilm": EncoderType.MINILM,
-        }
-
-        encoder_type = name_map.get(name)
-        if encoder_type is None:
-            try:
-                encoder_type = EncoderType(name)
-            except ValueError as exc:
-                raise ValueError(f"Unknown encoder_name: {name}") from exc
-
-        return create_encoder(encoder_type=encoder_type, device=device)
-
     def _load_or_build_embeddings(self, rebuild: bool) -> np.ndarray:
         """
         Load or build subcategory response embeddings.
@@ -160,11 +134,15 @@ class SentenceTransformerSubcategorizer(Transform):
         # Apply the same normalization used in notebooks: replace underscores, then encoder normalize.
         normalized = [self._normalize_subcategory(sub) for sub in self.subcategories]
         vectors = self.encoder.batch_encode(
-            normalized, encoder_type="response_encoder", batch_size=self.batch_size
+            normalized,
+            encoder_type="response_encoder",
+            batch_size=self.batch_size,
         )
 
         np.savez(
-            self.embeddings_path, vectors=vectors, subcategories=self.subcategories
+            self.embeddings_path,
+            vectors=vectors,
+            subcategories=self.subcategories,
         )
         logger.info(f"Saved response embeddings to {self.embeddings_path}")
 

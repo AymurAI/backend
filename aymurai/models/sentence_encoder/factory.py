@@ -31,16 +31,42 @@ def _get_encoder_type_from_env() -> EncoderType:
         return EncoderType.DISTILUSE
 
 
+def _coerce_encoder_type(value: EncoderType | str | None) -> EncoderType:
+    """
+    Normalize encoder type values into EncoderType.
+
+    Args:
+        value: Encoder type as EncoderType, string, or None. If None, reads from env var.
+
+    Returns:
+        EncoderType: Normalized encoder type.
+    """
+    if value is None:
+        return _get_encoder_type_from_env()
+
+    if isinstance(value, EncoderType):
+        return value
+
+    if isinstance(value, str):
+        try:
+            return EncoderType(value.lower())
+        except ValueError as exc:
+            raise ValueError(f"Unknown encoder type: {value}") from exc
+
+    raise TypeError(f"Unsupported encoder type value: {type(value)!r}")
+
+
 def create_encoder(
-    encoder_type: Optional[EncoderType] = None,
+    encoder_type: EncoderType | str | None = None,
     device: Optional[str] = None,
 ) -> BaseSentenceEncoder:
     """
     Factory function to create the appropriate sentence encoder.
 
     Args:
-        encoder_type: Type of encoder to create. If None, reads from
-                      SENTENCE_ENCODER_TYPE env var (defaults to 'distiluse').
+        encoder_type: Type of encoder to create. Accepts EncoderType or string.
+                      If None, reads from SENTENCE_ENCODER_TYPE env var
+                      (defaults to 'distiluse').
         device: Device for sentence-transformers models.
 
     Returns:
@@ -55,8 +81,7 @@ def create_encoder(
         ImportError: If required dependencies are not available.
         ValueError: If an invalid encoder type is specified.
     """
-    if encoder_type is None:
-        encoder_type = _get_encoder_type_from_env()
+    encoder_type = _coerce_encoder_type(encoder_type)
 
     # Create the appropriate encoder
     if encoder_type == EncoderType.DISTILUSE:
@@ -75,9 +100,3 @@ def create_encoder(
 
     else:
         raise ValueError(f"Unknown encoder type: {encoder_type}")
-
-
-# Backwards compatibility alias
-def get_encoder(**kwargs) -> BaseSentenceEncoder:
-    """Alias for create_encoder for backwards compatibility."""
-    return create_encoder(**kwargs)
