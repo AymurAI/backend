@@ -180,7 +180,7 @@ class DecisionEmbeddingBagBinRegex(TrainModule):
         if self.return_only_with_detalle and not detalles:
             return item
 
-        ent = self.gen_aymurai_entity(text=text, category=category, score=score)
+        ent = self.gen_aymurai_entity(text=text, score=score)
         ents.append(ent)
 
         if "predictions" not in item:
