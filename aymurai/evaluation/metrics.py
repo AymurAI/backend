@@ -140,9 +140,10 @@ def compute_metrics_components(
     pred_entities: list[dict[str, Any]],
     sim_threshold: float = 0.3,
     normalize: bool = True,
+    target_label: str = None,
 ) -> dict[str, float]:
     """
-    Compute each component of the disambiguation metric.
+    Compute each component of the disambiguation metric by label if provided.
 
     The metric includes entity-level F1, macro average alias F1, and accuracy
     for labels and roles on matched entities.
@@ -158,6 +159,10 @@ def compute_metrics_components(
     Returns:
         dict[str, float]: Mapping with the keys F1_ent, AliasF1_macro, Acc_label, and Acc_role.
     """
+    # Filter entities by target label if provided
+    if target_label:
+        gold_entities = [e for e in gold_entities if e.get('aymurai_label') == target_label]
+        pred_entities = [e for e in pred_entities if e.get('aymurai_label') == target_label]
 
     # Handle the trivial case where both sets are empty
     if not gold_entities and not pred_entities:
@@ -266,9 +271,10 @@ def evaluate_disambiguation(
     w_role: float = 0.05,
     sim_threshold: float = 0.3,
     normalize: bool = True,
+    target_label: str = None,
 ) -> tuple[float, dict[str, float]]:
     """
-    Evaluate disambiguation predictions against ground truth entities.
+    Evaluate disambiguation predictions against ground truth entities by label if provided.
 
     Args:
         gold_json (Any): Ground-truth entities as a parsed list or JSON string.
@@ -298,7 +304,11 @@ def evaluate_disambiguation(
         pred_entities = pred_json
 
     metrics = compute_metrics_components(
-        gold_entities, pred_entities, sim_threshold=sim_threshold, normalize=normalize
+        gold_entities,
+        pred_entities,
+        sim_threshold=sim_threshold,
+        normalize=normalize,
+        target_label=target_label
     )
 
     score = (
@@ -317,9 +327,10 @@ def evaluate_prediction_directories(
     *,
     sim_threshold: float = 0.3,
     normalize: bool = True,
+    target_label: str = None,
 ) -> tuple[list[tuple[str, float, dict[str, float]]], float]:
     """
-    Evaluate predictions stored on disk against the gold standard set.
+    Evaluate predictions stored on disk against the gold standard set by label if provided.
 
     Args:
         test_dir (Path): Directory containing gold json files.
@@ -354,6 +365,7 @@ def evaluate_prediction_directories(
             pred_data,
             sim_threshold=sim_threshold,
             normalize=normalize,
+            target_label=target_label
         )
         results.append((prefix, score, metrics))
 
