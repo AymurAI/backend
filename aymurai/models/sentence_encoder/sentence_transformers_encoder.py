@@ -9,7 +9,7 @@ import numpy as np
 from sentence_transformers import SentenceTransformer
 
 from aymurai.logger import get_logger
-from aymurai.models.usem.base import BaseSentenceEncoder
+from aymurai.models.sentence_encoder.base import BaseSentenceEncoder
 
 logger = get_logger(__name__)
 
