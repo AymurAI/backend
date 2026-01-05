@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import os
 from copy import deepcopy
 
@@ -58,20 +60,54 @@ class DecisionEmbeddingBagBinRegex(TrainModule):
         )
         self.model = self.model.eval()
 
-    def fit(self, train: DataBlock, val: DataBlock):
+    def fit(self, train: DataBlock, val: DataBlock) -> None:
+        """
+        Fit the model on training data. Currently not implemented.
+
+        Args:
+            train (DataBlock): Training data block.
+            val (DataBlock): Validation data block.
+        """
         logger.warning("fit routine not implemented")
         pass
 
     def predict(self, data: DataBlock) -> DataBlock:
+        """
+        Predict on a data block.
+
+        Args:
+            data (DataBlock): Input data block.
+
+        Returns:
+            DataBlock: Predicted data block.
+        """
         # FIXME: optimize
         logger.warning("predict not optimized")
         return [self.predict_single(item) for item in data]
 
-    def model_input_from_text(self, text: str):
+    def model_input_from_text(self, text: str) -> tuple[torch.Tensor, torch.Tensor]:
+        """
+        Convert text to model input tensors.
+
+        Args:
+            text (str): Input text.
+
+        Returns:
+            tuple[torch.Tensor, torch.Tensor]: (flat_tokens, offsets) for model input.
+        """
         token_ids = encode_text(text, self.cfg).to(self._device)
         return make_offsets([token_ids])
 
-    def get_subcategory(self, text):
+    def get_subcategory(self, text: str) -> list[str]:
+        """
+        Determine the subcategory of a decision based on its text.
+
+        Args:
+            text (str): Text of the decision.
+
+        Returns:
+            list[str]: List of subcategories for the decision.
+        """
         pattern_no_hace_lugar = regex.compile(
             r"(?i)(no hacer? lugar|rechaz[ao]r?|no admitir|no convalidar|no autorizar|declarar inadmisible)"
         )
@@ -81,8 +117,19 @@ class DecisionEmbeddingBagBinRegex(TrainModule):
         else:
             return ["hace_lugar"]
 
-    def gen_aymurai_entity(self, text: str, category: int, score: float):
+    def gen_aymurai_entity(self, text: str, score: float) -> dict:
+        """
+        Generate an Aymurai entity dictionary for a decision.
+
+        Args:
+            text (str): Text of the decision.
+            score (float): Confidence score of the decision.
+
+        Returns:
+            dict: Aymurai entity dictionary.
+        """
         subcategory = self.get_subcategory(text)
+
         attrs = EntityAttributes(
             aymurai_label="DECISION",
             aymurai_label_subclass=subcategory,
@@ -100,9 +147,19 @@ class DecisionEmbeddingBagBinRegex(TrainModule):
         ent["label"] = "DECISION"
         ent["context_pre"] = ""
         ent["context_post"] = ""
+
         return ent
 
     def predict_single(self, item: DataItem) -> DataItem:
+        """
+        Predict a single data item.
+
+        Args:
+            item (DataItem): The data item to predict.
+
+        Returns:
+            DataItem: The predicted data item with added entities if applicable.
+        """
         item = deepcopy(item)
 
         text = item["data"]["doc.text"]
@@ -133,13 +190,24 @@ class DecisionEmbeddingBagBinRegex(TrainModule):
 
         return item
 
-    def save(self, basepath: str) -> dict | None:
+    def save(self, basepath: str) -> dict:
+        """
+        Save the model to a directory.
+
+        Args:
+            basepath (str): Directory path to save the model.
+
+        Returns:
+            dict: A dictionary containing metadata about the saved model.
+        """
         os.makedirs(basepath, exist_ok=True)
+
         # Use safetensors as the main format
         new_model_path = f"{basepath}/model.safetensors"
         self.model.save_checkpoint(new_model_path, use_safetensors=True)
         self._model_path = new_model_path
         logger.info(f"model saved on: {self._model_path}")
+
         return {
             "model_checkpoint": self._model_path,
             "device": self._device,
@@ -148,7 +216,16 @@ class DecisionEmbeddingBagBinRegex(TrainModule):
         }
 
     @classmethod
-    def load(cls, path: str, **kwargs):
+    def load(cls, path: str, **kwargs) -> DecisionEmbeddingBagBinRegex:
+        """
+        Load a DecisionEmbeddingBagBinRegex model from a directory.
+
+        Args:
+            path (str): Path to the directory containing the model files.
+
+        Returns:
+            DecisionEmbeddingBagBinRegex: The loaded model instance.
+        """
         # Try safetensors first, then .pt
         safetensors_path = f"{path}/model.safetensors"
         pt_path = f"{path}/model.pt"
