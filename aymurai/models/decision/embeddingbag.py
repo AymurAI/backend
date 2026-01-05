@@ -7,15 +7,10 @@ import re
 from dataclasses import dataclass, field
 
 import torch
+from safetensors.torch import load_file as safe_load_file
+from safetensors.torch import save_file as safe_save_file
 from torch import nn
 from unidecode import unidecode
-
-try:
-    from safetensors.torch import load_file as safe_load_file
-    from safetensors.torch import save_file as safe_save_file
-except Exception:  # pragma: no cover - optional dependency
-    safe_load_file = None
-    safe_save_file = None
 
 
 def _normalize_text(text: str) -> str:
