@@ -3,7 +3,6 @@ from copy import deepcopy
 
 import regex
 import torch
-from unidecode import unidecode
 
 from aymurai.logger import get_logger
 from aymurai.meta.api_interfaces import DocLabel, EntityAttributes
@@ -69,7 +68,6 @@ class DecisionEmbeddingBagBinRegex(TrainModule):
         return [self.predict_single(item) for item in data]
 
     def model_input_from_text(self, text: str):
-        text = unidecode(text)
         token_ids = encode_text(text, self.cfg).to(self._device)
         return make_offsets([token_ids])
 
