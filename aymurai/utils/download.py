@@ -1,6 +1,9 @@
 import os
+import shutil
+import tempfile
+from pathlib import Path
 
-import gdown
+import requests
 
 from aymurai.logger import get_logger
 
@@ -9,30 +12,36 @@ NO_DOWNLOAD_IF_EXISTS = os.getenv("NO_DOWNLOAD_IF_EXISTS", True)
 logger = get_logger(__name__)
 
 
-def download(url, output):
+def download(url: str, output: str) -> str:
     """
-    Download file from url
-    skip if file exists and environment variable NO_DOWNLOAD_IF_EXISTS is set to True
+    Stream download to a file.
+
+    Skips download when the target exists and NO_DOWNLOAD_IF_EXISTS is truthy.
 
     Args:
-        url (str): url to download
-        output (str): output path
+        url: URL to download.
+        output: Path to save the downloaded file.
 
     Returns:
-        str: output path
+        str: Path to the downloaded file.
     """
 
-    if os.path.exists(output) and bool(NO_DOWNLOAD_IF_EXISTS):
-        logger.warn(
+    output_path = Path(output)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    if output_path.exists() and NO_DOWNLOAD_IF_EXISTS:
+        logger.warning(
             "File found and skipping. Set NO_DOWNLOAD_IF_EXISTS environment to false to force download."
         )
-        return output
+        return str(output_path)
 
-    gdown.download(
-        url,
-        quiet=False,
-        fuzzy=True,
-        resume=True,
-        output=output,
-    )
-    return output
+    logger.info(f"Downloading {url} -> {output_path}")
+    with requests.get(url, stream=True, allow_redirects=True, timeout=60) as resp:
+        resp.raise_for_status()
+        with tempfile.NamedTemporaryFile(delete=False) as tmp:
+            for chunk in resp.iter_content(chunk_size=8192):
+                if chunk:
+                    tmp.write(chunk)
+            tmp_path = Path(tmp.name)
+    shutil.move(tmp_path, output_path)
+    return str(output_path)
