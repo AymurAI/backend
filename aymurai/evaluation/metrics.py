@@ -322,42 +322,60 @@ def evaluate_disambiguation(
 
 
 def evaluate_prediction_directories(
-    test_dir: Path,
+    gold_dir: Path,
     preds_dir: Path,
     *,
     sim_threshold: float = 0.3,
     normalize: bool = True,
     target_label: str = None,
+    gold_json_suffix: str = None,
+    pred_json_suffix: str = None,
 ) -> tuple[list[tuple[str, float, dict[str, float]]], float]:
     """
     Evaluate predictions stored on disk against the gold standard set by label if provided.
+    It has the feature of comparing files in two directories based on their core names,
+    ignoring predefined suffixes.
 
     Args:
-        test_dir (Path): Directory containing gold json files.
+        gold_dir (Path): Directory containing gold json files.
         preds_dir (Path): Directory containing predicted json files.
         sim_threshold (float): Minimum alias similarity to consider entities a match.
             Defaults to 0.3.
         normalize (bool): If True normalizes aliases before comparison.
             Defaults to True.
+        target_label (str, optional): If provided, evaluates only entities with this label.
+            Defaults to None.
+        gold_json_suffix (str, optional): Suffix to remove from gold json filenames
+            when matching with predictions. Defaults to None.
+        pred_json_suffix (str, optional): Suffix to remove from predicted json filenames
+            when matching with gold files. Defaults to None.
 
     Returns:
         tuple[list[tuple[str, float, dict[str, float]]], float]: Detailed results
         per document and the average score across all evaluated documents.
     """
-    test_dir = Path(test_dir)
+    gold_dir = Path(gold_dir)
     preds_dir = Path(preds_dir)
 
     results = []
 
-    for test_path in sorted(test_dir.glob("*.json")):
-        prefix = test_path.name[: -len(".json")]
-        pred_path = preds_dir / f"{prefix}.json"
+    pred_map = {}
+    for p in preds_dir.glob("*.json"):
+        core_name = p.stem.replace(pred_json_suffix, "")
+        pred_map[core_name] = p
 
-        if not pred_path.exists():
-            logger.warning(f"Prediction for {test_path.name} was not found; skipping.")
+    for gold_path in sorted(gold_dir.glob("*.json")):
+        core_id = gold_path.stem.replace(gold_json_suffix, "")
+        pred_path = pred_map.get(core_id)
+
+        if not pred_path or not pred_path.exists():
+            logger.warning(
+                f"Skipping: No prediction found for '{core_id}'. "
+                f"Expected something like '{core_id}{pred_json_suffix}.json'"
+            )
             continue
 
-        gold_data = load_json(test_path)
+        gold_data = load_json(gold_path)
         pred_data = load_json(pred_path)
 
         score, metrics = evaluate_disambiguation(
@@ -367,7 +385,7 @@ def evaluate_prediction_directories(
             normalize=normalize,
             target_label=target_label
         )
-        results.append((prefix, score, metrics))
+        results.append((core_id, score, metrics))
 
     average_score = (
         sum(score for _, score, _ in results) / len(results)

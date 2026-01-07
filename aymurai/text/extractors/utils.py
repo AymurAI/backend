@@ -29,8 +29,8 @@ MARKER_PDF_CONFIG = {
     "table_rec_batch_size": 8,
     "recognition_batch_size": 8,
     "ocr_error_batch_size": 8,
-    "force_ocr": True,
-    "strip_existing_ocr": True,
+    "force_ocr": False,
+    "strip_existing_ocr": False,
 }
 
 ODT_NS = {"text": "urn:oasis:names:tc:opendocument:xmlns:text:1.0"}
