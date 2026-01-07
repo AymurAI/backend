@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import json
 import tempfile
 from pathlib import Path
@@ -12,6 +10,12 @@ from aymurai.utils.yaml_data import save_yaml
 
 
 def configure_mlflow(config: ExperimentRunConfig) -> None:
+    """
+    Configure MLflow tracking URI and experiment name.
+
+    Args:
+        config (ExperimentRunConfig): Experiment run configuration.
+    """
     mlflow.set_tracking_uri(config.logging.mlflow.tracking_uri)
     mlflow.set_experiment(config.logging.mlflow.experiment_name)
 
@@ -25,6 +29,17 @@ def log_run_metadata(
     metrics: dict[str, float] | None = None,
     per_doc_scores: dict[str, object] | None = None,
 ) -> None:
+    """
+    Log run metadata to MLflow.
+
+    Args:
+        config (ExperimentRunConfig): Experiment run configuration.
+        run_name (str | None, optional): Run name. Defaults to None.
+        preds_dir_name (str | None, optional): Predictions directory name. Defaults to None.
+        dataset_info (DatasetInfo | None, optional): Dataset information. Defaults to None.
+        metrics (dict[str, float] | None, optional): Metrics to log. Defaults to None.
+        per_doc_scores (dict[str, object] | None, optional): Per-document scores to log. Defaults to None.
+    """
     params = {
         "model_provider": config.model.provider,
         "model_name": config.model.name,

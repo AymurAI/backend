@@ -1,7 +1,5 @@
-from __future__ import annotations
-
-from datetime import datetime
 import os
+from datetime import datetime, timezone
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -121,6 +119,18 @@ class ExperimentRunConfig(BaseModel):
 
 
 def load_experiment_config(path: str) -> ExperimentRunConfig:
+    """
+    Load an experiment configuration from a YAML file.
+
+    Args:
+        path (str): Path to the YAML configuration file.
+
+    Raises:
+        ValueError: If the MLflow tracking URI is not set in the environment or configuration.
+
+    Returns:
+        ExperimentRunConfig: The loaded experiment configuration.
+    """
     data = load_yaml(path)
     tracking_uri = os.getenv("MLFLOW_TRACKING_URI")
     if tracking_uri:
@@ -144,7 +154,20 @@ def render_run_name(
     *,
     timestamp: str | None = None,
 ) -> str:
-    timestamp = timestamp or datetime.utcnow().strftime("%y%m%d_%H%M")
+    """
+    Render a run name based on a template and provided identifiers.
+
+    Args:
+        template (str): The template string for the run name.
+        model_name (str): The name of the model.
+        system_id (str): The system identifier.
+        user_id (str): The user identifier.
+        timestamp (str | None, optional): The timestamp string. Defaults to None.
+
+    Returns:
+        str: The rendered run name.
+    """
+    timestamp = timestamp or datetime.now(timezone.utc).strftime("%y%m%d_%H%M")
     return template.format(
         model=model_name,
         system_id=system_id,

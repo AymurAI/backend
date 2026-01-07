@@ -45,6 +45,7 @@ def get_alias_set(entity: dict[str, Any], normalize: bool = True) -> set[str]:
             optional 'aliases' (list of strings) and 'canonical_text' (string) keys.
         normalize (bool, optional): If True, normalizes the alias texts using
             normalize_text function. Defaults to True.
+
     Returns:
         set[str]: A set of alias strings (normalized if normalize=True) including
             both explicit aliases and the canonical text.

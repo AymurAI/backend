@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import hashlib
 import json
 from dataclasses import dataclass
@@ -15,6 +13,15 @@ class DatasetInfo:
 
 
 def build_metadata_manifest(root_dir: Path) -> DatasetInfo:
+    """
+    Build a metadata manifest for the dataset located at the given root directory.
+
+    Args:
+        root_dir (Path): The root directory of the dataset.
+
+    Returns:
+        DatasetInfo: An object containing dataset hash, count, total bytes, and manifest.
+    """
     files = []
     total_bytes = 0
 

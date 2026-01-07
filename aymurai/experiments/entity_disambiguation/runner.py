@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import argparse
 import json
 import mimetypes
@@ -36,6 +34,16 @@ DOC_EXTENSIONS = {".pdf", ".docx"}
 
 
 def discover_documents(root: Path, extensions: Iterable[str]) -> list[Path]:
+    """
+    Discover documents in a directory with given extensions.
+
+    Args:
+        root (Path): Root directory to search for documents.
+        extensions (Iterable[str]): File extensions to include.
+
+    Returns:
+        list[Path]: List of discovered document paths with the specified extensions.
+    """
     extensions = {ext.lower() for ext in extensions}
     return sorted(
         path
@@ -45,11 +53,20 @@ def discover_documents(root: Path, extensions: Iterable[str]) -> list[Path]:
 
 
 def call_extraction_api(
-    session: requests.Session,
-    endpoint: str,
-    file_path: Path,
-    timeout_s: float,
+    session: requests.Session, endpoint: str, file_path: Path, timeout_s: float
 ) -> dict[str, object]:
+    """
+    Call the extraction API with a document file.
+
+    Args:
+        session (requests.Session): HTTP session for making requests.
+        endpoint (str): URL of the extraction API endpoint.
+        file_path (Path): Path to the document file to be processed.
+        timeout_s (float): Request timeout in seconds.
+
+    Returns:
+        dict[str, object]: Payload containing the response details.
+    """
     payload: dict[str, object] = {
         "path": str(file_path),
         "status": "failure",
@@ -102,17 +119,35 @@ def call_extraction_api(
 
 
 def get_predictions(
-    session: requests.Session,
-    endpoint: str,
-    sample: str,
-    timeout_s: float,
+    session: requests.Session, endpoint: str, sample: str, timeout_s: float
 ) -> dict:
+    """
+    Get predictions from the prediction API for a given text sample.
+
+    Args:
+        session (requests.Session): HTTP session for making requests.
+        endpoint (str): URL of the prediction API endpoint.
+        sample (str): Text sample to be predicted.
+        timeout_s (float): Request timeout in seconds.
+
+    Returns:
+        dict: Prediction response as a dictionary.
+    """
     response = session.post(url=endpoint, json={"text": sample}, timeout=timeout_s)
     response.raise_for_status()
     return response.json()
 
 
 def parse_prediction_labels(predictions: list[dict[str, Any]]) -> list[dict[str, str]]:
+    """
+    Parse prediction labels to extract unique aymurai labels and their alternative texts.
+
+    Args:
+        predictions (list[dict[str, Any]]): List of prediction dictionaries.
+
+    Returns:
+        list[dict[str, str]]: List of dictionaries containing unique aymurai labels and their alternative texts.
+    """
     attrs_stream = (
         label.get("attrs") or {}
         for label in (label for pred in predictions for label in pred.get("labels", ()))
@@ -134,6 +169,15 @@ def parse_prediction_labels(predictions: list[dict[str, Any]]) -> list[dict[str,
 
 
 def sanitize_filename(path: Path) -> str:
+    """
+    Sanitize a filename by replacing spaces and underscores with hyphens and collapsing multiple hyphens.
+
+    Args:
+        path (Path): Path object representing the file.
+
+    Returns:
+        str: Sanitized filename as a string.
+    """
     base = os.path.splitext(path.name)[0]
     target = re.sub(r"\s+|_", "-", base)
     target = re.sub(r"-{2,}", "-", target)
@@ -153,6 +197,27 @@ def extract_canonical_entities(
     temperature: float | None,
     max_tokens: int | None,
 ) -> list[CanonicalEntity]:
+    """
+    Extract canonical entities from a document using extraction and prediction APIs.
+
+    Args:
+        session (requests.Session): HTTP session for making requests.
+        doc_path (Path): Path to the document file.
+        extract_endpoint (str): URL of the extraction API endpoint.
+        predict_endpoint (str): URL of the prediction API endpoint.
+        timeout_s (float): Request timeout in seconds.
+        model_name (str): Name of the LLM model to use.
+        system_prompt (str): System prompt text.
+        user_prompt_template (str): User prompt template text.
+        temperature (float | None): Temperature setting for the LLM.
+        max_tokens (int | None): Maximum tokens setting for the LLM.
+
+    Raises:
+        ValueError: If the document text is empty or not found.
+
+    Returns:
+        list[CanonicalEntity]: List of extracted canonical entities.
+    """
     document_payload = call_extraction_api(
         session,
         extract_endpoint,
@@ -205,6 +270,18 @@ def extract_canonical_entities(
 
 
 def run_experiment(config_path: str) -> None:
+    """
+    Run the entity disambiguation experiment based on the provided configuration.
+
+    Args:
+        config_path (str): Path to the experiment configuration file.
+
+    Raises:
+        FileNotFoundError: If the input directory is not found.
+        FileNotFoundError: If the ground truth directory is not found.
+        RuntimeError: If no documents are found in the input directory.
+        ValueError: If there is an error in processing the documents.
+    """
     config = load_experiment_config(config_path)
 
     input_dir = Path(config.data.input_dir)
@@ -361,6 +438,12 @@ def run_experiment(config_path: str) -> None:
 
 
 def build_arg_parser() -> argparse.ArgumentParser:
+    """
+    Build the argument parser for the entity disambiguation experiment.
+
+    Returns:
+        argparse.ArgumentParser: The configured argument parser.
+    """
     parser = argparse.ArgumentParser(
         description="Run entity disambiguation experiment from a YAML config.",
     )
@@ -373,6 +456,10 @@ def build_arg_parser() -> argparse.ArgumentParser:
 
 
 def main() -> None:
+    """
+    Main entry point for the entity disambiguation experiment script.
+    Parses command-line arguments and runs the experiment.
+    """
     args = build_arg_parser().parse_args()
     run_experiment(args.config)
 
