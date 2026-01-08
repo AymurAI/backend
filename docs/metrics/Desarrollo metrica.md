@@ -349,8 +349,8 @@ def compute_metrics_components(
     gold_labels = [e.get("aymurai_label") for e in gold_entities]
     pred_labels = [e.get("aymurai_label") for e in pred_entities]
 
-    gold_roles = [e.get("attributes", {}).get("rol") for e in gold_entities]
-    pred_roles = [e.get("attributes", {}).get("rol") for e in pred_entities]
+    gold_roles = [e.get("attributes", {}).get("role") for e in gold_entities]
+    pred_roles = [e.get("attributes", {}).get("role") for e in pred_entities]
 
     sim_matrix = [
         [alias_jaccard(g_gold, g_pred) for g_pred in pred_aliases]
