@@ -1,4 +1,5 @@
 import concurrent.futures
+import multiprocessing
 import os
 import re
 import tempfile
@@ -19,16 +20,33 @@ logger = get_logger(__name__)
 router = APIRouter()
 
 
-def extraction(path: str) -> str:
+def extraction(
+    path: str,
+    use_cache: bool = True,
+    **kwargs,
+) -> str:
     """
     Wrapper function to call the extract_document function.
     This is necessary to ensure that the function can be pickled and run in a separate process.
+
+    Args:
+        path (str): Path to the file to be processed.
+        use_cache (bool): Whether to use caching for the extraction.
+        **kwargs: Extractor-specific configuration overrides.
+
+    Returns:
+        str: Extracted text from the document.
     """
-    text = extract_document(path)
+    text = extract_document(path, use_cache=use_cache, **kwargs)
     return document_normalize(text) if text else ""
 
 
-def run_safe_text_extraction(path: str, timeout_s: float | None = None) -> str:
+def run_safe_text_extraction(
+    path: str,
+    timeout_s: float | None = None,
+    use_cache: bool = True,
+    **kwargs,
+) -> str:
     """
     Runs the text extraction in a separate process to avoid blocking the main thread.
     This is useful for long-running tasks or when the extraction might hang.
@@ -37,6 +55,8 @@ def run_safe_text_extraction(path: str, timeout_s: float | None = None) -> str:
         path (str): Path to the file to be processed.
         timeout_s (float | None): Timeout in seconds for the extraction process.
             If None, waits indefinitely. Defaults to None.
+        use_cache (bool): Whether to use caching for the extraction.
+        **kwargs: Extractor-specific configuration overrides.
 
     Returns:
         str: Extracted text from the document.
@@ -45,8 +65,13 @@ def run_safe_text_extraction(path: str, timeout_s: float | None = None) -> str:
         TimeoutError: If the extraction process exceeds the specified timeout.
     """
 
-    with concurrent.futures.ProcessPoolExecutor(max_workers=1) as executor:
-        future = executor.submit(extraction, path)
+    # Use spawn to avoid CUDA re-init warnings in forked workers
+    mp_ctx = multiprocessing.get_context("spawn")
+
+    with concurrent.futures.ProcessPoolExecutor(
+        max_workers=1, mp_context=mp_ctx
+    ) as executor:
+        future = executor.submit(extraction, path, use_cache, **kwargs)
         try:
             return future.result(timeout=timeout_s)
         except concurrent.futures.TimeoutError:
@@ -56,7 +81,38 @@ def run_safe_text_extraction(path: str, timeout_s: float | None = None) -> str:
 
 
 @router.post("/document-extract", response_model=Document)
-def plain_text_extractor(file: UploadFile) -> Document:
+def plain_text_extractor(
+    file: UploadFile,
+    use_cache: bool = True,
+    layout_batch_size: int = 8,
+    detection_batch_size: int = 8,
+    table_rec_batch_size: int = 8,
+    recognition_batch_size: int = 8,
+    ocr_error_batch_size: int = 8,
+    force_ocr: bool = False,
+    strip_existing_ocr: bool = True,
+    torch_device: str | None = None,
+    debug: bool | None = None,
+) -> Document:
+    """
+    Extract plain text from an uploaded document.
+
+    Args:
+        file (UploadFile): Incoming document upload.
+        use_cache (bool): Whether to use caching for the extraction.
+        layout_batch_size (int): Batch size for layout model inference.
+        detection_batch_size (int): Batch size for detection model inference.
+        table_rec_batch_size (int): Batch size for table recognition.
+        recognition_batch_size (int): Batch size for OCR recognition.
+        ocr_error_batch_size (int): Batch size for OCR error correction.
+        force_ocr (bool): Force OCR even if text is detected.
+        strip_existing_ocr (bool): Remove embedded OCR layers before re-OCR.
+        torch_device (str | None): Optional override for the torch device.
+        debug (bool | None): Optional override for marker debug mode.
+
+    Returns:
+        Document: Extracted and normalized document payload.
+    """
     logger.info(f"receiving => {file.filename}")
     extension = MIMETYPE_EXTENSION_MAPPER.get(file.content_type)
     logger.info(f"detected extension: {extension} ({file.content_type})")
@@ -74,7 +130,19 @@ def plain_text_extractor(file: UploadFile) -> Document:
 
             logger.info(f"saved temp file on local storage => {tmp_filename}")
 
-            document = run_safe_text_extraction(tmp_filename)
+            document = run_safe_text_extraction(
+                tmp_filename,
+                use_cache=use_cache,
+                layout_batch_size=layout_batch_size,
+                detection_batch_size=detection_batch_size,
+                table_rec_batch_size=table_rec_batch_size,
+                recognition_batch_size=recognition_batch_size,
+                ocr_error_batch_size=ocr_error_batch_size,
+                force_ocr=force_ocr,
+                strip_existing_ocr=strip_existing_ocr,
+                torch_device=torch_device,
+                debug=debug,
+            )
 
         except concurrent.futures.TimeoutError:
             logger.error(f"Timeout while extracting text from {file.filename}")

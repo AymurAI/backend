@@ -34,12 +34,16 @@ class BaseExtractor(ABC):
         return path
 
     @abstractmethod
-    def extract(self, path: Path) -> str:
+    def extract(self, path: Path, **kwargs) -> str:
         """
         Extract normalized text from the source document.
 
         Args:
             path (Path): Input document path.
+
+        Args:
+            path (Path): Input document path.
+            **kwargs: Optional extractor-specific flags.
 
         Returns:
             str: Cleaned textual content.

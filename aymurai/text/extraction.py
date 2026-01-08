@@ -83,6 +83,7 @@ def get_extension(path: str) -> str:
 def extract_document(
     filename: str | Path,
     errors: str = "ignore",
+    use_cache: bool = True,
     **kwargs,
 ) -> str | None:
     """
@@ -96,6 +97,7 @@ def extract_document(
             and warn.
         - If :const:`'ignore'`, then invalid parsing will be set as :const:`NaN`
             but not warn.
+        use_cache (bool, optional): Toggle extractor-level caching. Defaults to True.
         **kwargs: keyword arguments for textract.
 
     Raises:
@@ -127,7 +129,7 @@ def extract_document(
     extractor = get_extractor(ext)
 
     try:
-        return extractor.extract(Path(filename))
+        return extractor.extract(Path(filename), use_cache=use_cache, **kwargs)
     except InvalidFile as exc:
         if errors == "raise":
             raise
