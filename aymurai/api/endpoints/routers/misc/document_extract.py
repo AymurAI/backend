@@ -64,13 +64,7 @@ def run_safe_text_extraction(
     Raises:
         TimeoutError: If the extraction process exceeds the specified timeout.
     """
-
-    # Use spawn to avoid CUDA re-init warnings in forked workers
-    mp_ctx = multiprocessing.get_context("spawn")
-
-    with concurrent.futures.ProcessPoolExecutor(
-        max_workers=1, mp_context=mp_ctx
-    ) as executor:
+    with concurrent.futures.ProcessPoolExecutor(max_workers=1) as executor:
         future = executor.submit(extraction, path, use_cache, **kwargs)
         try:
             return future.result(timeout=timeout_s)
