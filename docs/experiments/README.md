@@ -25,8 +25,8 @@ If you use VS Code, run "Dev Containers: Rebuild and Reopen in Container" first.
   - `MLFLOW_ARTIFACT_ROOT`
 
 The experiment runner also uses:
-- `DOCUMENT_API_BASE_URL` (defaults to `http://localhost:8899`)
-- `DOCUMENT_REQUEST_TIMEOUT` (defaults to `30`)
+- `API_BASE_URL` (defaults to `http://localhost:8899`)
+- `REQUEST_TIMEOUT` (defaults to `300`)
 
 ## 3) Start services
 

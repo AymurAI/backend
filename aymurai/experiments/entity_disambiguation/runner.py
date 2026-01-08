@@ -320,10 +320,10 @@ def run_experiment(config_path: str) -> None:
         else None
     )
 
-    api_base_url = os.getenv("DOCUMENT_API_BASE_URL", "http://localhost:8899")
+    api_base_url = os.getenv("API_BASE_URL", "http://localhost:8899")
     extract_endpoint = f"{api_base_url}/misc/document-extract"
     predict_endpoint = f"{api_base_url}/anonymizer/predict"
-    timeout_s = float(os.getenv("DOCUMENT_REQUEST_TIMEOUT", "30"))
+    timeout_s = float(os.getenv("REQUEST_TIMEOUT", "30"))
 
     logger.info(f"Processing {len(documents)} documents from {input_dir}")
     logger.info(f"Predictions will be stored in {output_dir}")
