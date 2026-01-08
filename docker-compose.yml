@@ -36,6 +36,7 @@ x-ollama: &ollama-base
 services:
     mlflow:
         image: ghcr.io/mlflow/mlflow:latest
+        container_name: mlflow
         ports:
             - "5000:5000"
         environment:
@@ -68,6 +69,7 @@ services:
 
     postgres:
         image: postgres:16
+        container_name: postgres
         ports:
             - "5432:5432"
         environment:
@@ -84,6 +86,7 @@ services:
 
     minio:
         image: minio/minio:latest
+        container_name: minio
         ports:
             - "9002:9000"
             - "9001:9001"
@@ -97,6 +100,7 @@ services:
 
     minio-mc:
         image: minio/mc:latest
+        container_name: minio-mc
         depends_on:
             minio:
                 condition: service_started
@@ -110,6 +114,7 @@ services:
     # CPU-friendly API
     aymurai-api:
         <<: *api-lite
+        container_name: aymurai-api
         depends_on:
             - ollama
         environment:
@@ -119,6 +124,7 @@ services:
     # GPU-enabled API
     aymurai-api-gpu:
         <<: *api-lite
+        container_name: aymurai-api-gpu
         depends_on:
             - ollama-gpu
         environment:
@@ -135,6 +141,7 @@ services:
     # CPU-friendly Full API
     aymurai-api-full:
         <<: *api-full
+        container_name: aymurai-api-full
         depends_on:
             - ollama
         environment:
@@ -149,6 +156,7 @@ services:
     # GPU-enabled Full API
     aymurai-api-full-gpu:
         <<: *api-full
+        container_name: aymurai-api-full-gpu
         depends_on:
             - ollama-gpu
         environment:
@@ -168,10 +176,12 @@ services:
     # CPU-only Ollama (default)
     ollama:
         <<: *ollama-base
+        container_name: ollama
 
     # GPU-enabled Ollama (run instead on GPU hosts)
     ollama-gpu:
         <<: *ollama-base
+        container_name: ollama-gpu
         deploy:
             resources:
                 reservations:
