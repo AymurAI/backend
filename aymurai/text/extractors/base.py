@@ -40,9 +40,6 @@ class BaseExtractor(ABC):
 
         Args:
             path (Path): Input document path.
-
-        Args:
-            path (Path): Input document path.
             **kwargs: Optional extractor-specific flags.
 
         Returns:
