@@ -1,7 +1,7 @@
 from pathlib import Path
-from zipfile import BadZipFile
-
+from typing import Any
 from xml.etree.ElementTree import ParseError
+from zipfile import BadZipFile
 
 from aymurai.text.extractors.base import BaseExtractor, InvalidFile, register_extractor
 from aymurai.text.extractors.utils import get_header, normalize_text, odt_to_text
@@ -11,7 +11,7 @@ from aymurai.text.extractors.utils import get_header, normalize_text, odt_to_tex
 class OdtExtractor(BaseExtractor):
     extension = "odt"
 
-    def extract(self, path: Path) -> str:
+    def extract(self, path: Path, **_: Any) -> str:
         file_path = self.ensure_file(path)
 
         try:

@@ -13,24 +13,68 @@ logger = get_logger(__file__)
 class PdfExtractor(BaseExtractor):
     extension = "pdf"
 
-    def extract(self, path: Path) -> str:
+    def extract(
+        self,
+        path: Path,
+        *,
+        use_cache: bool = True,
+        layout_batch_size: int = 8,
+        detection_batch_size: int = 8,
+        table_rec_batch_size: int = 8,
+        recognition_batch_size: int = 8,
+        ocr_error_batch_size: int = 8,
+        force_ocr: bool = False,
+        strip_existing_ocr: bool = True,
+        torch_device: str | None = None,
+        debug: bool | None = None,
+    ) -> str:
+        """
+        Extract normalized text from a PDF document.
+
+        Args:
+            path (Path): Input document path.
+            use_cache (bool): Toggle extractor-level caching. Defaults to True.
+            layout_batch_size (int): Batch size for layout model inference. Defaults to 8.
+            detection_batch_size (int): Batch size for detection model inference. Defaults to 8.
+            table_rec_batch_size (int): Batch size for table recognition. Defaults to 8.
+            recognition_batch_size (int): Batch size for OCR recognition. Defaults to 8.
+            ocr_error_batch_size (int): Batch size for OCR error correction. Defaults to 8.
+            force_ocr (bool): Force OCR even if text is detected. Defaults to False.
+            strip_existing_ocr (bool): Remove embedded OCR layers before re-OCR. Defaults to True.
+            torch_device (str | None): Optional override for the torch device. Defaults to None.
+            debug (bool | None): Optional override for marker debug mode. Defaults to None.
+
+        Returns:
+            str: Cleaned textual content.
+        """
         file_path = self.ensure_file(path)
 
-        # Check cache first
-        cache_key = self._cache_key(file_path)
-        if cache_key:
+        # Check cache first when enabled
+        cache_key = self._cache_key(file_path) if use_cache else None
+        if use_cache and cache_key:
             cached_text = cache_load(cache_key)
             if cached_text is not None:
                 logger.debug("PDF cache hit for %s", file_path)
                 return cached_text
 
         try:
-            text = pdf_to_text(file_path)
+            text = pdf_to_text(
+                file_path,
+                layout_batch_size=layout_batch_size,
+                detection_batch_size=detection_batch_size,
+                table_rec_batch_size=table_rec_batch_size,
+                recognition_batch_size=recognition_batch_size,
+                ocr_error_batch_size=ocr_error_batch_size,
+                force_ocr=force_ocr,
+                strip_existing_ocr=strip_existing_ocr,
+                torch_device=torch_device,
+                debug=debug,
+            )
         except (OSError, ValueError) as exc:
             raise InvalidFile(str(exc)) from exc
         except Exception as exc:
             raise InvalidFile(str(exc)) from exc
-        if cache_key:
+        if use_cache and cache_key:
             cache_save(text, key=cache_key)
             logger.debug("PDF cache stored for %s", file_path)
 

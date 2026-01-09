@@ -21,7 +21,7 @@ class ExtractionTestCase(unittest.TestCase):
                 self.called = False
                 self.called_path: Path | None = None
 
-            def extract(self, path: Path) -> str:
+            def extract(self, path: Path, **_: object) -> str:
                 self.called = True
                 self.called_path = path
                 return "ok"
@@ -48,7 +48,7 @@ class ExtractionTestCase(unittest.TestCase):
         source.write_text("dummy")
 
         class BoomExtractor:
-            def extract(self, _path: Path) -> str:
+            def extract(self, _path: Path, **_: object) -> str:
                 raise InvalidFile("boom")
 
         with patch(
@@ -64,7 +64,7 @@ class ExtractionTestCase(unittest.TestCase):
         source.write_text("dummy")
 
         class BoomExtractor:
-            def extract(self, _path: Path) -> str:
+            def extract(self, _path: Path, **_: object) -> str:
                 raise RuntimeError("boom")
 
         with patch(
