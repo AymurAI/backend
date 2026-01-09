@@ -92,16 +92,16 @@ def plain_text_extractor(
 
     Args:
         file (UploadFile): Incoming document upload.
-        use_cache (bool): Whether to use caching for the extraction.
-        layout_batch_size (int): Batch size for layout model inference.
-        detection_batch_size (int): Batch size for detection model inference.
-        table_rec_batch_size (int): Batch size for table recognition.
-        recognition_batch_size (int): Batch size for OCR recognition.
-        ocr_error_batch_size (int): Batch size for OCR error correction.
-        force_ocr (bool): Force OCR even if text is detected.
-        strip_existing_ocr (bool): Remove embedded OCR layers before re-OCR.
-        torch_device (str | None): Optional override for the torch device.
-        debug (bool | None): Optional override for marker debug mode.
+        use_cache (bool): Whether to use caching for the extraction. Defaults to True.
+        layout_batch_size (int): Batch size for layout model inference. Defaults to 8.
+        detection_batch_size (int): Batch size for detection model inference. Defaults to 8.
+        table_rec_batch_size (int): Batch size for table recognition. Defaults to 8.
+        recognition_batch_size (int): Batch size for OCR recognition. Defaults to 8.
+        ocr_error_batch_size (int): Batch size for OCR error correction. Defaults to 8.
+        force_ocr (bool): Force OCR even if text is detected. Defaults to False.
+        strip_existing_ocr (bool): Remove embedded OCR layers before re-OCR. Defaults to True.
+        torch_device (str | None): Optional override for the torch device. Defaults to None.
+        debug (bool | None): Optional override for marker debug mode. Defaults to None.
 
     Returns:
         Document: Extracted and normalized document payload.
