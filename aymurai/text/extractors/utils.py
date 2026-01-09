@@ -159,7 +159,7 @@ def pdf_to_text(
     table_rec_batch_size: int = 8,
     recognition_batch_size: int = 8,
     ocr_error_batch_size: int = 8,
-    force_ocr: bool = True,
+    force_ocr: bool = False,
     strip_existing_ocr: bool = True,
     torch_device: str | None = None,
     debug: bool | None = None,
