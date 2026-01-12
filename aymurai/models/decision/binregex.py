@@ -15,6 +15,7 @@ from aymurai.models.decision.embeddingbag import (
     encode_text,
     make_offsets,
 )
+from aymurai.settings import settings
 from aymurai.utils.download import download
 from aymurai.utils.misc import get_element, is_url
 
@@ -34,7 +35,7 @@ class DecisionEmbeddingBagBinRegex(TrainModule):
         self.threshold = threshold
         self.return_only_with_detalle = return_only_with_detalle
 
-        basepath = os.getenv("AYMURAI_CACHE_BASEPATH", "/resources/cache/aymurai")
+        basepath = settings.CACHE_BASEPATH
         if is_url(url := self._model_path):
             # Determine file extension from URL or default to safetensors
             if url.endswith(".pt"):

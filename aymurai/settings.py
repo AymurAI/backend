@@ -2,8 +2,8 @@ import os
 from pathlib import Path
 
 from dotenv import load_dotenv
+from pydantic import ConfigDict, Field, FilePath, field_validator
 from pydantic_settings import BaseSettings
-from pydantic import FilePath, ConfigDict, field_validator
 
 import aymurai
 
@@ -22,7 +22,7 @@ def load_env():
 
 
 class Settings(BaseSettings):
-    model_config = ConfigDict(case_sensitive=True)
+    model_config = ConfigDict(case_sensitive=False)
 
     CORS_ORIGINS: list[str] | str = ",".join(
         [
@@ -49,6 +49,7 @@ class Settings(BaseSettings):
     SQLALCHEMY_DATABASE_URI: str = "sqlite:////resources/cache/sqlite/database.db"
 
     RESOURCES_BASEPATH: str = "/resources"
+    CACHE_BASEPATH: str = Field(default="resources/cache", env="AYMURAI_CACHE_BASEPATH")
 
     # Alembic Config for running migrations
     ALEMBIC_INI_PATH: FilePath = PARENT / "alembic.ini"
