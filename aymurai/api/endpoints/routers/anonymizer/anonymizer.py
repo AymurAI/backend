@@ -35,10 +35,10 @@ from aymurai.text.anonymization import DocAnonymizer
 from aymurai.text.extraction import MIMETYPE_EXTENSION_MAPPER
 from aymurai.utils.entity_disambiguation import (
     build_canonical_entities,
+    get_canonical_dates,
     llm_canonical_entities_inference,
     load_prompts_from_yaml,
     map_canonical_entities_ner_preds,
-    get_canonical_dates,
 )
 from aymurai.utils.misc import get_element
 
@@ -51,6 +51,36 @@ pipeline_lock = Lock()
 
 
 router = APIRouter()
+
+
+def _entities_to_doclabels(entities: list[dict]) -> list[DocLabel]:
+    """
+    Convert raw entities to DocLabel objects.
+
+    Args:
+        entities (list[dict]): List of entity dictionaries.
+
+    Returns:
+        list[DocLabel]: List of DocLabel objects.
+    """
+    doclabels: list[DocLabel] = []
+
+    for ent in entities:
+        try:
+            doclabels.append(
+                DocLabel.model_validate(
+                    {
+                        "text": ent.get("text", ""),
+                        "start_char": ent.get("start_char"),
+                        "end_char": ent.get("end_char"),
+                        "attrs": ent.get("attrs", {}),
+                    }
+                )
+            )
+        except Exception as exc:  # keep going if a single entity is malformed
+            logger.warning(f"Skipping invalid entity for DocLabel: {exc}")
+
+    return doclabels
 
 
 def _merge_label_policies(
@@ -151,8 +181,8 @@ async def anonymizer_paragraph_predict(
         logger.info(f"cache loaded from key: {paragraph_id}")
         logger.debug(f"{cached_prediction}")
 
-        labels = cached_prediction.prediction
-        return DocumentInformation(document=cached_prediction.text, labels=labels or [])
+        labels = _entities_to_doclabels(cached_prediction.prediction or [])
+        return DocumentInformation(document=cached_prediction.text, labels=labels)
 
     logger.info("Running prediction")
     item = [{"path": "empty", "data": {"doc.text": text_request.text}}]
@@ -166,7 +196,8 @@ async def anonymizer_paragraph_predict(
         processed = pipeline.postprocess([processed])
 
     text = get_element(processed[0], ["data", "doc.text"]) or ""
-    labels = get_element(processed[0], ["predictions", "entities"]) or []
+    raw_entities = get_element(processed[0], ["predictions", "entities"]) or []
+    labels = _entities_to_doclabels(raw_entities)
 
     if use_cache:
         logger.info(f"saving in cache: {paragraph_id}")
@@ -175,7 +206,8 @@ async def anonymizer_paragraph_predict(
             prediction=labels,
         )
         paragraph = anonymization_paragraph_create(paragraph, session=session)
-    return DocumentInformation(document=text, labels=paragraph.prediction)
+
+    return DocumentInformation(document=text, labels=labels)
 
 
 # MARK: Disambiguate

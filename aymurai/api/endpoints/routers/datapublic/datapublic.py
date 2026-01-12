@@ -2,16 +2,16 @@ import os
 from threading import Lock
 
 import torch
-from fastapi import Body, Depends, Query, HTTPException
+from fastapi import Body, Depends, HTTPException, Query
 from fastapi.routing import APIRouter
 from pydantic import UUID5
 from sqlmodel import Session
 
 from aymurai.api.utils import load_pipeline
 from aymurai.database.schema import (
-    DataPublicParagraph,
     DataPublicDocument,
     DataPublicDocumentParagraph,
+    DataPublicParagraph,
 )
 from aymurai.database.session import get_session
 from aymurai.database.utils import text_to_uuid
@@ -72,6 +72,7 @@ async def predict_over_text(
 
     text = get_element(processed[0], ["data", "doc.text"]) or ""
     labels = get_element(processed[0], ["predictions", "entities"]) or []
+    paragraph: DataPublicParagraph | None = None
 
     if use_cache:
         logger.info(f"saving in cache: {paragraph_id}")
@@ -92,7 +93,9 @@ async def predict_over_text(
 
         # paragraph = datapublic_paragraph_create(paragraph, session=session)
 
-    return DocumentInformation(document=text, labels=paragraph.prediction)
+    return DocumentInformation(
+        document=text, labels=paragraph.prediction if paragraph else labels
+    )
 
 
 # MARK: Validate Paragraph
