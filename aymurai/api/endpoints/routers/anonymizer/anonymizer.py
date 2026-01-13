@@ -5,12 +5,18 @@ import tempfile
 from threading import Lock
 
 import torch
-from fastapi import Body, Depends, Form, Query, UploadFile
+from fastapi import Body, Depends, Form, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse
 from fastapi.routing import APIRouter
 from sqlmodel import Session
 from starlette.background import BackgroundTask
 
+from aymurai.api.endpoints.routers.anonymizer.utils import (
+    PROCESSOR_MAP,
+    SCORER_MAP,
+    build_canonical_entities,
+    resolve_processor,
+)
 from aymurai.api.utils import load_pipeline
 from aymurai.database.crud.anonymization.document import anonymization_document_create
 from aymurai.database.crud.anonymization.paragraph import (
@@ -28,6 +34,7 @@ from aymurai.meta.api_interfaces import (
     DocumentInformation,
     TextRequest,
 )
+from aymurai.meta.entities import CanonicalEntities
 from aymurai.settings import settings
 from aymurai.text.anonymization import DocAnonymizer
 from aymurai.text.extraction import MIMETYPE_EXTENSION_MAPPER
@@ -105,6 +112,61 @@ async def anonymizer_paragraph_predict(
         paragraph = anonymization_paragraph_create(paragraph, session=session)
 
     return DocumentInformation(document=text, labels=paragraph.prediction)
+
+
+@router.post("/disambiguate", response_model=CanonicalEntities)
+async def anonymizer_disambiguate(
+    paragraphs: list[DocumentInformation] = Body(
+        ...,
+        description=(
+            "List of per-paragraph predictions returned by /anonymizer/predict."
+        ),
+    ),
+    target_labels: list[str]
+    | None = Query(
+        None,
+        description="Optional label filter, e.g. PER,DNI.",
+    ),
+    threshold: int = Query(
+        70,
+        description="Minimum similarity score (0-100) to cluster entities.",
+    ),
+    scorer: str = Query(
+        "token_set_ratio",
+        description="RapidFuzz scorer name for similarity.",
+    ),
+    processor: str = Query(
+        "light_normalizer",
+        description="Text processor to normalize before similarity.",
+    ),
+) -> CanonicalEntities:
+    """
+    Prototype endpoint for canonical entity grouping using fuzzy matching.
+    """
+    if threshold < 0 or threshold > 100:
+        raise HTTPException(status_code=400, detail="threshold must be 0-100.")
+
+    scorer_fn = SCORER_MAP.get(scorer.lower())
+    if scorer_fn is None:
+        raise HTTPException(status_code=400, detail=f"Unsupported scorer: {scorer}")
+
+    if processor.lower() not in PROCESSOR_MAP:
+        raise HTTPException(
+            status_code=400, detail=f"Unsupported processor: {processor}"
+        )
+    processor_fn = resolve_processor(processor)
+
+    labels = [label for paragraph in paragraphs for label in (paragraph.labels or [])]
+
+    target_set = {label.strip() for label in target_labels} if target_labels else None
+    canonical_entities = build_canonical_entities(
+        labels,
+        target_labels=target_set,
+        threshold=threshold,
+        scorer=scorer_fn,
+        processor=processor_fn,
+    )
+    return CanonicalEntities(canonical_entities=canonical_entities)
 
 
 # MARK: Validate
