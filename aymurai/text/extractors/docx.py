@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Any
 from zipfile import BadZipFile
 
 import docx2txt
@@ -11,7 +12,7 @@ from aymurai.text.extractors.utils import get_footnotes, normalize_text
 class DocxExtractor(BaseExtractor):
     extension = "docx"
 
-    def extract(self, path: Path) -> str:
+    def extract(self, path: Path, **_: Any) -> str:
         file_path = self.ensure_file(path)
 
         try:

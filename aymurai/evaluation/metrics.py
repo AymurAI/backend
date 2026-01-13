@@ -7,6 +7,7 @@ from typing import Any
 
 from aymurai.logger import get_logger
 from aymurai.utils.json_data import load_json
+from aymurai.utils.paths import prediction_filename_for_test, test_id_from_filename
 
 logger = get_logger(__name__)
 
@@ -44,6 +45,7 @@ def get_alias_set(entity: dict[str, Any], normalize: bool = True) -> set[str]:
             optional 'aliases' (list of strings) and 'canonical_text' (string) keys.
         normalize (bool, optional): If True, normalizes the alias texts using
             normalize_text function. Defaults to True.
+
     Returns:
         set[str]: A set of alias strings (normalized if normalize=True) including
             both explicit aliases and the canonical text.
@@ -161,8 +163,12 @@ def compute_metrics_components(
     """
     # Filter entities by target label if provided
     if target_label:
-        gold_entities = [e for e in gold_entities if e.get('aymurai_label') == target_label]
-        pred_entities = [e for e in pred_entities if e.get('aymurai_label') == target_label]
+        gold_entities = [
+            e for e in gold_entities if e.get("aymurai_label") == target_label
+        ]
+        pred_entities = [
+            e for e in pred_entities if e.get("aymurai_label") == target_label
+        ]
 
     # Handle the trivial case where both sets are empty
     if not gold_entities and not pred_entities:
@@ -308,7 +314,7 @@ def evaluate_disambiguation(
         pred_entities,
         sim_threshold=sim_threshold,
         normalize=normalize,
-        target_label=target_label
+        target_label=target_label,
     )
 
     score = (
@@ -383,7 +389,7 @@ def evaluate_prediction_directories(
             pred_data,
             sim_threshold=sim_threshold,
             normalize=normalize,
-            target_label=target_label
+            target_label=target_label,
         )
         results.append((core_id, score, metrics))
 

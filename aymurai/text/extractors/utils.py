@@ -23,15 +23,7 @@ logger = get_logger(__file__)
 
 BLOCK_TAGS = {"h1", "h2", "h3", "h4", "h5", "h6", "p", "li", "blockquote", "pre"}
 
-MARKER_PDF_CONFIG = {
-    "layout_batch_size": 8,
-    "detection_batch_size": 8,
-    "table_rec_batch_size": 8,
-    "recognition_batch_size": 8,
-    "ocr_error_batch_size": 8,
-    "force_ocr": True,
-    "strip_existing_ocr": True,
-}
+MarkerPdfConfig = dict[str, int | str | bool]
 
 ODT_NS = {"text": "urn:oasis:names:tc:opendocument:xmlns:text:1.0"}
 
@@ -71,37 +63,76 @@ def markdown_to_text(md: str) -> str:
     return "\n\n".join(filter(None, chunks))
 
 
-def _build_marker_pdf_config() -> dict[str, int | str | bool]:
+def _build_marker_pdf_config(
+    layout_batch_size: int = 8,
+    detection_batch_size: int = 8,
+    table_rec_batch_size: int = 8,
+    recognition_batch_size: int = 8,
+    ocr_error_batch_size: int = 8,
+    force_ocr: bool = False,
+    strip_existing_ocr: bool = True,
+    torch_device: str | None = None,
+    debug: bool | None = None,
+) -> MarkerPdfConfig:
     """
     Build marker configuration factoring in environment overrides.
+
+    Args:
+        layout_batch_size (int): Batch size for layout model inference. Defaults to 8.
+        detection_batch_size (int): Batch size for detection model inference. Defaults to 8.
+        table_rec_batch_size (int): Batch size for table recognition. Defaults to 8.
+        recognition_batch_size (int): Batch size for OCR recognition. Defaults to 8.
+        ocr_error_batch_size (int): Batch size for OCR error correction. Defaults to 8.
+        force_ocr (bool): Force OCR even if text is detected. Defaults to False.
+        strip_existing_ocr (bool): Remove embedded OCR layers before re-OCR. Defaults to True.
+        torch_device (str | None): Optional override for the torch device. Defaults to None.
+        debug (bool | None): Optional override for marker debug mode. Defaults to None.
 
     Returns:
         dict[str, int | str | bool]: Effective configuration for marker-pdf.
     """
-    config = MARKER_PDF_CONFIG.copy()
+    config: MarkerPdfConfig = {
+        "layout_batch_size": layout_batch_size,
+        "detection_batch_size": detection_batch_size,
+        "table_rec_batch_size": table_rec_batch_size,
+        "recognition_batch_size": recognition_batch_size,
+        "ocr_error_batch_size": ocr_error_batch_size,
+        "force_ocr": force_ocr,
+        "strip_existing_ocr": strip_existing_ocr,
+    }
 
-    torch_device = os.getenv("TORCH_DEVICE")
+    if torch_device is None:
+        torch_device = os.getenv("TORCH_DEVICE")
     if torch_device:
         config["TORCH_DEVICE"] = torch_device
 
-    log_level = os.getenv("LOG_LEVEL", "").lower()
-    if log_level == "debug":
+    if debug is None:
+        log_level = os.getenv("LOG_LEVEL", "").lower()
+        debug = log_level == "debug"
+
+    if debug:
         config["debug"] = True
 
     return config
 
 
 @cache
-def get_marker_pdf_converter_and_md_renderer() -> tuple[PdfConverter, MarkdownRenderer]:
+def get_marker_pdf_converter_and_md_renderer(
+    config_items: tuple[tuple[str, int | str | bool], ...],
+) -> tuple[PdfConverter, MarkdownRenderer]:
     """
     Provide cached marker PDF converter and Markdown renderer instances.
+
+    Args:
+        config_items (tuple[tuple[str, int | str | bool], ...]): Sorted config items
+            to build a stable cache key.
 
     Returns:
         tuple[PdfConverter, MarkdownRenderer]: Ready-to-use converter and renderer.
     """
     pdf_converter = PdfConverter(
         artifact_dict=create_model_dict(),
-        config=_build_marker_pdf_config(),
+        config=dict(config_items),
     )
 
     markdown_renderer = MarkdownRenderer(
@@ -114,18 +145,58 @@ def get_marker_pdf_converter_and_md_renderer() -> tuple[PdfConverter, MarkdownRe
     return pdf_converter, markdown_renderer
 
 
-def pdf_to_text(file_path: Path) -> str:
+def _marker_config_key(
+    config: MarkerPdfConfig,
+) -> tuple[tuple[str, int | str | bool], ...]:
+    return tuple(sorted(config.items()))
+
+
+def pdf_to_text(
+    file_path: Path,
+    *,
+    layout_batch_size: int = 8,
+    detection_batch_size: int = 8,
+    table_rec_batch_size: int = 8,
+    recognition_batch_size: int = 8,
+    ocr_error_batch_size: int = 8,
+    force_ocr: bool = False,
+    strip_existing_ocr: bool = True,
+    torch_device: str | None = None,
+    debug: bool | None = None,
+) -> str:
     """
     Extract text from a PDF file and return normalized plain text.
 
     Args:
         file_path (Path): Path to the PDF document.
+        layout_batch_size (int): Batch size for layout model inference. Defaults to 8.
+        detection_batch_size (int): Batch size for detection model inference. Defaults to 8.
+        table_rec_batch_size (int): Batch size for table recognition. Defaults to 8.
+        recognition_batch_size (int): Batch size for OCR recognition. Defaults to 8.
+        ocr_error_batch_size (int): Batch size for OCR error correction. Defaults to 8.
+        force_ocr (bool): Force OCR even if text is detected. Defaults to False.
+        strip_existing_ocr (bool): Remove embedded OCR layers before re-OCR. Defaults to True.
+        torch_device (str | None): Optional override for the torch device. Defaults to None.
+        debug (bool | None): Optional override for marker debug mode. Defaults to None.
 
     Returns:
         str: Cleaned textual content extracted from the PDF.
     """
     logger.info("Extracting text from PDF: %s", file_path)
-    pdf_converter, markdown_renderer = get_marker_pdf_converter_and_md_renderer()
+    config = _build_marker_pdf_config(
+        layout_batch_size=layout_batch_size,
+        detection_batch_size=detection_batch_size,
+        table_rec_batch_size=table_rec_batch_size,
+        recognition_batch_size=recognition_batch_size,
+        ocr_error_batch_size=ocr_error_batch_size,
+        force_ocr=force_ocr,
+        strip_existing_ocr=strip_existing_ocr,
+        torch_device=torch_device,
+        debug=debug,
+    )
+    pdf_converter, markdown_renderer = get_marker_pdf_converter_and_md_renderer(
+        _marker_config_key(config)
+    )
     document = pdf_converter.build_document(filepath=file_path.as_posix())
     markdown_output = markdown_renderer(document)
     plain_text = markdown_to_text(markdown_output.markdown)
