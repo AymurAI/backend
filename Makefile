@@ -12,7 +12,6 @@ API_SERVICE ?= aymurai-api
 # Select which full API service to control (override with API_FULL_SERVICE=aymurai-api-full-gpu)
 API_FULL_SERVICE ?= aymurai-api-full
 
-
 api-build:
 	docker compose build $(API_SERVICE)
 api-run:
@@ -114,6 +113,21 @@ endif
 	fi
 	docker compose up -d --no-recreate $(OLLAMA_SERVICE)
 	docker compose exec $(OLLAMA_SERVICE) ollama rm $(MODEL)
+
+mlops-up:
+	docker compose up -d postgres minio minio-mc mlflow
+
+mlops-stop:
+	docker compose stop mlflow minio minio-mc postgres
+
+mlops-logs:
+	docker compose logs -f mlflow
+
+exp-run:
+ifndef CONFIG
+	$(error CONFIG variable is required, e.g. make exp-run CONFIG=resources/experiments/entity-disambiguation/exp-gemma3-pv1.yaml)
+endif
+	uv run --group mlops -- python -m aymurai.experiments.entity_disambiguation.runner --config $(CONFIG)
 
 stress-test:
 	locust -f locustfile.py --host http://localhost:8899
