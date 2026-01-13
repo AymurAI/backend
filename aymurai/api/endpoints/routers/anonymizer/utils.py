@@ -1,7 +1,7 @@
 import re
 import unicodedata
 from collections import Counter
-from typing import Iterable
+from typing import Callable, Iterable
 
 from rapidfuzz import process
 from rapidfuzz.fuzz import (
@@ -81,7 +81,7 @@ def legal_text_normalizer(text: str) -> str:
     return " ".join(normalized.split())
 
 
-def resolve_processor(name: str) -> callable | None:
+def resolve_processor(name: str) -> Callable[[str], str] | None:
     key = name.lower()
     mapped = PROCESSOR_MAP.get(key)
     if mapped is None:
@@ -99,8 +99,8 @@ def cluster_with_cdist(
     *,
     items: list[dict[str, str]],
     threshold: int,
-    scorer: callable,
-    processor: callable | None,
+    scorer: Callable[[str, str], float],
+    processor: Callable[[str], str] | None,
 ) -> list[list[tuple[str, str, str]]]:
     if not items:
         return []
@@ -184,8 +184,8 @@ def build_canonical_entities(
     *,
     target_labels: set[str] | None = None,
     threshold: int,
-    scorer: callable,
-    processor: callable | None,
+    scorer: Callable[[str, str], float],
+    processor: Callable[[str], str] | None,
 ) -> list[CanonicalEntity]:
     grouped: dict[str, list[dict[str, str]]] = {}
     for label in labels:
