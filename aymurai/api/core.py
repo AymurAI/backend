@@ -1,11 +1,11 @@
 from fastapi.routing import APIRouter
 
 from .endpoints.routers.anonymizer import anonymizer
-from .endpoints.routers.anonymizer import database as anonymizer_database
 from .endpoints.routers.datapublic import datapublic
 from .endpoints.routers.llm import summarization
 
 from .endpoints.routers.misc import convert, document_extract
+from .endpoints.routers.asr import transcribe
 from .endpoints.routers.server import stats
 
 router = APIRouter()
@@ -48,6 +48,7 @@ router.include_router(
 # Misc
 router.include_router(document_extract.router, tags=["document"], deprecated=True)
 router.include_router(document_extract.router, prefix="/misc", tags=["document"])
+router.include_router(transcribe.router, tags=["audio/transcription"])
 
 # Document conversion
 router.include_router(convert.router, tags=["Document conversion"])

@@ -61,6 +61,8 @@ class Settings(BaseSettings):
 
     LIBREOFFICE_BIN: str = "libreoffice"
 
+    TRANSCRIBE_WS_URI: str | None = None
+
 
 load_env()
 settings = Settings()

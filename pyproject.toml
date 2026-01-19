@@ -53,6 +53,7 @@ classifiers = [
 dependencies = [
     "requests>=2.32.3",
     "numpy<2.0.0",
+    "librosa>=0.10.2",
     "more-itertools>=10.5.0",
     "odfpy>=1.4.1",
     "joblib>=1.4.2",
