@@ -103,10 +103,11 @@ class CanonicalEntity(BaseModel):
     attributes: dict[str, Any] = Field(
         default_factory=dict, description="Additional metadata for the entity"
     )
-    relations: list[EntityRelation] = Field(
-        default_factory=list,
-        description="References to relations involving this entity",
-    )
+    # TODO: We comment this because we won't use it in this LLM inference phase.
+    # relations: list[EntityRelation] = Field(
+    #     default_factory=list,
+    #     description="References to relations involving this entity",
+    # )
 
     @model_validator(mode="after")
     def validate_entity_id(self) -> CanonicalEntity:
