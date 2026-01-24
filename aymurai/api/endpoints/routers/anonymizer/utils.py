@@ -2,6 +2,10 @@ import re
 import unicodedata
 from collections import Counter
 from typing import Callable, Iterable
+import copy
+import json
+
+from transformers import AutoTokenizer
 
 from rapidfuzz import process
 from rapidfuzz.fuzz import (
@@ -14,14 +18,18 @@ from rapidfuzz.fuzz import (
     token_sort_ratio,
 )
 
-from aymurai.meta.api_interfaces import DocLabel
-from aymurai.meta.entities import CanonicalEntity
+from aymurai.meta.api_interfaces import DocLabel, DocumentInformation
+from aymurai.meta.entities import CanonicalEntities, CanonicalEntity
+from aymurai.utils.json_data import get_pretty
+from aymurai.llm_providers import OllamaLLMProvider
 
 __all__ = [
     "SCORER_MAP",
     "PROCESSOR_MAP",
     "build_canonical_entities",
     "resolve_processor",
+    "validate_canonical_entities",
+    "llm_canonical_entities_inference",
 ]
 
 SCORER_MAP = {
@@ -210,3 +218,242 @@ def build_canonical_entities(
         canonical_entities.extend(clusters_to_canonical_entities(clusters))
 
     return canonical_entities
+
+
+def validate_canonical_entities(
+    canonical_entities_raw: list[CanonicalEntity],
+) -> list[CanonicalEntity]:
+
+    canonical_entities_val = [
+        CanonicalEntity.model_validate(canonical_entity)
+        for canonical_entity in canonical_entities_raw
+    ]
+
+    canonical_entities_val = [
+        entity.model_dump() | {"entity_id": entity.entity_id.hex}
+        for entity in canonical_entities_val
+    ]
+    return canonical_entities_val
+
+
+def add_canonical_entities_context(
+    predictions: list[dict],
+    entities: list[dict],
+    context_window_length: int | None = 120,
+    target_label: str | None = None,
+) -> list[dict]:
+    """
+    Creates a deep copy of entities and adds context.
+
+    Args:
+        predictions: List of prediction dictionaries from the API.
+        entities: List of canonical entities.
+        context_window_length: Length of the window around the label. If None, full paragraph is used.
+        target_label: The specific label to filter. If None, all labels are considered.
+    """
+    # 1. Deep copy to protect original variable
+    entities_with_context = copy.deepcopy(entities)
+
+    # 2. Process each entity
+    for entity in entities_with_context:
+        if "attributes" not in entity or entity["attributes"] is None:
+            entity["attributes"] = {}
+        if "context" not in entity["attributes"]:
+            entity["attributes"]["context"] = []
+
+        context_windows = set()
+        aliases = [a for a in entity.get("aliases", [])]
+
+        # If target_label is not provided as an argument,
+        # we can default to the entity's own label if it exists
+        current_target = target_label or entity.get("aymurai_label")
+
+        # 3. Iterate through predictions
+        for pred in predictions:
+            doc_text = pred.document if hasattr(pred, "document") else ""
+            labels = pred.labels if pred.labels is not None else []
+
+            for label in labels:
+                label_attr = label.attrs.aymurai_label
+                label_text = label.text
+
+                # Logic Gate: Filter by label type if current_target is specified
+                if current_target is None or label_attr == current_target:
+
+                    # Logic Gate: Check if any alias is inside the label text
+                    if any(alias in label_text for alias in aliases):
+
+                        # Handle Window vs Full Paragraph
+                        if context_window_length is None:
+                            snippet = doc_text
+                        else:
+                            start = label.start_char
+                            end = label.end_char
+
+                            window_start = max(0, start - context_window_length)
+                            window_end = min(len(doc_text), end + context_window_length)
+                            snippet = doc_text[window_start:window_end]
+
+                        clean_snippet = " ".join(snippet.split())
+                        context_windows.add(clean_snippet)
+
+        # Update entity with the collected windows
+        entity["attributes"]["context"] = list(context_windows)
+
+    return entities_with_context
+
+
+def get_model_tokens(system_prompt: str, user_prompt: str, tokenizer_model: str):
+    tokenizer = AutoTokenizer.from_pretrained(tokenizer_model)
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_prompt},
+    ]
+    full_text = tokenizer.apply_chat_template(messages, tokenize=False)
+    tokens = tokenizer.encode(full_text)
+
+    return len(tokens)
+
+
+def llm_canonical_entities_inference(
+    paragraphs: list[DocumentInformation],
+    canonical_entities_pre_cluster: list[CanonicalEntity],
+    system_prompt: str,
+    user_prompt_template: str,
+    model: str,
+    tokenizer_model: str,
+    context_window_length: int | None = 120,
+    model_context: int = 9_500,
+    token_limit_frac: float = 2 / 3,
+    target_label: str = "PER",
+    temperature: int = 0,
+    decompose_by: int | None = 0,
+) -> dict:
+
+    # 1. First we add context to the preclustered canonical entities
+    canonical_entities_with_context = add_canonical_entities_context(
+        predictions=paragraphs,
+        entities=canonical_entities_pre_cluster,
+        context_window_length=context_window_length,
+        target_label=target_label,
+    )
+
+    # 2. Clean entities to save tokens
+    canonical_entities_prompt = [
+        {
+            k: v
+            for k, v in ce.items()
+            if k in ("canonical_text", "aliases", "attributes")
+        }
+        for ce in canonical_entities_with_context
+    ]
+
+    token_limit = int(model_context * token_limit_frac)
+
+    # 3. Find Optimal Batch Size if decompose_by is None
+    if decompose_by is None:
+        current_batch_size = len(canonical_entities_prompt)
+
+        while current_batch_size > 0:
+            # Test with the first N entities
+            test_batch = canonical_entities_prompt[:current_batch_size]
+            test_prompt = user_prompt_template.format(
+                canonical_entities=get_pretty(test_batch)
+            )
+
+            num_tokens = get_model_tokens(
+                system_prompt=system_prompt,
+                user_prompt=test_prompt,
+                tokenizer_model=tokenizer_model,
+            )
+
+            if num_tokens <= token_limit:
+                decompose_by = current_batch_size
+                break
+
+            current_batch_size -= 1
+
+        if not decompose_by:  # Safety check if even 1 entity is too large
+            return None
+
+    # 4. Prepare batches. If decompose_by is 0 or less, we put all entities in one single list (one batch)
+    if decompose_by <= 0:
+        entity_batches = [canonical_entities_prompt]
+    else:
+        entity_batches = [
+            canonical_entities_prompt[i : i + decompose_by]
+            for i in range(0, len(canonical_entities_prompt), decompose_by)
+        ]
+
+    all_raw_outputs = []
+    all_user_prompts = []
+
+    # 5. Iterate through batches
+    for batch_index, batch in enumerate(entity_batches):
+        user_prompt = user_prompt_template.format(
+            canonical_entities=get_pretty(batch),
+        )
+
+        all_user_prompts.append(user_prompt)
+
+        # 5.A Token Validation
+        len_tokens = get_model_tokens(
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            tokenizer_model=tokenizer_model,
+        )
+        if len_tokens > model_context:
+            continue
+
+        # 5.B LLM Inference
+        provider = OllamaLLMProvider(model=model)
+        response = provider.generate(
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            options={"temperature": temperature, "num_ctx": model_context},
+            format=CanonicalEntities.model_json_schema(),
+        )
+
+        # 5.C Parse and collect results
+        batch_entities = json.loads(response.text).get("canonical_entities", [])
+        all_raw_outputs.extend(batch_entities)
+
+    canonical_entities_llm = [
+        CanonicalEntity.model_validate(canonical_entity)
+        for canonical_entity in all_raw_outputs
+    ]
+
+    canonical_entities_llm = [
+        entity.model_dump() | {"entity_id": entity.entity_id.hex}
+        for entity in canonical_entities_llm
+    ]
+
+    # 6. Map the canonical entities in the predictions documents te return the right format for the front-end
+    predictions_llm = copy.deepcopy(paragraphs)
+
+    for document in predictions_llm:
+        if document.labels:
+            labels = document.labels
+
+            for label in labels:
+                label_text = label.text
+                if label.attrs.canonical_entity_id is None:
+                    for ce in canonical_entities_llm:
+                        entity_id = ce.get("entity_id")
+                        attributes = ce.get("attributes")
+                        role = attributes.get("role")
+                        aliases = ce.get("aliases")
+
+                        if any(alias in label_text for alias in aliases):
+                            label.attrs.canonical_entity_id = entity_id
+                            label.attrs.aymurai_label_subclass.append(role)
+
+    return {
+        "llm_output_json": canonical_entities_llm,
+        "system_prompt": system_prompt,
+        "user_prompts": all_user_prompts,
+        "len_tokens": len_tokens,
+        "predictions": predictions_llm,
+    }

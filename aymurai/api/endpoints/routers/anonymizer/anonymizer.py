@@ -3,6 +3,7 @@ import os
 import subprocess
 import tempfile
 from threading import Lock
+from typing import Optional
 
 import torch
 from fastapi import Body, Depends, Form, HTTPException, Query, UploadFile
@@ -16,6 +17,8 @@ from aymurai.api.endpoints.routers.anonymizer.utils import (
     SCORER_MAP,
     build_canonical_entities,
     resolve_processor,
+    validate_canonical_entities,
+    llm_canonical_entities_inference,
 )
 from aymurai.api.utils import load_pipeline
 from aymurai.database.crud.anonymization.document import anonymization_document_create
@@ -114,7 +117,7 @@ async def anonymizer_paragraph_predict(
     return DocumentInformation(document=text, labels=paragraph.prediction)
 
 
-@router.post("/disambiguate", response_model=CanonicalEntities)
+@router.post("/disambiguate", response_model=DocumentAnnotations)
 async def anonymizer_disambiguate(
     paragraphs: list[DocumentInformation] = Body(
         ...,
@@ -139,10 +142,33 @@ async def anonymizer_disambiguate(
         "light_normalizer",
         description="Text processor to normalize before similarity.",
     ),
-) -> CanonicalEntities:
+    system_prompt: str = Query(
+        ...,
+        description="System prompt for the LLM inference.",
+    ),
+    user_prompt_template: str = Query(
+        ...,
+        description="Template for the user prompt.",
+    ),
+    model: str = Query("phi4:14b", description="Model name to use for inference."),
+    model_context: int = Query(9500, description="Maximum model context window size."),
+    context_window_length: Optional[int] = Query(
+        120, description="Length of context window. Use None for full paragraph."
+    ),
+    token_limit_frac: float = Query(
+        2 / 3, description="Fraction of the model context to use as a safety limit."
+    ),
+    tokenizer_model: str = Query(
+        "microsoft/phi-4",
+        description="Tokenizer instance to get the tokens of our prompt",
+    ),
+) -> DocumentAnnotations:
     """
-    Prototype endpoint for canonical entity grouping using fuzzy matching.
+    Endpoint for entity disambiguation:
+    1. Fuzzy-based Pre-clustering.
+    2. LLM-driven Role Assignment & Curation.
     """
+
     if threshold < 0 or threshold > 100:
         raise HTTPException(status_code=400, detail="threshold must be 0-100.")
 
@@ -156,9 +182,27 @@ async def anonymizer_disambiguate(
         )
     processor_fn = resolve_processor(processor)
 
+    if not system_prompt or not system_prompt.strip():
+        raise HTTPException(status_code=400, detail="system_prompt cannot be empty.")
+
+    if not user_prompt_template or "{canonical_entities}" not in user_prompt_template:
+        raise HTTPException(
+            status_code=400,
+            detail="user_prompt_template is missing the {canonical_entities} placeholder.",
+        )
+
+    if not tokenizer_model:
+        raise HTTPException(status_code=400, detail="tokenizer model cannot be empty.")
+
+    if token_limit_frac <= 0 or token_limit_frac > 1:
+        raise HTTPException(
+            status_code=400, detail="token_limit_frac must be between 0 and 1."
+        )
+
     labels = [label for paragraph in paragraphs for label in (paragraph.labels or [])]
 
     target_set = {label.strip() for label in target_labels} if target_labels else None
+
     canonical_entities = build_canonical_entities(
         labels,
         target_labels=target_set,
@@ -166,7 +210,29 @@ async def anonymizer_disambiguate(
         scorer=scorer_fn,
         processor=processor_fn,
     )
-    return CanonicalEntities(canonical_entities=canonical_entities)
+
+    canonical_entities_val = validate_canonical_entities(canonical_entities)
+
+    llm_response_dict = None
+
+    if target_set and "PER" in target_set:
+        llm_response_dict = llm_canonical_entities_inference(
+            paragraphs=paragraphs,
+            canonical_entities_pre_cluster=canonical_entities_val,
+            system_prompt=system_prompt,
+            user_prompt_template=user_prompt_template,
+            model=model,
+            context_window_length=context_window_length,
+            model_context=model_context,
+            token_limit_frac=token_limit_frac,
+            tokenizer_model=tokenizer_model,
+            target_label="PER",
+        )
+
+    if llm_response_dict and "predictions" in llm_response_dict:
+        return DocumentAnnotations(data=llm_response_dict["predictions"])
+    else:
+        return DocumentAnnotations(data=paragraphs)
 
 
 # MARK: Validate
