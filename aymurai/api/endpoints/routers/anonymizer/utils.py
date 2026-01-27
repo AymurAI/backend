@@ -450,32 +450,10 @@ def llm_canonical_entities_inference(
         canonical_entities_raw=all_raw_outputs
     )
 
-    # 6. Map the canonical entities in the predictions documents te return the right format for the front-end
-    predictions_llm = copy.deepcopy(paragraphs)
-
-    for document in predictions_llm:
-        if document.labels:
-            labels = document.labels
-
-            for label in labels:
-                label_text = label.text
-                if label.attrs.canonical_entity_id is None:
-                    for ce in canonical_entities_llm:
-                        entity_id = ce.get("entity_id")
-                        attributes = ce.get("attributes")
-                        role = attributes.get("role")
-                        aliases = ce.get("aliases")
-
-                        if any(alias in label_text for alias in aliases):
-                            label.attrs.canonical_entity_id = entity_id
-                            label.attrs.aymurai_label_subclass.append(role)
-
     return {
         "canonical_entities_llm": canonical_entities_llm,
         "system_prompt": system_prompt,
         "user_prompts": all_user_prompts,
-        "len_tokens": len_tokens,
-        "predictions": predictions_llm,
     }
 
 
