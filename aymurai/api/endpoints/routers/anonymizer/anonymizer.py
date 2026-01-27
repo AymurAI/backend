@@ -15,10 +15,13 @@ from starlette.background import BackgroundTask
 from aymurai.api.endpoints.routers.anonymizer.utils import (
     PROCESSOR_MAP,
     SCORER_MAP,
+    # USER_PROMPT_TEMPLATE_MAP,
+    # SYSTEM_PROMPT_MAP,
     build_canonical_entities,
     resolve_processor,
     validate_canonical_entities,
     llm_canonical_entities_inference,
+    map_canonical_entities_NER_preds,
 )
 from aymurai.api.utils import load_pipeline
 from aymurai.database.crud.anonymization.document import anonymization_document_create
@@ -117,7 +120,7 @@ async def anonymizer_paragraph_predict(
     return DocumentInformation(document=text, labels=paragraph.prediction)
 
 
-@router.post("/disambiguate", response_model=DocumentAnnotations)
+@router.post("/disambiguate", response_model=CanonicalEntities)
 async def anonymizer_disambiguate(
     paragraphs: list[DocumentInformation] = Body(
         ...,
@@ -142,13 +145,69 @@ async def anonymizer_disambiguate(
         "light_normalizer",
         description="Text processor to normalize before similarity.",
     ),
-    system_prompt: str = Query(
+) -> CanonicalEntities:
+    """
+    Prototype endpoint for canonical entity grouping using fuzzy matching.
+    """
+    if threshold < 0 or threshold > 100:
+        raise HTTPException(status_code=400, detail="threshold must be 0-100.")
+
+    scorer_fn = SCORER_MAP.get(scorer.lower())
+    if scorer_fn is None:
+        raise HTTPException(status_code=400, detail=f"Unsupported scorer: {scorer}")
+
+    if processor.lower() not in PROCESSOR_MAP:
+        raise HTTPException(
+            status_code=400, detail=f"Unsupported processor: {processor}"
+        )
+    processor_fn = resolve_processor(processor)
+
+    labels = [label for paragraph in paragraphs for label in (paragraph.labels or [])]
+
+    target_set = {label.strip() for label in target_labels} if target_labels else None
+    canonical_entities = build_canonical_entities(
+        labels,
+        target_labels=target_set,
+        threshold=threshold,
+        scorer=scorer_fn,
+        processor=processor_fn,
+    )
+    return CanonicalEntities(canonical_entities=canonical_entities)
+
+
+# MARK: Disambiguate
+@router.post("/disambiguatev2", response_model=DocumentAnnotations)
+async def anonymizer_disambiguate_v2(
+    paragraphs: list[DocumentInformation] = Body(
         ...,
-        description="System prompt for the LLM inference.",
+        description=(
+            "List of per-paragraph predictions returned by /anonymizer/predict."
+        ),
     ),
-    user_prompt_template: str = Query(
+    system_prompts: dict[str, str] = Body(
         ...,
-        description="Template for the user prompt.",
+        description=("System prompts dictionary."),
+    ),
+    user_prompt_templates: dict[str, str] = Body(
+        ...,
+        description=("User prompt templates dictionary."),
+    ),
+    target_labels: list[str]
+    | None = Query(
+        None,
+        description="Optional label filter, e.g. PER,DNI.",
+    ),
+    threshold: int = Query(
+        70,
+        description="Minimum similarity score (0-100) to cluster entities.",
+    ),
+    scorer: str = Query(
+        "token_set_ratio",
+        description="RapidFuzz scorer name for similarity.",
+    ),
+    processor: str = Query(
+        "light_normalizer",
+        description="Text processor to normalize before similarity.",
     ),
     model: str = Query("phi4:14b", description="Model name to use for inference."),
     model_context: int = Query(9500, description="Maximum model context window size."),
@@ -182,14 +241,19 @@ async def anonymizer_disambiguate(
         )
     processor_fn = resolve_processor(processor)
 
-    if not system_prompt or not system_prompt.strip():
-        raise HTTPException(status_code=400, detail="system_prompt cannot be empty.")
+    for label, prompt in system_prompts.items():
+        if not prompt:
+            raise HTTPException(
+                status_code=400,
+                detail=f"system_prompt for label {label} doesn't exist.",
+            )
 
-    if not user_prompt_template or "{canonical_entities}" not in user_prompt_template:
-        raise HTTPException(
-            status_code=400,
-            detail="user_prompt_template is missing the {canonical_entities} placeholder.",
-        )
+    for label, prompt_template in user_prompt_templates.items():
+        if not prompt_template:
+            raise HTTPException(
+                status_code=400,
+                detail=f"user_prompt_template for label {label} doesn't exist.",
+            )
 
     if not tokenizer_model:
         raise HTTPException(status_code=400, detail="tokenizer model cannot be empty.")
@@ -211,11 +275,17 @@ async def anonymizer_disambiguate(
         processor=processor_fn,
     )
 
-    canonical_entities_val = validate_canonical_entities(canonical_entities)
-
     llm_response_dict = None
 
-    if target_set and "PER" in target_set:
+    canonical_entities_llm = []
+
+    for target_label, user_prompt_template in user_prompt_templates.items():
+        system_prompt = system_prompts[target_label]
+
+        canonical_entities_val = validate_canonical_entities(
+            canonical_entities_raw=canonical_entities, target_label=target_label
+        )
+
         llm_response_dict = llm_canonical_entities_inference(
             paragraphs=paragraphs,
             canonical_entities_pre_cluster=canonical_entities_val,
@@ -226,13 +296,24 @@ async def anonymizer_disambiguate(
             model_context=model_context,
             token_limit_frac=token_limit_frac,
             tokenizer_model=tokenizer_model,
-            target_label="PER",
+            target_label=target_label,
+            decompose_by=None,
         )
 
+        for ce in llm_response_dict["canonical_entities_llm"]:
+            canonical_entities_llm.append(ce)
+
+    predictions_llm = map_canonical_entities_NER_preds(
+        predictions=paragraphs,
+        canonical_entities=canonical_entities_llm,
+    )
+
     if llm_response_dict and "predictions" in llm_response_dict:
-        return DocumentAnnotations(data=llm_response_dict["predictions"])
+        return DocumentAnnotations(data=predictions_llm)
     else:
         return DocumentAnnotations(data=paragraphs)
+
+    # return CanonicalEntities(canonical_entities=canonical_entities_llm)
 
 
 # MARK: Validate
