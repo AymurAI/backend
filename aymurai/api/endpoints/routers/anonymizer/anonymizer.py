@@ -313,8 +313,6 @@ async def anonymizer_disambiguate_v2(
     else:
         return DocumentAnnotations(data=paragraphs)
 
-    # return CanonicalEntities(canonical_entities=canonical_entities_llm)
-
 
 # MARK: Validate
 @router.post("/validation", response_model=list[DocLabel] | None)
