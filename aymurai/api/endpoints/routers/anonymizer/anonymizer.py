@@ -221,6 +221,11 @@ async def anonymizer_disambiguate_v2(
         "microsoft/phi-4",
         description="Tokenizer instance to get the tokens of our prompt",
     ),
+    decompose_by: int
+    | None = Query(
+        None,
+        description="Number of entities in the batch to inference by the LLM.",
+    ),
 ) -> DocumentAnnotations:
     """
     Endpoint for entity disambiguation:
@@ -297,7 +302,7 @@ async def anonymizer_disambiguate_v2(
             token_limit_frac=token_limit_frac,
             tokenizer_model=tokenizer_model,
             target_label=target_label,
-            decompose_by=None,
+            decompose_by=decompose_by,
         )
 
         for ce in llm_response_dict["canonical_entities_llm"]:
@@ -308,10 +313,7 @@ async def anonymizer_disambiguate_v2(
         canonical_entities=canonical_entities_llm,
     )
 
-    if llm_response_dict and "predictions" in llm_response_dict:
-        return DocumentAnnotations(data=predictions_llm)
-    else:
-        return DocumentAnnotations(data=paragraphs)
+    return DocumentAnnotations(data=predictions_llm)
 
 
 # MARK: Validate

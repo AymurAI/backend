@@ -356,6 +356,11 @@ def llm_canonical_entities_inference(
     decompose_by: int | None = 0,
 ) -> dict:
 
+    """
+    Invokes the LLM to infer canonical entities by providing context to pre-clustered groups,
+    while identifying the optimal batch size for processing.
+    """
+
     # 1. First we add context to the preclustered canonical entities
     canonical_entities_with_context = add_canonical_entities_context(
         predictions=paragraphs,
@@ -462,46 +467,53 @@ def map_canonical_entities_NER_preds(
     canonical_entities: list[CanonicalEntity],
 ) -> list[DocumentInformation]:
 
+    """
+    Syncs LLM canonical outputs with NER predictions.
+    Updates the DocumentAnnotations structure by mapping inferred entities or
+    assigning a default canonical_entity_id when no match is found.
+    """
+
     canonical_entities_val = validate_canonical_entities(
         canonical_entities_raw=canonical_entities
     )
 
-    # Map the canonical entities in the predictions documents te return the right format for the front-end
     predictions_llm = copy.deepcopy(predictions)
 
     new_ids_map = {}
 
     for document in predictions_llm:
-        if document.labels:
-            for label in document.labels:
-                label_text = label.attrs.aymurai_alt_text
-                if (
-                    label.attrs.canonical_entity_id is None
-                    and len(label.attrs.aymurai_label_subclass) == 0
-                ):
-                    pred_label = label.attrs.aymurai_label
-                    for ce in canonical_entities_val:
-                        ce_label = ce.get("aymurai_label")
-                        if pred_label == ce_label:
-                            entity_id = ce.get("entity_id")
-                            attributes = ce.get("attributes") or {}
-                            role = attributes.get("role")
-                            aliases = ce.get("aliases") or []
+        if not document.labels:
+            continue
 
-                            if any(
-                                str(alias).strip() == str(label_text).strip()
-                                for alias in aliases
-                            ):
-                                label.attrs.canonical_entity_id = entity_id
-                                if ce_label == "PER" and role is not None:
-                                    label.attrs.aymurai_label_subclass.append(role)
-                                break
+        for label in document.labels:
+            label_text = label.attrs.aymurai_alt_text
+            if (
+                label.attrs.canonical_entity_id is None
+                and len(label.attrs.aymurai_label_subclass) == 0
+            ):
+                pred_label = label.attrs.aymurai_label
+                for ce in canonical_entities_val:
+                    ce_label = ce.get("aymurai_label")
+                    if pred_label == ce_label:
+                        entity_id = ce.get("entity_id")
+                        attributes = ce.get("attributes") or {}
+                        role = attributes.get("role")
+                        aliases = ce.get("aliases") or []
 
-                    if label.attrs.canonical_entity_id is None:
-                        key = (label.attrs.aymurai_label, str(label_text).strip())
-                        if key not in new_ids_map:
-                            new_ids_map[key] = uuid.uuid4().hex
+                        if any(
+                            str(alias).strip() == str(label_text).strip()
+                            for alias in aliases
+                        ):
+                            label.attrs.canonical_entity_id = entity_id
+                            if ce_label == "PER" and role is not None:
+                                label.attrs.aymurai_label_subclass.append(role)
+                            break
 
-                        label.attrs.canonical_entity_id = new_ids_map[key]
+                if label.attrs.canonical_entity_id is None:
+                    key = (label.attrs.aymurai_label, str(label_text).strip())
+                    if key not in new_ids_map:
+                        new_ids_map[key] = uuid.uuid4().hex
+
+                    label.attrs.canonical_entity_id = new_ids_map[key]
 
     return predictions_llm
