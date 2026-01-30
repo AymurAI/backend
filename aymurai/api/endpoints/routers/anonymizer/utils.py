@@ -1,7 +1,7 @@
 import re
 import unicodedata
 from collections import Counter
-from typing import Callable, Iterable
+from typing import Callable, Iterable, Any
 import copy
 import json
 import uuid
@@ -19,7 +19,7 @@ from rapidfuzz.fuzz import (
     token_sort_ratio,
 )
 
-from aymurai.meta.api_interfaces import DocLabel, DocumentInformation
+from aymurai.meta.api_interfaces import DocLabel, DocumentAnnotations
 from aymurai.meta.entities import CanonicalEntities, CanonicalEntity
 from aymurai.utils.json_data import get_pretty
 from aymurai.llm_providers import OllamaLLMProvider
@@ -238,92 +238,160 @@ def build_canonical_entities(
 
 
 def validate_canonical_entities(
-    canonical_entities_raw: list[CanonicalEntity], target_label: str | None = None
-) -> list[CanonicalEntity]:
+    canonical_entities_raw: CanonicalEntities, target_label: str | None = None
+) -> CanonicalEntities:
+    """Validates and filters raw canonical entities for consistency.
+
+    This function performs data integrity checks on any group of Canonical Entities.
+    It ensures that each entity group contains valid data, removes potential
+    duplicates or empty entries, and optionally filters the collection to
+    retain only entities matching a specific label. This step acts as a
+    quality gate before the context enrichment and LLM inference phases.
+
+    Args:
+        canonical_entities_raw: The collection of entities as initially
+            grouped by the pre-clustering algorithm.
+        target_label: Optional target label (e.g., 'PER') to filter the
+            results. If provided, only entities of this type will be
+            returned.
+
+    Returns:
+        CanonicalEntities: A cleaned and validated collection of entities,
+            ready for context assignment and further processing.
+    """
 
     if target_label:
-        canonical_entities_val = [
+        entities = [
             e for e in canonical_entities_raw if e.aymurai_label == target_label
         ]
     else:
-        canonical_entities_val = canonical_entities_raw
+        entities = canonical_entities_raw
 
-    canonical_entities_val = [
-        CanonicalEntity.model_validate(canonical_entity)
-        for canonical_entity in canonical_entities_val
-    ]
+    validated_entities = []
 
-    canonical_entities_val = [
-        entity.model_dump() | {"entity_id": entity.entity_id.hex}
-        for entity in canonical_entities_val
-    ]
+    for entity in entities:
+        obj = CanonicalEntity.model_validate(entity)
+        if obj.entity_id is None:
+            obj.entity_id = uuid.uuid4()
 
-    return canonical_entities_val
+        validated_entities.append(obj)
+
+    return validated_entities
+
+
+def _extract_snippet(
+    doc_text: str, label: list[DocLabel], window_length: int | None
+) -> str:
+    """Helper function: Extracts and cleans a text snippet surrounding a specific label.
+
+    Identifies the boundaries of a label within the source text and expands
+    those boundaries by the `window_length`. It ensures the snippet is
+    correctly sliced and cleans any redundant whitespace or formatting
+    to provide a clean string for LLM processing.
+
+    Args:
+        doc_text: The raw text of the document or paragraph.
+        label: The specific label object containing start and end character offsets.
+        window_length: The number of characters to include before and after
+            the label. If None, returns the `doc_text` as is.
+
+    Returns:
+        str: The extracted text snippet containing the entity and its context.
+    """
+
+    if window_length is None:
+        return " ".join(doc_text.split())
+
+    start, end = label.start_char, label.end_char
+    window_start = max(0, start - window_length)
+    window_end = min(len(doc_text), end + window_length)
+
+    snippet = doc_text[window_start:window_end]
+    return " ".join(snippet.split())
+
+
+def _get_entity_context(
+    predictions: DocumentAnnotations,
+    entity_label: str,
+    aliases: list[str],
+    window_length: int | None,
+) -> list[str]:
+    """Helper function: Finds all context windows for a specific entity across all predictions.
+
+    Scans the document predictions to locate every occurrence of an entity's
+    aliases. For each match, it triggers the extraction of a text snippet
+    to build a comprehensive view of how the entity is used in the document.
+
+    Args:
+        predictions: The document annotations to search within.
+        entity_label: The NER label category (e.g., 'PER').
+        aliases: A list of name variants or strings associated with the entity.
+        window_length: The size of the text window to extract around each match.
+
+    Returns:
+        list[str]: A list of unique text snippets providing context for the entity.
+    """
+
+    context_windows = set()
+
+    for pred in predictions:
+        if not pred.labels:
+            continue
+        doc_text = getattr(pred, "document", "")
+
+        for label in pred.labels:
+            if entity_label and label.attrs.aymurai_label != entity_label:
+                continue
+            if label.attrs.aymurai_alt_text not in aliases:
+                continue
+
+            snippet = _extract_snippet(doc_text, label, window_length)
+            context_windows.add(snippet)
+
+    return list(context_windows)
 
 
 def add_canonical_entities_context(
-    predictions: list[dict],
-    entities: list[dict],
+    predictions: DocumentAnnotations,
+    entities: CanonicalEntities,
     context_window_length: int | None = 120,
     target_label: str | None = None,
-) -> list[dict]:
-    """
-    Creates a deep copy of entities and adds context.
+) -> CanonicalEntities:
+    """Orchestrates the context enrichment for canonical entities.
+
+    This function iterates through a collection of canonical entities and
+    populates them with real-world context snippets extracted from the
+    original document text. This enriched context is essential for
+    subsequent LLM-based disambiguation and role assignment.
 
     Args:
-        predictions: List of prediction dictionaries from the API.
-        entities: List of canonical entities.
-        context_window_length: Length of the window around the label. If None, full paragraph is used.
-        target_label: The specific label to filter. If None, all labels are considered.
+        predictions: The full document annotations containing the source
+            text and label positions.
+        entities: The collection of canonical entities (pre-clustered)
+            to be enriched with context.
+        context_window_length: The number of characters to capture around
+            each mention. If None, the entire containing paragraph is used.
+        target_label: Optional filter to only process entities of a
+            specific type (e.g., 'PER').
+
+    Returns:
+        CanonicalEntities: The input entities enriched with a list of
+            contextual snippets for each group.
     """
-    # 1. Deep copy to protect original variable
+
     entities_with_context = copy.deepcopy(entities)
 
-    # 2. Process each entity
     for entity in entities_with_context:
-        if "attributes" not in entity or entity["attributes"] is None:
-            entity["attributes"] = {}
-        if "context" not in entity["attributes"]:
-            entity["attributes"]["context"] = []
+        # NOTE: Ensure attributes and context are initialized
+        if entity.attributes is None:
+            entity.attributes = {}
 
-        context_windows = set()
-        aliases = [a for a in entity.get("aliases", [])]
+        current_target = target_label or entity.aymurai_label
 
-        # If target_label is not provided as an argument,
-        # we can default to the entity's own label if it exists
-        current_target = target_label or entity.get("aymurai_label")
-
-        # 3. Iterate through predictions
-        for pred in predictions:
-            doc_text = pred.document if hasattr(pred, "document") else ""
-            labels = pred.labels if pred.labels is not None else []
-
-            for label in labels:
-                label_attr = label.attrs.aymurai_label
-                label_text = label.text
-
-                # Logic Gate: Filter by label type if current_target is specified
-                if current_target is None or label_attr == current_target:
-
-                    # Logic Gate: Check if any alias is inside the label text
-                    if any(alias in label_text for alias in aliases):
-
-                        # Handle Window vs Full Paragraph
-                        if context_window_length is None:
-                            snippet = doc_text
-                        else:
-                            start = label.start_char
-                            end = label.end_char
-
-                            window_start = max(0, start - context_window_length)
-                            window_end = min(len(doc_text), end + context_window_length)
-                            snippet = doc_text[window_start:window_end]
-
-                        clean_snippet = " ".join(snippet.split())
-                        context_windows.add(clean_snippet)
-
-        # Update entity with the collected windows
-        entity["attributes"]["context"] = list(context_windows)
+        # NOTE: Extracted logic to find context
+        entity.attributes["context"] = _get_entity_context(
+            predictions, current_target, list(entity.aliases), context_window_length
+        )
 
     return entities_with_context
 
@@ -342,8 +410,8 @@ def get_model_tokens(system_prompt: str, user_prompt: str, tokenizer_model: str)
 
 
 def llm_canonical_entities_inference(
-    paragraphs: list[DocumentInformation],
-    canonical_entities_pre_cluster: list[CanonicalEntity],
+    paragraphs: DocumentAnnotations,
+    canonical_entities_pre_cluster: CanonicalEntities,
     system_prompt: str,
     user_prompt_template: str,
     model: str,
@@ -354,14 +422,44 @@ def llm_canonical_entities_inference(
     token_limit_frac: float = 2 / 3,
     temperature: int = 0,
     decompose_by: int | None = 0,
-) -> dict:
+) -> CanonicalEntities:
 
-    """
-    Invokes the LLM to infer canonical entities by providing context to pre-clustered groups,
-    while identifying the optimal batch size for processing.
+    """Refines pre-clustered entities into canonical forms using LLM inference.
+
+    This function takes pre-clustered entity groups and leverages a LLM
+    to determine their canonical representations. It enriches the inference
+    process by providing surrounding context for each mention and dynamically
+    calculates optimal batch sizes to fit within the model's context window limits.
+
+    Args:
+        paragraphs: The full document annotations containing the text and metadata
+            used to extract context for each entity mention.
+        canonical_entities_pre_cluster: The initial grouping of entities
+            generated by the fuzzy matching phase.
+        system_prompt: The instruction set defining the LLM's persona and
+            extraction rules.
+        user_prompt_template: The template used to format entity mentions and
+            their context for the model.
+        model: Identifier of the LLM to be used (e.g., 'phi4:14b').
+        tokenizer_model: Name or path of the tokenizer used to calculate
+            token counts for context window management.
+        target_label: The specific entity label (e.g., 'PER') currently being
+            processed for disambiguation.
+        context_window_length: The number of characters to include around each
+            mention. If None, the entire paragraph is used.
+        model_context: Total token capacity of the LLM's context window.
+        token_limit_frac: The safe working percentage of the `model_context`
+            to avoid truncation during inference.
+        temperature: Sampling temperature for the model; defaults to 0 for
+            deterministic output.
+        decompose_by: The fixed number of entities to process per batch.
+            If 0 or None, the function may attempt to find an optimal batch size.
+
+    Returns:
+        CanonicalEntities: A curated collection of entities with resolved
+            canonical names and assigned roles as determined by the LLM.
     """
 
-    # 1. First we add context to the preclustered canonical entities
     canonical_entities_with_context = add_canonical_entities_context(
         predictions=paragraphs,
         entities=canonical_entities_pre_cluster,
@@ -369,24 +467,19 @@ def llm_canonical_entities_inference(
         target_label=target_label,
     )
 
-    # 2. Clean entities to save tokens
     canonical_entities_prompt = [
-        {
-            k: v
-            for k, v in ce.items()
-            if k in ("canonical_text", "aliases", "attributes")
-        }
+        ce.model_dump(include={"canonical_text", "aliases", "attributes"})
         for ce in canonical_entities_with_context
     ]
 
     token_limit = int(model_context * token_limit_frac)
 
-    # 3. Find Optimal Batch Size if decompose_by is None
     if decompose_by is None:
+        # NOTE: dynamically find the maximum batch size that fits the token limit
+        # by iteratively shrinking the candidate list.
         current_batch_size = len(canonical_entities_prompt)
 
         while current_batch_size > 0:
-            # Test with the first N entities
             test_batch = canonical_entities_prompt[:current_batch_size]
             test_prompt = user_prompt_template.format(
                 canonical_entities=get_pretty(test_batch)
@@ -404,10 +497,10 @@ def llm_canonical_entities_inference(
 
             current_batch_size -= 1
 
-        if not decompose_by:  # Safety check if even 1 entity is too large
+        if not decompose_by:
+            # NOTE: returns None if even a single entity exceeds the token limit.
             return None
 
-    # 4. Prepare batches. If decompose_by is 0 or less, we put all entities in one single list (one batch)
     if decompose_by <= 0:
         entity_batches = [canonical_entities_prompt]
     else:
@@ -419,7 +512,6 @@ def llm_canonical_entities_inference(
     all_raw_outputs = []
     all_user_prompts = []
 
-    # 5. Iterate through batches
     for batch_index, batch in enumerate(entity_batches):
         user_prompt = user_prompt_template.format(
             canonical_entities=get_pretty(batch),
@@ -427,16 +519,15 @@ def llm_canonical_entities_inference(
 
         all_user_prompts.append(user_prompt)
 
-        # 5.A Token Validation
         len_tokens = get_model_tokens(
             system_prompt=system_prompt,
             user_prompt=user_prompt,
             tokenizer_model=tokenizer_model,
         )
         if len_tokens > model_context:
+            # NOTE: skip batches that exceed physical context window to prevent LLM hallucination or crash.
             continue
 
-        # 5.B LLM Inference
         provider = OllamaLLMProvider(model=model)
         response = provider.generate(
             messages=[
@@ -447,7 +538,6 @@ def llm_canonical_entities_inference(
             format=CanonicalEntities.model_json_schema(),
         )
 
-        # 5.C Parse and collect results
         batch_entities = json.loads(response.text).get("canonical_entities", [])
         all_raw_outputs.extend(batch_entities)
 
@@ -455,27 +545,34 @@ def llm_canonical_entities_inference(
         canonical_entities_raw=all_raw_outputs
     )
 
-    return {
-        "canonical_entities_llm": canonical_entities_llm,
-        "system_prompt": system_prompt,
-        "user_prompts": all_user_prompts,
-    }
+    return canonical_entities_llm
 
 
 def map_canonical_entities_NER_preds(
-    predictions: list[DocumentInformation],
-    canonical_entities: list[CanonicalEntity],
-) -> list[DocumentInformation]:
+    predictions: DocumentAnnotations,
+    canonical_entities: CanonicalEntities,
+) -> DocumentAnnotations:
 
-    """
-    Syncs LLM canonical outputs with NER predictions.
-    Updates the DocumentAnnotations structure by mapping inferred entities or
-    assigning a default canonical_entity_id when no match is found.
-    """
+    """Syncs LLM-inferred canonical entities with original NER predictions.
 
-    canonical_entities_val = validate_canonical_entities(
-        canonical_entities_raw=canonical_entities
-    )
+    This function updates the DocumentAnnotations structure by mapping the
+    refined entities from the LLM back to their corresponding mentions in
+    the original predictions. It ensures data consistency by assigning a
+    'canonical_entity_id' to every prediction; if a specific mention was
+    not part of an LLM-inferred group, it receives a default identifier
+    based on its original clustering.
+
+    Args:
+        predictions: The original list of document annotations and NER
+            predictions to be updated.
+        canonical_entities: The curated collection of entities containing
+            the resolved canonical names and roles provided by the LLM.
+
+    Returns:
+        DocumentAnnotations: The enriched predictions, where each entity
+            mention now includes a 'canonical_entity_id' and its
+            corresponding 'role' when applicable.
+    """
 
     predictions_llm = copy.deepcopy(predictions)
 
@@ -486,33 +583,33 @@ def map_canonical_entities_NER_preds(
             continue
 
         for label in document.labels:
-            label_text = label.attrs.aymurai_alt_text
             if (
                 label.attrs.canonical_entity_id is None
                 and len(label.attrs.aymurai_label_subclass) == 0
             ):
-                pred_label = label.attrs.aymurai_label
-                for ce in canonical_entities_val:
-                    ce_label = ce.get("aymurai_label")
-                    if pred_label == ce_label:
-                        entity_id = ce.get("entity_id")
-                        attributes = ce.get("attributes") or {}
+                for ce in canonical_entities:
+                    if label.attrs.aymurai_label == ce.aymurai_label:
+                        entity_id = ce.entity_id
+                        attributes = ce.attributes or {}
                         role = attributes.get("role")
-                        aliases = ce.get("aliases") or []
+                        aliases = ce.aliases
 
-                        if any(
-                            str(alias).strip() == str(label_text).strip()
-                            for alias in aliases
-                        ):
+                        clean_aliases = [str(a).strip() for a in aliases]
+                        label_text = str(label.attrs.aymurai_alt_text).strip()
+
+                        if label_text in clean_aliases:
                             label.attrs.canonical_entity_id = entity_id
-                            if ce_label == "PER" and role is not None:
+                            if ce.aymurai_label == "PER" and role is not None:
                                 label.attrs.aymurai_label_subclass.append(role)
                             break
 
                 if label.attrs.canonical_entity_id is None:
-                    key = (label.attrs.aymurai_label, str(label_text).strip())
+                    key = (
+                        label.attrs.aymurai_label,
+                        str(label.attrs.aymurai_alt_text).strip(),
+                    )
                     if key not in new_ids_map:
-                        new_ids_map[key] = uuid.uuid4().hex
+                        new_ids_map[key] = uuid.uuid4()
 
                     label.attrs.canonical_entity_id = new_ids_map[key]
 

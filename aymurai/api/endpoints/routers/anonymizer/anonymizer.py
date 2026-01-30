@@ -3,7 +3,7 @@ import os
 import subprocess
 import tempfile
 from threading import Lock
-from typing import Optional
+from typing import Literal
 
 import torch
 from fastapi import Body, Depends, Form, HTTPException, Query, UploadFile
@@ -120,8 +120,8 @@ async def anonymizer_paragraph_predict(
     return DocumentInformation(document=text, labels=paragraph.prediction)
 
 
-@router.post("/disambiguate", response_model=CanonicalEntities)
-async def anonymizer_disambiguate(
+@router.post("/pre-cluster", response_model=CanonicalEntities)
+async def anonymizer_pre_cluster(
     paragraphs: list[DocumentInformation] = Body(
         ...,
         description=(
@@ -176,8 +176,8 @@ async def anonymizer_disambiguate(
 
 
 # MARK: Disambiguate
-@router.post("/disambiguatev2", response_model=DocumentAnnotations)
-async def anonymizer_disambiguate_v2(
+@router.post("/disambiguate", response_model=DocumentAnnotations)
+async def anonymizer_disambiguate(
     paragraphs: list[DocumentInformation] = Body(
         ...,
         description=(
@@ -199,6 +199,8 @@ async def anonymizer_disambiguate_v2(
     ),
     threshold: int = Query(
         70,
+        ge=0,
+        lt=100,
         description="Minimum similarity score (0-100) to cluster entities.",
     ),
     scorer: str = Query(
@@ -211,11 +213,15 @@ async def anonymizer_disambiguate_v2(
     ),
     model: str = Query("phi4:14b", description="Model name to use for inference."),
     model_context: int = Query(9500, description="Maximum model context window size."),
-    context_window_length: Optional[int] = Query(
+    context_window_length: int
+    | None = Query(
         120, description="Length of context window. Use None for full paragraph."
     ),
     token_limit_frac: float = Query(
-        2 / 3, description="Fraction of the model context to use as a safety limit."
+        2 / 3,
+        gt=0,
+        le=1,
+        description="Fraction of the model context to use as a safety limit.",
     ),
     tokenizer_model: str = Query(
         "microsoft/phi-4",
@@ -226,15 +232,45 @@ async def anonymizer_disambiguate_v2(
         None,
         description="Number of entities in the batch to inference by the LLM.",
     ),
+    mode: Literal["fuzzyregex", "llm"] = Query(
+        "llm",
+        description="Disambiguation mode: 'fuzzyregex' for fast clustering, 'llm' for AI refinement.",
+    ),
 ) -> DocumentAnnotations:
-    """
-    Endpoint for entity disambiguation:
-    1. Fuzzy-based Pre-clustering.
-    2. LLM-driven Role Assignment & Curation.
-    """
+    """Performs canonical entity disambiguation through fuzzy matching and LLM refinement.
 
-    if threshold < 0 or threshold > 100:
-        raise HTTPException(status_code=400, detail="threshold must be 0-100.")
+    This endpoint executes a two-stage pipeline to resolve entities across documents.
+    First, it groups mentions using a fuzzy-based pre-clustering algorithm. Second,
+    it leverages a LLM to perform role assignment and
+    final curation of the canonical entities, ensuring data consistency and
+    enriching the final annotations.
+
+    Args:
+        paragraphs: A list of DocumentInformation objects containing per-paragraph
+            predictions from the NER model.
+        system_prompts: A dictionary containing the system instructions for the LLM.
+        user_prompt_templates: A dictionary of templates used to format the
+            user-specific prompts for the LLM.
+        target_labels: Optional list of entity labels to process (e.g., ["PER", "DNI"]).
+            If None, all labels are processed.
+        threshold: The minimum similarity score (0-100) required to link entities
+            during the fuzzy pre-clustering phase.
+        scorer: The specific RapidFuzz scorer algorithm to use (e.g., 'token_set_ratio').
+        processor: The text normalization function to apply before similarity calculation.
+        model: The identifier of the LLM to be used for inference.
+        model_context: The maximum token limit for the model's context window.
+        context_window_length: The number of surrounding characters to include as context.
+            Set to None to use the full paragraph.
+        token_limit_frac: The fraction of the total model context window to utilize
+            as a safety threshold for inference.
+        tokenizer_model: The name of the tokenizer model used to calculate prompt length.
+        decompose_by: The number of entities to include in each LLM inference batch.
+            Used for optimizing processing speed and context window usage.
+
+    Returns:
+        DocumentAnnotations: A collection of enriched annotations, including
+            canonical entity IDs and assigned roles for each resolved mention.
+    """
 
     scorer_fn = SCORER_MAP.get(scorer.lower())
     if scorer_fn is None:
@@ -263,11 +299,6 @@ async def anonymizer_disambiguate_v2(
     if not tokenizer_model:
         raise HTTPException(status_code=400, detail="tokenizer model cannot be empty.")
 
-    if token_limit_frac <= 0 or token_limit_frac > 1:
-        raise HTTPException(
-            status_code=400, detail="token_limit_frac must be between 0 and 1."
-        )
-
     labels = [label for paragraph in paragraphs for label in (paragraph.labels or [])]
 
     target_set = {label.strip() for label in target_labels} if target_labels else None
@@ -280,8 +311,20 @@ async def anonymizer_disambiguate_v2(
         processor=processor_fn,
     )
 
-    llm_response_dict = None
+    # --- FUZZYREGEX ONLY MODE ---
+    if mode == "fuzzyregex":
+        canonical_entities_val = validate_canonical_entities(
+            canonical_entities_raw=canonical_entities
+        )
 
+        predictions_fuzzy = map_canonical_entities_NER_preds(
+            predictions=paragraphs,
+            canonical_entities=canonical_entities_val,
+        )
+
+        return DocumentAnnotations(data=predictions_fuzzy)
+
+    # --- LLM REFINEMENT MODE ---
     canonical_entities_llm = []
 
     for target_label, user_prompt_template in user_prompt_templates.items():
@@ -305,8 +348,8 @@ async def anonymizer_disambiguate_v2(
             decompose_by=decompose_by,
         )
 
-        for ce in llm_response_dict["canonical_entities_llm"]:
-            canonical_entities_llm.append(ce)
+        if llm_response_dict:
+            canonical_entities_llm.extend(llm_response_dict)
 
     predictions_llm = map_canonical_entities_NER_preds(
         predictions=paragraphs,
