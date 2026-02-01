@@ -22,6 +22,7 @@ from aymurai.api.endpoints.routers.anonymizer.utils import (
     validate_canonical_entities,
     llm_canonical_entities_inference,
     map_canonical_entities_NER_preds,
+    load_prompts_from_yaml,
 )
 from aymurai.api.utils import load_pipeline
 from aymurai.database.crud.anonymization.document import anonymization_document_create
@@ -39,6 +40,7 @@ from aymurai.meta.api_interfaces import (
     DocumentAnnotations,
     DocumentInformation,
     TextRequest,
+    PromptLibrary,
 )
 from aymurai.meta.entities import CanonicalEntities
 from aymurai.settings import settings
@@ -184,13 +186,11 @@ async def anonymizer_disambiguate(
             "List of per-paragraph predictions returned by /anonymizer/predict."
         ),
     ),
-    system_prompts: dict[str, str] = Body(
-        ...,
-        description=("System prompts dictionary."),
-    ),
-    user_prompt_templates: dict[str, str] = Body(
-        ...,
-        description=("User prompt templates dictionary."),
+    custom_prompts: PromptLibrary = Body(
+        default_factory=PromptLibrary,
+        description=(
+            "Set of prompts, user and system, for each label if it is provided."
+        ),
     ),
     target_labels: list[str]
     | None = Query(
@@ -282,30 +282,20 @@ async def anonymizer_disambiguate(
         )
     processor_fn = resolve_processor(processor)
 
-    for label, prompt in system_prompts.items():
-        if not prompt:
-            raise HTTPException(
-                status_code=400,
-                detail=f"system_prompt for label {label} doesn't exist.",
-            )
-
-    for label, prompt_template in user_prompt_templates.items():
-        if not prompt_template:
-            raise HTTPException(
-                status_code=400,
-                detail=f"user_prompt_template for label {label} doesn't exist.",
-            )
-
     if not tokenizer_model:
-        raise HTTPException(status_code=400, detail="tokenizer model cannot be empty.")
+        raise HTTPException(status_code=400, detail="Tokenizer model cannot be empty.")
 
     labels = [label for paragraph in paragraphs for label in (paragraph.labels or [])]
 
-    target_set = {label.strip() for label in target_labels} if target_labels else None
+    prompt_library = load_prompts_from_yaml()
+
+    labels_to_process = (
+        target_labels if target_labels else list(prompt_library.as_dict.keys())
+    )
 
     canonical_entities = build_canonical_entities(
         labels,
-        target_labels=target_set,
+        target_labels=set(labels_to_process),
         threshold=threshold,
         scorer=scorer_fn,
         processor=processor_fn,
@@ -327,24 +317,34 @@ async def anonymizer_disambiguate(
     # --- LLM REFINEMENT MODE ---
     canonical_entities_llm = []
 
-    for target_label, user_prompt_template in user_prompt_templates.items():
-        system_prompt = system_prompts[target_label]
+    for label in labels_to_process:
+        prompt_set = custom_prompts.get(label) or prompt_library.get(label)
 
-        canonical_entities_val = validate_canonical_entities(
-            canonical_entities_raw=canonical_entities, target_label=target_label
+        if (
+            not prompt_set
+            or not prompt_set.system.strip()
+            or not prompt_set.user.strip()
+        ):
+            continue
+
+        entities_for_this_label = validate_canonical_entities(
+            canonical_entities_raw=canonical_entities, target_label=label
         )
+
+        if not entities_for_this_label:
+            continue
 
         llm_response_dict = llm_canonical_entities_inference(
             paragraphs=paragraphs,
-            canonical_entities_pre_cluster=canonical_entities_val,
-            system_prompt=system_prompt,
-            user_prompt_template=user_prompt_template,
+            canonical_entities_pre_cluster=entities_for_this_label,
+            system_prompt=prompt_set.system,
+            user_prompt_template=prompt_set.user,
             model=model,
             context_window_length=context_window_length,
             model_context=model_context,
             token_limit_frac=token_limit_frac,
             tokenizer_model=tokenizer_model,
-            target_label=target_label,
+            target_label=label,
             decompose_by=decompose_by,
         )
 

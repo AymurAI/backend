@@ -1,10 +1,13 @@
 import re
 import unicodedata
 from collections import Counter
-from typing import Callable, Iterable, Any
+from typing import Callable, Iterable
 import copy
 import json
 import uuid
+import yaml
+from functools import lru_cache
+from pathlib import Path
 
 from transformers import AutoTokenizer
 
@@ -19,7 +22,12 @@ from rapidfuzz.fuzz import (
     token_sort_ratio,
 )
 
-from aymurai.meta.api_interfaces import DocLabel, DocumentAnnotations
+from aymurai.meta.api_interfaces import (
+    DocLabel,
+    DocumentAnnotations,
+    PromptSet,
+    PromptLibrary,
+)
 from aymurai.meta.entities import CanonicalEntities, CanonicalEntity
 from aymurai.utils.json_data import get_pretty
 from aymurai.llm_providers import OllamaLLMProvider
@@ -39,6 +47,7 @@ __all__ = [
     "validate_canonical_entities",
     "llm_canonical_entities_inference",
     "map_canonical_entities_NER_preds",
+    "load_prompts_from_yaml",
 ]
 
 SCORER_MAP = {
@@ -235,6 +244,27 @@ def build_canonical_entities(
         canonical_entities.extend(clusters_to_canonical_entities(clusters))
 
     return canonical_entities
+
+
+@lru_cache(maxsize=1)
+def load_prompts_from_yaml():
+    path = Path(__file__).parent / "prompt_templates.yaml"
+    if not path.exists():
+        return PromptLibrary(root=[])
+
+    with open(path, "r", encoding="utf-8") as f:
+        data = yaml.safe_load(f)
+
+    prompts = []
+    for label, content in data.items():
+        prompts.append(
+            PromptSet(
+                label=label,
+                system=content.get("system", ""),
+                user=content.get("user", ""),
+            )
+        )
+    return PromptLibrary(root=prompts)
 
 
 def validate_canonical_entities(
