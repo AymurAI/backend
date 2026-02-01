@@ -15,8 +15,6 @@ from starlette.background import BackgroundTask
 from aymurai.api.endpoints.routers.anonymizer.utils import (
     PROCESSOR_MAP,
     SCORER_MAP,
-    # USER_PROMPT_TEMPLATE_MAP,
-    # SYSTEM_PROMPT_MAP,
     build_canonical_entities,
     resolve_processor,
     validate_canonical_entities,

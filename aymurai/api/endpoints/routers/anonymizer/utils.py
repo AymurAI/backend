@@ -32,16 +32,10 @@ from aymurai.meta.entities import CanonicalEntities, CanonicalEntity
 from aymurai.utils.json_data import get_pretty
 from aymurai.llm_providers import OllamaLLMProvider
 
-# from aymurai.api.endpoints.routers.anonymizer.prompt_templates import (
-#     user_prompt_template_PER,
-#     system_prompt_PER,
-# )
 
 __all__ = [
     "SCORER_MAP",
     "PROCESSOR_MAP",
-    # "USER_PROMPT_TEMPLATE_MAP",
-    # "SYSTEMP_PROMPT_MAP",
     "build_canonical_entities",
     "resolve_processor",
     "validate_canonical_entities",
@@ -66,14 +60,6 @@ PROCESSOR_MAP = {
     "hard_normalizer": "hard_normalizer",
     "legal_text_normalizer": "legal_text_normalizer",
 }
-
-# USER_PROMPT_TEMPLATE_MAP = {
-#     "PER": user_prompt_template_PER
-# }
-
-# SYSTEM_PROMPT_MAP = {
-#     "PER": system_prompt_PER
-# }
 
 
 def hard_normalizer(text: str) -> str:
@@ -242,6 +228,8 @@ def build_canonical_entities(
             processor=processor,
         )
         canonical_entities.extend(clusters_to_canonical_entities(clusters))
+
+    canonical_entities = sorted(canonical_entities, key=lambda x: x.canonical_text)
 
     return canonical_entities
 
@@ -624,8 +612,8 @@ def map_canonical_entities_NER_preds(
                         role = attributes.get("role")
                         aliases = ce.aliases
 
-                        clean_aliases = [str(a).strip() for a in aliases]
-                        label_text = str(label.attrs.aymurai_alt_text).strip()
+                        clean_aliases = [str(a).strip().lower() for a in aliases]
+                        label_text = str(label.attrs.aymurai_alt_text).strip().lower()
 
                         if label_text in clean_aliases:
                             label.attrs.canonical_entity_id = entity_id
