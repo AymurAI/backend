@@ -120,61 +120,6 @@ async def anonymizer_paragraph_predict(
     return DocumentInformation(document=text, labels=paragraph.prediction)
 
 
-@router.post("/pre-cluster", response_model=CanonicalEntities)
-async def anonymizer_pre_cluster(
-    paragraphs: list[DocumentInformation] = Body(
-        ...,
-        description=(
-            "List of per-paragraph predictions returned by /anonymizer/predict."
-        ),
-    ),
-    target_labels: list[str]
-    | None = Query(
-        None,
-        description="Optional label filter, e.g. PER,DNI.",
-    ),
-    threshold: int = Query(
-        70,
-        description="Minimum similarity score (0-100) to cluster entities.",
-    ),
-    scorer: str = Query(
-        "token_set_ratio",
-        description="RapidFuzz scorer name for similarity.",
-    ),
-    processor: str = Query(
-        "light_normalizer",
-        description="Text processor to normalize before similarity.",
-    ),
-) -> CanonicalEntities:
-    """
-    Prototype endpoint for canonical entity grouping using fuzzy matching.
-    """
-    if threshold < 0 or threshold > 100:
-        raise HTTPException(status_code=400, detail="threshold must be 0-100.")
-
-    scorer_fn = SCORER_MAP.get(scorer.lower())
-    if scorer_fn is None:
-        raise HTTPException(status_code=400, detail=f"Unsupported scorer: {scorer}")
-
-    if processor.lower() not in PROCESSOR_MAP:
-        raise HTTPException(
-            status_code=400, detail=f"Unsupported processor: {processor}"
-        )
-    processor_fn = resolve_processor(processor)
-
-    labels = [label for paragraph in paragraphs for label in (paragraph.labels or [])]
-
-    target_set = {label.strip() for label in target_labels} if target_labels else None
-    canonical_entities = build_canonical_entities(
-        labels,
-        target_labels=target_set,
-        threshold=threshold,
-        scorer=scorer_fn,
-        processor=processor_fn,
-    )
-    return CanonicalEntities(canonical_entities=canonical_entities)
-
-
 # MARK: Disambiguate
 @router.post("/disambiguate", response_model=DocumentAnnotations)
 async def anonymizer_disambiguate(
@@ -195,93 +140,44 @@ async def anonymizer_disambiguate(
         None,
         description="Optional label filter, e.g. PER,DNI.",
     ),
-    threshold: int = Query(
-        70,
-        ge=0,
-        lt=100,
-        description="Minimum similarity score (0-100) to cluster entities.",
-    ),
-    scorer: str = Query(
-        "token_set_ratio",
-        description="RapidFuzz scorer name for similarity.",
-    ),
-    processor: str = Query(
-        "light_normalizer",
-        description="Text processor to normalize before similarity.",
-    ),
-    model: str = Query("phi4:14b", description="Model name to use for inference."),
-    model_context: int = Query(9500, description="Maximum model context window size."),
-    context_window_length: int
-    | None = Query(
-        120, description="Length of context window. Use None for full paragraph."
-    ),
-    token_limit_frac: float = Query(
-        2 / 3,
-        gt=0,
-        le=1,
-        description="Fraction of the model context to use as a safety limit.",
-    ),
-    tokenizer_model: str = Query(
-        "microsoft/phi-4",
-        description="Tokenizer instance to get the tokens of our prompt",
-    ),
-    decompose_by: int
-    | None = Query(
-        None,
-        description="Number of entities in the batch to inference by the LLM.",
-    ),
     mode: Literal["fuzzyregex", "llm"] = Query(
         "llm",
         description="Disambiguation mode: 'fuzzyregex' for fast clustering, 'llm' for AI refinement.",
     ),
 ) -> DocumentAnnotations:
-    """Performs canonical entity disambiguation through fuzzy matching and LLM refinement.
-
-    This endpoint executes a two-stage pipeline to resolve entities across documents.
-    First, it groups mentions using a fuzzy-based pre-clustering algorithm. Second,
-    it leverages a LLM to perform role assignment and
-    final curation of the canonical entities, ensuring data consistency and
-    enriching the final annotations.
+    """
+    Performs canonical entity disambiguation using fuzzy matching and LLM refinement.
 
     Args:
-        paragraphs: A list of DocumentInformation objects containing per-paragraph
-            predictions from the NER model.
-        system_prompts: A dictionary containing the system instructions for the LLM.
-        user_prompt_templates: A dictionary of templates used to format the
-            user-specific prompts for the LLM.
-        target_labels: Optional list of entity labels to process (e.g., ["PER", "DNI"]).
-            If None, all labels are processed.
-        threshold: The minimum similarity score (0-100) required to link entities
-            during the fuzzy pre-clustering phase.
-        scorer: The specific RapidFuzz scorer algorithm to use (e.g., 'token_set_ratio').
-        processor: The text normalization function to apply before similarity calculation.
-        model: The identifier of the LLM to be used for inference.
-        model_context: The maximum token limit for the model's context window.
-        context_window_length: The number of surrounding characters to include as context.
-            Set to None to use the full paragraph.
-        token_limit_frac: The fraction of the total model context window to utilize
-            as a safety threshold for inference.
-        tokenizer_model: The name of the tokenizer model used to calculate prompt length.
-        decompose_by: The number of entities to include in each LLM inference batch.
-            Used for optimizing processing speed and context window usage.
+        paragraphs: A list of DocumentInformation objects containing the NER
+            predictions per paragraph that need to be disambiguated.
+        custom_prompts: A PromptLibrary object containing optional system and
+            user prompts. If not provided, the service uses the default prompts
+            configured in the environment.
+        target_labels: An optional list of entity labels to filter the
+            disambiguation process (e.g., ["PER", "DNI"]). If None, all
+            detected labels are processed.
+        mode: The operational mode for the endpoint. 'fuzzyregex' performs
+            fast, distance-based clustering only, while 'llm' includes
+            high-fidelity AI refinement and role curation.
 
     Returns:
-        DocumentAnnotations: A collection of enriched annotations, including
-            canonical entity IDs and assigned roles for each resolved mention.
+        DocumentAnnotations: The original annotations enriched with
+            'canonical_entity_id' and 'role' fields for each resolved mention.
     """
 
-    scorer_fn = SCORER_MAP.get(scorer.lower())
-    if scorer_fn is None:
-        raise HTTPException(status_code=400, detail=f"Unsupported scorer: {scorer}")
+    scorer_fn = SCORER_MAP.get(settings.SCORER.lower())
+    # if scorer_fn is None:
+    #     raise HTTPException(status_code=400, detail=f"Unsupported scorer: {settings.SCORER}")
 
-    if processor.lower() not in PROCESSOR_MAP:
-        raise HTTPException(
-            status_code=400, detail=f"Unsupported processor: {processor}"
-        )
-    processor_fn = resolve_processor(processor)
+    # if settings.PROCESSOR.lower() not in PROCESSOR_MAP:
+    #     raise HTTPException(
+    #         status_code=400, detail=f"Unsupported processor: {settings.PROCESSOR}"
+    #     )
+    processor_fn = resolve_processor(settings.PROCESSOR)
 
-    if not tokenizer_model:
-        raise HTTPException(status_code=400, detail="Tokenizer model cannot be empty.")
+    # if not settings.TOKENIZER_MODEL:
+    #     raise HTTPException(status_code=400, detail="Tokenizer model cannot be empty.")
 
     labels = [label for paragraph in paragraphs for label in (paragraph.labels or [])]
 
@@ -294,7 +190,7 @@ async def anonymizer_disambiguate(
     canonical_entities = build_canonical_entities(
         labels,
         target_labels=set(labels_to_process),
-        threshold=threshold,
+        threshold=settings.THRESHOLD,
         scorer=scorer_fn,
         processor=processor_fn,
     )
@@ -332,22 +228,23 @@ async def anonymizer_disambiguate(
         if not entities_for_this_label:
             continue
 
-        llm_response_dict = llm_canonical_entities_inference(
+        llm_response = llm_canonical_entities_inference(
             paragraphs=paragraphs,
             canonical_entities_pre_cluster=entities_for_this_label,
             system_prompt=prompt_set.system,
             user_prompt_template=prompt_set.user,
-            model=model,
-            context_window_length=context_window_length,
-            model_context=model_context,
-            token_limit_frac=token_limit_frac,
-            tokenizer_model=tokenizer_model,
+            model=settings.MODEL,
+            context_window_length=settings.CONTEXT_WINDOW_LENGTH,
+            model_context=settings.MODEL_CONTEXT,
+            token_limit_frac=settings.TOKEN_LIMIT_FRAC,
+            tokenizer_model=settings.TOKENIZER_MODEL,
             target_label=label,
-            decompose_by=decompose_by,
+            temperature=settings.TEMPERATURE,
+            decompose_by=settings.DECOMPOSE_BY,
         )
 
-        if llm_response_dict:
-            canonical_entities_llm.extend(llm_response_dict)
+        if llm_response:
+            canonical_entities_llm.extend(llm_response)
 
     predictions_llm = map_canonical_entities_NER_preds(
         predictions=paragraphs,

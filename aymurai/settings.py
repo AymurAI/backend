@@ -61,6 +61,22 @@ class Settings(BaseSettings):
 
     LIBREOFFICE_BIN: str = "libreoffice"
 
+    # Disambiguation Config
+
+    # Fuzzy Matching
+    THRESHOLD: int = 70
+    SCORER: str = "token_set_ratio"
+    PROCESSOR: str = "light_normalizer"
+
+    # LLM
+    MODEL: str = "phi4:14b"
+    MODEL_CONTEXT: int = 9500
+    TEMPERATURE: float = 0.0
+    CONTEXT_WINDOW_LENGTH: int | None = 120
+    TOKEN_LIMIT_FRAC: float = 2 / 3
+    TOKENIZER_MODEL: str = "microsoft/phi-4"
+    DECOMPOSE_BY: int | None = None
+
 
 load_env()
 settings = Settings()

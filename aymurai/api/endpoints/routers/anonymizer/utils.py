@@ -260,12 +260,6 @@ def validate_canonical_entities(
 ) -> CanonicalEntities:
     """Validates and filters raw canonical entities for consistency.
 
-    This function performs data integrity checks on any group of Canonical Entities.
-    It ensures that each entity group contains valid data, removes potential
-    duplicates or empty entries, and optionally filters the collection to
-    retain only entities matching a specific label. This step acts as a
-    quality gate before the context enrichment and LLM inference phases.
-
     Args:
         canonical_entities_raw: The collection of entities as initially
             grouped by the pre-clustering algorithm.
@@ -300,12 +294,8 @@ def validate_canonical_entities(
 def _extract_snippet(
     doc_text: str, label: list[DocLabel], window_length: int | None
 ) -> str:
-    """Helper function: Extracts and cleans a text snippet surrounding a specific label.
-
-    Identifies the boundaries of a label within the source text and expands
-    those boundaries by the `window_length`. It ensures the snippet is
-    correctly sliced and cleans any redundant whitespace or formatting
-    to provide a clean string for LLM processing.
+    """
+    Helper function: Extracts and cleans a text snippet surrounding a specific label.
 
     Args:
         doc_text: The raw text of the document or paragraph.
@@ -334,11 +324,8 @@ def _get_entity_context(
     aliases: list[str],
     window_length: int | None,
 ) -> list[str]:
-    """Helper function: Finds all context windows for a specific entity across all predictions.
-
-    Scans the document predictions to locate every occurrence of an entity's
-    aliases. For each match, it triggers the extraction of a text snippet
-    to build a comprehensive view of how the entity is used in the document.
+    """
+    Helper function: Finds all context windows for a specific entity across all predictions.
 
     Args:
         predictions: The document annotations to search within.
@@ -375,12 +362,8 @@ def add_canonical_entities_context(
     context_window_length: int | None = 120,
     target_label: str | None = None,
 ) -> CanonicalEntities:
-    """Orchestrates the context enrichment for canonical entities.
-
-    This function iterates through a collection of canonical entities and
-    populates them with real-world context snippets extracted from the
-    original document text. This enriched context is essential for
-    subsequent LLM-based disambiguation and role assignment.
+    """
+    Orchestrates the context enrichment for canonical entities.
 
     Args:
         predictions: The full document annotations containing the source
@@ -442,12 +425,9 @@ def llm_canonical_entities_inference(
     decompose_by: int | None = 0,
 ) -> CanonicalEntities:
 
-    """Refines pre-clustered entities into canonical forms using LLM inference.
+    """
+    Refines pre-clustered entities into canonical forms using LLM inference.
 
-    This function takes pre-clustered entity groups and leverages a LLM
-    to determine their canonical representations. It enriches the inference
-    process by providing surrounding context for each mention and dynamically
-    calculates optimal batch sizes to fit within the model's context window limits.
 
     Args:
         paragraphs: The full document annotations containing the text and metadata
@@ -571,14 +551,8 @@ def map_canonical_entities_NER_preds(
     canonical_entities: CanonicalEntities,
 ) -> DocumentAnnotations:
 
-    """Syncs LLM-inferred canonical entities with original NER predictions.
-
-    This function updates the DocumentAnnotations structure by mapping the
-    refined entities from the LLM back to their corresponding mentions in
-    the original predictions. It ensures data consistency by assigning a
-    'canonical_entity_id' to every prediction; if a specific mention was
-    not part of an LLM-inferred group, it receives a default identifier
-    based on its original clustering.
+    """
+    Syncs LLM-inferred canonical entities with original NER predictions.
 
     Args:
         predictions: The original list of document annotations and NER
