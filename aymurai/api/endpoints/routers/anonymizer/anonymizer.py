@@ -40,7 +40,7 @@ from aymurai.meta.api_interfaces import (
     TextRequest,
     PromptLibrary,
 )
-from aymurai.meta.entities import CanonicalEntities
+
 from aymurai.settings import settings
 from aymurai.text.anonymization import DocAnonymizer
 from aymurai.text.extraction import MIMETYPE_EXTENSION_MAPPER
