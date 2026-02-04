@@ -65,8 +65,6 @@ class Settings(BaseSettings):
 
     # Fuzzy Matching
     THRESHOLD: int = 70
-    SCORER: str = "token_set_ratio"
-    PROCESSOR: str = "light_normalizer"
 
     # LLM
     MODEL: str = "phi4:14b"

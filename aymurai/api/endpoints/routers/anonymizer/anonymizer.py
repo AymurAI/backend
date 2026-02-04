@@ -13,13 +13,9 @@ from sqlmodel import Session
 from starlette.background import BackgroundTask
 
 from aymurai.api.endpoints.routers.anonymizer.utils import (
-    PROCESSOR_MAP,
-    SCORER_MAP,
     build_canonical_entities,
-    resolve_processor,
-    validate_canonical_entities,
     llm_canonical_entities_inference,
-    map_canonical_entities_NER_preds,
+    map_canonical_entities_ner_preds,
     load_prompts_from_yaml,
 )
 from aymurai.api.utils import load_pipeline
@@ -40,6 +36,7 @@ from aymurai.meta.api_interfaces import (
     TextRequest,
     PromptLibrary,
 )
+from aymurai.meta.entities import CanonicalEntity
 
 from aymurai.settings import settings
 from aymurai.text.anonymization import DocAnonymizer
@@ -166,19 +163,6 @@ async def anonymizer_disambiguate(
             'canonical_entity_id' and 'role' fields for each resolved mention.
     """
 
-    scorer_fn = SCORER_MAP.get(settings.SCORER.lower())
-    # if scorer_fn is None:
-    #     raise HTTPException(status_code=400, detail=f"Unsupported scorer: {settings.SCORER}")
-
-    # if settings.PROCESSOR.lower() not in PROCESSOR_MAP:
-    #     raise HTTPException(
-    #         status_code=400, detail=f"Unsupported processor: {settings.PROCESSOR}"
-    #     )
-    processor_fn = resolve_processor(settings.PROCESSOR)
-
-    # if not settings.TOKENIZER_MODEL:
-    #     raise HTTPException(status_code=400, detail="Tokenizer model cannot be empty.")
-
     labels = [label for paragraph in paragraphs for label in (paragraph.labels or [])]
 
     prompt_library = load_prompts_from_yaml()
@@ -191,17 +175,15 @@ async def anonymizer_disambiguate(
         labels,
         target_labels=set(labels_to_process),
         threshold=settings.THRESHOLD,
-        scorer=scorer_fn,
-        processor=processor_fn,
     )
 
     # --- FUZZYREGEX ONLY MODE ---
     if mode == "fuzzyregex":
-        canonical_entities_val = validate_canonical_entities(
-            canonical_entities_raw=canonical_entities
-        )
+        canonical_entities_val = [
+            CanonicalEntity.model_validate(e) for e in canonical_entities
+        ]
 
-        predictions_fuzzy = map_canonical_entities_NER_preds(
+        predictions_fuzzy = map_canonical_entities_ner_preds(
             predictions=paragraphs,
             canonical_entities=canonical_entities_val,
         )
@@ -221,9 +203,11 @@ async def anonymizer_disambiguate(
         ):
             continue
 
-        entities_for_this_label = validate_canonical_entities(
-            canonical_entities_raw=canonical_entities, target_label=label
-        )
+        entities_for_this_label = [
+            CanonicalEntity.model_validate(e)
+            for e in canonical_entities
+            if e.aymurai_label == label
+        ]
 
         if not entities_for_this_label:
             continue
@@ -246,7 +230,7 @@ async def anonymizer_disambiguate(
         if llm_response:
             canonical_entities_llm.extend(llm_response)
 
-    predictions_llm = map_canonical_entities_NER_preds(
+    predictions_llm = map_canonical_entities_ner_preds(
         predictions=paragraphs,
         canonical_entities=canonical_entities_llm,
     )

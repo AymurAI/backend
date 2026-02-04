@@ -1,26 +1,18 @@
 import re
 import unicodedata
 from collections import Counter
-from typing import Callable, Iterable
+from typing import Iterable
 import copy
 import json
 import uuid
-import yaml
 from functools import lru_cache
 from pathlib import Path
+from more_itertools import unique_everseen
 
 from transformers import AutoTokenizer
 
 from rapidfuzz import process
-from rapidfuzz.fuzz import (
-    WRatio,
-    partial_ratio,
-    partial_token_set_ratio,
-    partial_token_sort_ratio,
-    ratio,
-    token_set_ratio,
-    token_sort_ratio,
-)
+from rapidfuzz.fuzz import token_set_ratio
 
 from aymurai.meta.api_interfaces import (
     DocLabel,
@@ -30,97 +22,23 @@ from aymurai.meta.api_interfaces import (
 )
 from aymurai.meta.entities import CanonicalEntities, CanonicalEntity
 from aymurai.utils.json_data import get_pretty
+from aymurai.utils.yaml_data import load_yaml
 from aymurai.llm_providers import OllamaLLMProvider
+from aymurai.settings import settings
 
 
 __all__ = [
-    "SCORER_MAP",
-    "PROCESSOR_MAP",
     "build_canonical_entities",
-    "resolve_processor",
-    "validate_canonical_entities",
     "llm_canonical_entities_inference",
-    "map_canonical_entities_NER_preds",
+    "map_canonical_entities_ner_preds",
     "load_prompts_from_yaml",
 ]
 
-SCORER_MAP = {
-    "ratio": ratio,
-    "partial_ratio": partial_ratio,
-    "token_sort_ratio": token_sort_ratio,
-    "token_set_ratio": token_set_ratio,
-    "partial_token_set_ratio": partial_token_set_ratio,
-    "partial_token_sort_ratio": partial_token_sort_ratio,
-    "wratio": WRatio,
-}
 
-PROCESSOR_MAP = {
-    "none": None,
-    "light_normalizer": "light_normalizer",
-    "hard_normalizer": "hard_normalizer",
-    "legal_text_normalizer": "legal_text_normalizer",
-}
-
-
-def hard_normalizer(text: str) -> str:
-    if not text:
-        return ""
-
-    normalized = "".join(
-        char
-        for char in unicodedata.normalize("NFD", text)
-        if unicodedata.category(char) != "Mn"
-    )
-    normalized = re.sub(r"[.,\-]", " ", normalized)
-    normalized = " ".join(normalized.lower().split())
-    return normalized
-
-
-def light_normalizer(text: str) -> str:
-    return text.lower().strip() if text else ""
-
-
-def legal_text_normalizer(text: str) -> str:
-    if not text:
-        return ""
-
-    normalized = "".join(
-        char
-        for char in unicodedata.normalize("NFD", text)
-        if unicodedata.category(char) != "Mn"
-    )
-    normalized = normalized.lower()
-
-    legal_titles = r"\b(dr|dra|sr|sra|expte|nro|no|pcia)\b\.?"
-    normalized = re.sub(legal_titles, "", normalized)
-
-    stopwords = r"\b(de|del|la|las|el|los|y|en)\b"
-    normalized = re.sub(stopwords, "", normalized)
-    normalized = re.sub(r"[^\w\s]", "", normalized)
-
-    return " ".join(normalized.split())
-
-
-def resolve_processor(name: str) -> Callable[[str], str] | None:
-    key = name.lower()
-    mapped = PROCESSOR_MAP.get(key)
-    if mapped is None:
-        return None
-    if mapped == "light_normalizer":
-        return light_normalizer
-    if mapped == "hard_normalizer":
-        return hard_normalizer
-    if mapped == "legal_text_normalizer":
-        return legal_text_normalizer
-    return None
-
-
-def cluster_with_cdist(
+def _cluster_with_cdist(
     *,
     items: list[dict[str, str]],
     threshold: int,
-    scorer: Callable[[str, str], float],
-    processor: Callable[[str], str] | None,
 ) -> list[list[tuple[str, str, str]]]:
     if not items:
         return []
@@ -128,23 +46,20 @@ def cluster_with_cdist(
     entities = [item.get("text", "") for item in items]
     labels = [item.get("aymurai_label", "UNKNOWN") for item in items]
 
-    if processor:
-        normed = [processor(entity) for entity in entities]
-    else:
-        normed = [str(entity) for entity in entities]
+    normed = [str(e).lower().strip() if e else "" for e in entities]
 
-    sim = process.cdist(normed, normed, scorer=scorer, score_cutoff=threshold)
+    sim = process.cdist(normed, normed, scorer=token_set_ratio, score_cutoff=threshold)
 
     parent = list(range(len(normed)))
 
-    def find(idx: int) -> int:
+    def _find(idx: int) -> int:
         if parent[idx] == idx:
             return idx
-        parent[idx] = find(parent[idx])
+        parent[idx] = _find(parent[idx])
         return parent[idx]
 
-    def union(left: int, right: int) -> None:
-        root_left, root_right = find(left), find(right)
+    def _union(left: int, right: int) -> None:
+        root_left, root_right = _find(left), _find(right)
         if root_left != root_right:
             parent[root_right] = root_left
 
@@ -152,11 +67,11 @@ def cluster_with_cdist(
     for i in range(n):
         for j in range(i + 1, n):
             if sim[i][j] >= threshold:
-                union(i, j)
+                _union(i, j)
 
     clusters_map: dict[int, list[tuple[str, str, str]]] = {}
     for idx in range(n):
-        root = find(idx)
+        root = _find(idx)
         clusters_map.setdefault(root, []).append(
             (entities[idx], normed[idx], labels[idx])
         )
@@ -164,17 +79,17 @@ def cluster_with_cdist(
     return list(clusters_map.values())
 
 
-def parse_item(item: tuple[str, str, str]) -> tuple[str, str, str]:
+def _parse_item(item: tuple[str, str, str]) -> tuple[str, str, str]:
     orig, norm, label = item
     return label, orig, norm
 
 
-def pick_cluster_label(parsed_items: list[tuple[str, str, str]]) -> str:
+def _pick_cluster_label(parsed_items: list[tuple[str, str, str]]) -> str:
     labels = [label for label, _, _ in parsed_items]
     return Counter(labels).most_common(1)[0][0]
 
 
-def pick_canonical_text(parsed_items: list[tuple[str, str, str]]) -> str:
+def _pick_canonical_text(parsed_items: list[tuple[str, str, str]]) -> str:
     return max(parsed_items, key=lambda item: len(item[1]))[1]
 
 
@@ -183,9 +98,9 @@ def clusters_to_canonical_entities(
 ) -> list[CanonicalEntity]:
     canonical_entities = []
     for cluster in clusters:
-        parsed = [parse_item(item) for item in cluster]
-        label = pick_cluster_label(parsed)
-        canonical_text = pick_canonical_text(parsed)
+        parsed = [_parse_item(item) for item in cluster]
+        label = _pick_cluster_label(parsed)
+        canonical_text = _pick_canonical_text(parsed)
         aliases = sorted({orig for _, orig, _ in parsed})
         canonical_entities.append(
             CanonicalEntity(
@@ -204,8 +119,6 @@ def build_canonical_entities(
     *,
     target_labels: set[str] | None = None,
     threshold: int,
-    scorer: Callable[[str, str], float],
-    processor: Callable[[str], str] | None,
 ) -> list[CanonicalEntity]:
     grouped: dict[str, list[dict[str, str]]] = {}
     for label in labels:
@@ -221,11 +134,9 @@ def build_canonical_entities(
 
     canonical_entities = []
     for items in grouped.values():
-        clusters = cluster_with_cdist(
+        clusters = _cluster_with_cdist(
             items=items,
             threshold=threshold,
-            scorer=scorer,
-            processor=processor,
         )
         canonical_entities.extend(clusters_to_canonical_entities(clusters))
 
@@ -236,12 +147,8 @@ def build_canonical_entities(
 
 @lru_cache(maxsize=1)
 def load_prompts_from_yaml():
-    path = Path(__file__).parent / "prompt_templates.yaml"
-    if not path.exists():
-        return PromptLibrary(root=[])
-
-    with open(path, "r", encoding="utf-8") as f:
-        data = yaml.safe_load(f)
+    path = Path(settings.RESOURCES_BASEPATH) / "llm/entity_disambiguation.yaml"
+    data = load_yaml(file_path=str(path))
 
     prompts = []
     for label, content in data.items():
@@ -253,42 +160,6 @@ def load_prompts_from_yaml():
             )
         )
     return PromptLibrary(root=prompts)
-
-
-def validate_canonical_entities(
-    canonical_entities_raw: CanonicalEntities, target_label: str | None = None
-) -> CanonicalEntities:
-    """Validates and filters raw canonical entities for consistency.
-
-    Args:
-        canonical_entities_raw: The collection of entities as initially
-            grouped by the pre-clustering algorithm.
-        target_label: Optional target label (e.g., 'PER') to filter the
-            results. If provided, only entities of this type will be
-            returned.
-
-    Returns:
-        CanonicalEntities: A cleaned and validated collection of entities,
-            ready for context assignment and further processing.
-    """
-
-    if target_label:
-        entities = [
-            e for e in canonical_entities_raw if e.aymurai_label == target_label
-        ]
-    else:
-        entities = canonical_entities_raw
-
-    validated_entities = []
-
-    for entity in entities:
-        obj = CanonicalEntity.model_validate(entity)
-        if obj.entity_id is None:
-            obj.entity_id = uuid.uuid4()
-
-        validated_entities.append(obj)
-
-    return validated_entities
 
 
 def _extract_snippet(
@@ -323,6 +194,7 @@ def _get_entity_context(
     entity_label: str,
     aliases: list[str],
     window_length: int | None,
+    max_context_snippets: int | None = 5,
 ) -> list[str]:
     """
     Helper function: Finds all context windows for a specific entity across all predictions.
@@ -337,7 +209,10 @@ def _get_entity_context(
         list[str]: A list of unique text snippets providing context for the entity.
     """
 
-    context_windows = set()
+    alias_to_snippets = {alias: [] for alias in aliases}
+    all_snippets_deduped = []
+
+    # context_windows = set()
 
     for pred in predictions:
         if not pred.labels:
@@ -347,13 +222,41 @@ def _get_entity_context(
         for label in pred.labels:
             if entity_label and label.attrs.aymurai_label != entity_label:
                 continue
-            if label.attrs.aymurai_alt_text not in aliases:
+
+            alias = label.attrs.aymurai_alt_text
+            if alias not in aliases:
                 continue
 
             snippet = _extract_snippet(doc_text, label, window_length)
-            context_windows.add(snippet)
 
-    return list(context_windows)
+            if snippet not in alias_to_snippets[alias]:
+                alias_to_snippets[alias].append(snippet)
+
+            if snippet not in all_snippets_deduped:
+                all_snippets_deduped.append(snippet)
+
+    baseline = []
+    for alias in aliases:
+        snippets = alias_to_snippets.get(alias, [])
+        if snippets:
+            baseline.append(snippets[0])
+
+    baseline = list(unique_everseen(baseline))
+
+    remaining = [s for s in all_snippets_deduped if s not in baseline]
+
+    merged = baseline + remaining
+
+    effective_limit = (
+        None
+        if max_context_snippets is None
+        else max(max_context_snippets, len(baseline))
+    )
+
+    if effective_limit is not None:
+        return merged[:effective_limit]
+    else:
+        return merged
 
 
 def add_canonical_entities_context(
@@ -361,6 +264,7 @@ def add_canonical_entities_context(
     entities: CanonicalEntities,
     context_window_length: int | None = 120,
     target_label: str | None = None,
+    max_snippets_per_entity: int | None = 5,
 ) -> CanonicalEntities:
     """
     Orchestrates the context enrichment for canonical entities.
@@ -383,31 +287,71 @@ def add_canonical_entities_context(
     entities_with_context = copy.deepcopy(entities)
 
     for entity in entities_with_context:
-        # NOTE: Ensure attributes and context are initialized
         if entity.attributes is None:
             entity.attributes = {}
 
         current_target = target_label or entity.aymurai_label
 
-        # NOTE: Extracted logic to find context
         entity.attributes["context"] = _get_entity_context(
-            predictions, current_target, list(entity.aliases), context_window_length
+            predictions,
+            current_target,
+            list(entity.aliases),
+            context_window_length,
+            max_snippets_per_entity,
         )
 
     return entities_with_context
 
 
-def get_model_tokens(system_prompt: str, user_prompt: str, tokenizer_model: str) -> int:
+_TOKENIZER_CACHE = {}
 
-    tokenizer = AutoTokenizer.from_pretrained(tokenizer_model)
-    messages = [
-        {"role": "system", "content": system_prompt},
-        {"role": "user", "content": user_prompt},
-    ]
-    full_text = tokenizer.apply_chat_template(messages, tokenize=False)
-    tokens = tokenizer.encode(full_text)
 
-    return len(tokens)
+def _get_model_tokens(
+    system_prompt: str, user_prompt: str, tokenizer_model: str
+) -> int:
+    """Calculates the number of tokens using a HuggingFace tokenizer.
+
+    Args:
+        system_prompt: The instruction text for the system role.
+        user_prompt: The input text from the user.
+        tokenizer_model: The HuggingFace identifier or local path of the
+            tokenizer to use (e.g., 'microsoft/phi-4').
+
+    Returns:
+        The total number of tokens after applying the chat template.
+
+    Note:
+        This is an approximation. Since the model is running on Ollama, the
+        internal tokenizer or template processing might differ slightly from
+        the HuggingFace AutoTokenizer implementation. This serves as a
+        high-fidelity heuristic for batch sizing and context management.
+    """
+    try:
+        if tokenizer_model not in _TOKENIZER_CACHE:
+            _TOKENIZER_CACHE[tokenizer_model] = AutoTokenizer.from_pretrained(
+                tokenizer_model
+            )
+
+        tokenizer = _TOKENIZER_CACHE[tokenizer_model]
+
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ]
+
+        full_text = tokenizer.apply_chat_template(messages, tokenize=False)
+        tokens = tokenizer.encode(full_text)
+
+        return len(tokens)
+
+    except Exception:
+        # Fallback: simple word count approximation (one word ~ 1.4 tokens)
+        combined_text = f"{system_prompt} {user_prompt}"
+        word_count = len(combined_text.split())
+
+        approx_tokens = int(word_count * 1.4) + 20
+
+        return approx_tokens
 
 
 def llm_canonical_entities_inference(
@@ -483,7 +427,7 @@ def llm_canonical_entities_inference(
                 canonical_entities=get_pretty(test_batch)
             )
 
-            num_tokens = get_model_tokens(
+            num_tokens = _get_model_tokens(
                 system_prompt=system_prompt,
                 user_prompt=test_prompt,
                 tokenizer_model=tokenizer_model,
@@ -517,7 +461,7 @@ def llm_canonical_entities_inference(
 
         all_user_prompts.append(user_prompt)
 
-        len_tokens = get_model_tokens(
+        len_tokens = _get_model_tokens(
             system_prompt=system_prompt,
             user_prompt=user_prompt,
             tokenizer_model=tokenizer_model,
@@ -539,14 +483,14 @@ def llm_canonical_entities_inference(
         batch_entities = json.loads(response.text).get("canonical_entities", [])
         all_raw_outputs.extend(batch_entities)
 
-    canonical_entities_llm = validate_canonical_entities(
-        canonical_entities_raw=all_raw_outputs
-    )
+    canonical_entities_llm = [
+        CanonicalEntity.model_validate(e) for e in all_raw_outputs
+    ]
 
     return canonical_entities_llm
 
 
-def map_canonical_entities_NER_preds(
+def map_canonical_entities_ner_preds(
     predictions: DocumentAnnotations,
     canonical_entities: CanonicalEntities,
 ) -> DocumentAnnotations:
