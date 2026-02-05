@@ -204,6 +204,8 @@ def _get_entity_context(
         entity_label: The NER label category (e.g., 'PER').
         aliases: A list of name variants or strings associated with the entity.
         window_length: The size of the text window to extract around each match.
+        max_context_snippets: The maximum number of total snippets to return.
+            Defaults to 5. If None, returns all found snippets.
 
     Returns:
         list[str]: A list of unique text snippets providing context for the entity.
@@ -211,8 +213,6 @@ def _get_entity_context(
 
     alias_to_snippets = {alias: [] for alias in aliases}
     all_snippets_deduped = []
-
-    # context_windows = set()
 
     for pred in predictions:
         if not pred.labels:
