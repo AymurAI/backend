@@ -36,6 +36,16 @@ class EntityAttributes(BaseModel):
         None,
         description="Label instance index assigned by order of appearance (e.g., 1, 2, 3).",
     )
+    aymurai_disambiguation: str | None = Field(
+        None,
+        description=(
+            "Override disambiguation mode for this entity (none, fuzzy, llm)."
+        ),
+    )
+    aymurai_anonymize: bool | None = Field(
+        None,
+        description="Whether this entity should be anonymized in output.",
+    )
     canonical_entity_id: UUID | None = Field(
         None, description="Reference to the canonical entity ID"
     )

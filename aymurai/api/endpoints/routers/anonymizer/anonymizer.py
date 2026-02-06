@@ -3,7 +3,6 @@ import os
 import subprocess
 import tempfile
 from threading import Lock
-from typing import Literal
 
 import torch
 from fastapi import Body, Depends, Form, Query, UploadFile
@@ -27,6 +26,7 @@ from aymurai.meta.api_interfaces import (
     DocLabel,
     DocumentAnnotations,
     DocumentInformation,
+    LabelPolicy,
     PromptLibrary,
     TextRequest,
 )
@@ -50,6 +50,70 @@ pipeline_lock = Lock()
 
 
 router = APIRouter()
+
+
+def _merge_label_policies(
+    request_policies: dict[str, LabelPolicy] | None,
+) -> dict[str, LabelPolicy]:
+    """
+    Merges label policies from settings and request, with request policies taking precedence.
+
+    Args:
+        request_policies (dict[str, LabelPolicy] | None): Per-label policies provided in the request body.
+
+    Returns:
+        dict[str, LabelPolicy]: Effective per-label policies after merging settings and request policies.
+    """
+    policies: dict[str, LabelPolicy] = {}
+
+    if settings.DISAMBIGUATION_LABEL_POLICIES:
+        for label, policy in settings.DISAMBIGUATION_LABEL_POLICIES.items():
+            incoming = LabelPolicy.model_validate(policy)
+            current = policies.get(label, LabelPolicy())
+            if incoming.disambiguation is not None:
+                current.disambiguation = incoming.disambiguation
+            if incoming.anonymize is not None:
+                current.anonymize = incoming.anonymize
+            policies[label] = current
+
+    if request_policies:
+        for label, policy in request_policies.items():
+            incoming = LabelPolicy.model_validate(policy)
+            current = policies.get(label, LabelPolicy())
+            if incoming.disambiguation is not None:
+                current.disambiguation = incoming.disambiguation
+            if incoming.anonymize is not None:
+                current.anonymize = incoming.anonymize
+            policies[label] = current
+
+    return policies
+
+
+def _should_anonymize_label(
+    label: DocLabel,
+    label_policies: dict[str, LabelPolicy],
+) -> bool:
+    """
+    Determines whether a given label should be anonymized based on its attributes and the effective label policies.
+
+    Args:
+        label (DocLabel): The document label to evaluate for anonymization.
+        label_policies (dict[str, LabelPolicy]): Effective per-label policies that may override default anonymization behavior.
+
+    Returns:
+        bool: True if the label should be anonymized, False otherwise.
+    """
+    if label.attrs and label.attrs.aymurai_anonymize is not None:
+        return bool(label.attrs.aymurai_anonymize)
+
+    policy = label_policies.get(label.attrs.aymurai_label) if label.attrs else None
+    if policy is None:
+        return True
+
+    if policy.anonymize is None:
+        return True
+
+    return bool(policy.anonymize)
 
 
 # MARK: Predict
@@ -128,6 +192,13 @@ async def anonymizer_disambiguate(
             "Set of prompts, user and system, for each label if it is provided."
         ),
     ),
+    label_policies: dict[str, LabelPolicy]
+    | None = Body(
+        None,
+        description=(
+            "Optional per-label policy overrides for disambiguation/anonymization."
+        ),
+    ),
     target_labels: list[str]
     | None = Query(
         None,
@@ -135,10 +206,6 @@ async def anonymizer_disambiguate(
             "Optional label filter for LLM refinement (e.g., PER,DNI). "
             "Fuzzy clustering still runs across all detected labels."
         ),
-    ),
-    mode: Literal["fuzzyregex", "llm"] = Query(
-        "llm",
-        description="Disambiguation mode: 'fuzzyregex' for fast clustering, 'llm' for AI refinement.",
     ),
     session: Session = Depends(get_session),
 ) -> DocumentAnnotations:
@@ -151,24 +218,21 @@ async def anonymizer_disambiguate(
         custom_prompts: A PromptLibrary object containing optional system and
             user prompts. If not provided, the service uses the default prompts
             configured in the environment.
+        label_policies: Optional per-label disambiguation/anonymization policies.
         target_labels: An optional list of entity labels to refine via LLM
             (e.g., ["PER", "DNI"]). Fuzzy clustering still runs across all
             detected labels.
-        mode: The operational mode for the endpoint. 'fuzzyregex' performs
-            fast, distance-based clustering only, while 'llm' includes
-            high-fidelity AI refinement and role curation.
-
     Returns:
         DocumentAnnotations: The original annotations enriched with
             'canonical_entity_id' and 'role' fields for each resolved mention.
     """
     logger.info(
-        "disambiguation start: mode=%s paragraphs=%d",
-        mode,
+        "disambiguation start: paragraphs=%d",
         len(paragraphs),
     )
 
     labels = [label for paragraph in paragraphs for label in (paragraph.labels or [])]
+    effective_policies = _merge_label_policies(label_policies)
     logger.info("disambiguation labels: %d", len(labels))
 
     prompt_library = load_prompts_from_yaml()
@@ -179,46 +243,59 @@ async def anonymizer_disambiguate(
         if label.attrs and label.attrs.aymurai_label
     }
 
-    llm_labels = target_labels if target_labels else list(prompt_library.as_dict.keys())
-    llm_labels = [label for label in llm_labels if label in all_detected_labels]
+    default_llm_labels = (
+        target_labels if target_labels else list(prompt_library.as_dict.keys())
+    )
+
+    llm_labels: list[str] = []
+    fuzzy_labels: set[str] = set()
+
+    for label in all_detected_labels:
+        policy = effective_policies.get(label)
+        if policy and policy.disambiguation == "llm":
+            llm_labels.append(label)
+            fuzzy_labels.add(label)
+            continue
+        if policy and policy.disambiguation == "fuzzy":
+            fuzzy_labels.add(label)
+            continue
+        if policy and policy.disambiguation == "none":
+            continue
+
+        if label in default_llm_labels:
+            llm_labels.append(label)
+            fuzzy_labels.add(label)
+        else:
+            fuzzy_labels.add(label)
+
+    effective_disambiguation_by_label: dict[str, str] = {}
+    for label in all_detected_labels:
+        if label in llm_labels:
+            effective_disambiguation_by_label[label] = "llm"
+        elif label in fuzzy_labels:
+            effective_disambiguation_by_label[label] = "fuzzy"
+        else:
+            effective_disambiguation_by_label[label] = "none"
     logger.info(
         "disambiguation targets: detected=%s llm=%s",
         sorted(all_detected_labels),
         llm_labels,
     )
 
-    canonical_entities = build_canonical_entities(
-        labels,
-        target_labels=all_detected_labels if all_detected_labels else None,
-        threshold=settings.THRESHOLD,
+    canonical_entities = (
+        build_canonical_entities(
+            labels,
+            target_labels=fuzzy_labels if fuzzy_labels else None,
+            threshold=settings.THRESHOLD,
+        )
+        if fuzzy_labels
+        else []
     )
     logger.info(
         "fuzzy clustering produced %d canonical entities", len(canonical_entities)
     )
 
-    # --- FUZZYREGEX ONLY MODE ---
-    if mode == "fuzzyregex":
-        predictions_fuzzy = map_canonical_entities_ner_preds(
-            predictions=paragraphs,
-            canonical_entities=canonical_entities,
-        )
-
-        paragraph_updates = [
-            AnonymizationParagraphCreate(
-                text=paragraph.document,
-                prediction=paragraph.labels or [],
-            )
-            for paragraph in predictions_fuzzy
-        ]
-        anonymization_paragraph_batch_create_update(paragraph_updates, session=session)
-        logger.info(
-            "disambiguation persisted predictions (fuzzy) for %d paragraphs",
-            len(paragraph_updates),
-        )
-
-        return DocumentAnnotations(data=predictions_fuzzy)
-
-    # --- LLM REFINEMENT MODE ---
+    # --- LLM REFINEMENT (policy-driven) ---
     canonical_entities_llm = []
 
     for label in llm_labels:
@@ -279,25 +356,45 @@ async def anonymizer_disambiguate(
         len(canonical_entities_merged),
     )
 
-    predictions_llm = map_canonical_entities_ner_preds(
+    predictions = map_canonical_entities_ner_preds(
         predictions=paragraphs,
         canonical_entities=canonical_entities_merged,
+        force_labels=set(llm_labels),
     )
+
+    for document in predictions:
+        for label in document.labels or []:
+            if label.attrs.aymurai_disambiguation is None:
+                label.attrs.aymurai_disambiguation = (
+                    effective_disambiguation_by_label.get(
+                        label.attrs.aymurai_label, "fuzzy"
+                    )
+                )
+
+            if label.attrs.aymurai_anonymize is None:
+                policy = effective_policies.get(label.attrs.aymurai_label)
+                if policy and policy.anonymize is not None:
+                    label.attrs.aymurai_anonymize = policy.anonymize
+                else:
+                    label.attrs.aymurai_anonymize = True
 
     paragraph_updates = [
         AnonymizationParagraphCreate(
             text=paragraph.document,
             prediction=paragraph.labels or [],
         )
-        for paragraph in predictions_llm
+        for paragraph in predictions
     ]
     anonymization_paragraph_batch_create_update(paragraph_updates, session=session)
     logger.info(
-        "disambiguation persisted predictions (llm) for %d paragraphs",
+        "disambiguation persisted predictions for %d paragraphs",
         len(paragraph_updates),
     )
 
-    return DocumentAnnotations(data=predictions_llm)
+    return DocumentAnnotations(
+        data=predictions,
+        label_policies=effective_policies if effective_policies else None,
+    )
 
 
 # MARK: Validate
@@ -372,6 +469,7 @@ async def anonymizer_compile_document(
     annots_json = json.loads(annotations)
     annots = DocumentAnnotations.model_validate(annots_json)
     logger.info(f"processing annotations => {annots}")
+    effective_policies = _merge_label_policies(annots.label_policies)
 
     # Add paragraphs to the database
     # validation MUST be at least an empty list, to remember user feedback
@@ -397,11 +495,28 @@ async def anonymizer_compile_document(
     # Anonymize the document
     doc_anonymizer = DocAnonymizer()
 
+    filtered_annotations = []
+    for paragraph in annots.data:
+        filtered_labels = [
+            label
+            for label in (paragraph.labels or [])
+            if _should_anonymize_label(label, effective_policies)
+        ]
+        filtered_annotations.append(
+            DocumentInformation(
+                document=paragraph.document,
+                labels=filtered_labels,
+            )
+        )
+
     if suffix == ".docx":
         item = {"path": tmp_filename}
         doc_anonymizer(
             item,
-            [document_information.model_dump() for document_information in annots.data],
+            [
+                document_information.model_dump()
+                for document_information in filtered_annotations
+            ],
             tmp_dir,
         )
         logger.info(f"saved temp file on local storage => {tmp_filename}")
@@ -412,7 +527,7 @@ async def anonymizer_compile_document(
             doc_anonymizer.replace_labels_in_text(document_information.model_dump())
             .replace("&lt;", "<")
             .replace("&gt;", ">")
-            for document_information in annots.data
+            for document_information in filtered_annotations
         ]
         with open(tmp_filename, "w") as f:
             f.write("\n".join(anonymized_doc))

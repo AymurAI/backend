@@ -50,6 +50,7 @@ def map_canonical_entities_ner_preds(
     canonical_entities: CanonicalEntities,
     *,
     include_label_instances: bool = True,
+    force_labels: set[str] | None = None,
 ) -> DocumentAnnotations:
     """
     Applies canonical entity IDs and roles back onto NER predictions.
@@ -59,12 +60,15 @@ def map_canonical_entities_ner_preds(
         canonical_entities (CanonicalEntities): Canonical entities with IDs/roles.
         include_label_instances (bool): Whether to assign ordered label instance
             indices (e.g., 1, 2). Defaults to True.
+        force_labels (set[str] | None): Labels to remap even if a canonical ID
+            already exists.
 
     Returns:
         DocumentAnnotations: Updated predictions with canonical IDs, roles, and
             optionally `aymurai_label_instance`.
     """
     predictions_mapped = copy.deepcopy(predictions)
+    force_labels = force_labels or set()
 
     new_ids_map = {}
 
@@ -73,6 +77,17 @@ def map_canonical_entities_ner_preds(
             continue
 
         for label in document.labels:
+            if not label.attrs:
+                continue
+
+            if label.attrs.aymurai_label_subclass is None:
+                label.attrs.aymurai_label_subclass = []
+
+            force_remap = label.attrs.aymurai_label in force_labels
+            if force_remap:
+                label.attrs.canonical_entity_id = None
+                label.attrs.aymurai_label_subclass = []
+
             if (
                 label.attrs.canonical_entity_id is None
                 and len(label.attrs.aymurai_label_subclass) == 0
@@ -85,7 +100,11 @@ def map_canonical_entities_ner_preds(
                         aliases = ce.aliases
 
                         clean_aliases = [str(a).strip().lower() for a in aliases]
-                        label_text = str(label.attrs.aymurai_alt_text).strip().lower()
+                        label_text = (
+                            str(label.attrs.aymurai_alt_text or label.text)
+                            .strip()
+                            .lower()
+                        )
 
                         if label_text in clean_aliases:
                             label.attrs.canonical_entity_id = entity_id

@@ -1,3 +1,4 @@
+import json
 import os
 from pathlib import Path
 
@@ -74,6 +75,18 @@ class Settings(BaseSettings):
     TOKEN_LIMIT_FRAC: float = 2 / 3
     TOKENIZER_MODEL: str = "microsoft/phi-4"
     DECOMPOSE_BY: int | None = None
+
+    # Label policies (JSON dict: label -> {disambiguation, anonymize})
+    DISAMBIGUATION_LABEL_POLICIES: dict | None = None
+
+    @field_validator("DISAMBIGUATION_LABEL_POLICIES", mode="before")
+    @classmethod
+    def parse_label_policies(cls, v):
+        if v is None or v == "":
+            return None
+        if isinstance(v, str):
+            return json.loads(v)
+        return v
 
 
 load_env()

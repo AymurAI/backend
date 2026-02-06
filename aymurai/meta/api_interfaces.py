@@ -1,6 +1,7 @@
 import uuid
 
 from pydantic import UUID5, BaseModel, Field, RootModel
+from typing import Literal
 
 from aymurai.meta.entities import EntityAttributes
 
@@ -44,10 +45,18 @@ class DocumentInformation(BaseModel):
     labels: list[DocLabel] = Field(default_factory=list)
 
 
+class LabelPolicy(BaseModel):
+    """Per-label policy for disambiguation and anonymization."""
+
+    disambiguation: Literal["none", "fuzzy", "llm"] | None = None
+    anonymize: bool | None = None
+
+
 class DocumentAnnotations(BaseModel):
     """Datatype for document annotations"""
 
     data: list[DocumentInformation]
+    label_policies: dict[str, LabelPolicy] | None = None
 
 
 class DataPublicDocumentAnnotations(RootModel):
