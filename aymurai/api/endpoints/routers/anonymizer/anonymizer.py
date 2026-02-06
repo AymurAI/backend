@@ -6,18 +6,12 @@ from threading import Lock
 from typing import Literal
 
 import torch
-from fastapi import Body, Depends, Form, HTTPException, Query, UploadFile
+from fastapi import Body, Depends, Form, Query, UploadFile
 from fastapi.responses import FileResponse
 from fastapi.routing import APIRouter
 from sqlmodel import Session
 from starlette.background import BackgroundTask
 
-from aymurai.api.endpoints.routers.anonymizer.utils import (
-    build_canonical_entities,
-    llm_canonical_entities_inference,
-    map_canonical_entities_ner_preds,
-    load_prompts_from_yaml,
-)
 from aymurai.api.utils import load_pipeline
 from aymurai.database.crud.anonymization.document import anonymization_document_create
 from aymurai.database.crud.anonymization.paragraph import (
@@ -25,7 +19,7 @@ from aymurai.database.crud.anonymization.paragraph import (
     anonymization_paragraph_create,
     anonymization_paragraph_read,
 )
-from aymurai.database.schema import AnonymizationParagraph
+from aymurai.database.schema import AnonymizationParagraph, AnonymizationParagraphCreate
 from aymurai.database.session import get_session
 from aymurai.database.utils import data_to_uuid, text_to_uuid
 from aymurai.logger import get_logger
@@ -33,14 +27,18 @@ from aymurai.meta.api_interfaces import (
     DocLabel,
     DocumentAnnotations,
     DocumentInformation,
-    TextRequest,
     PromptLibrary,
+    TextRequest,
 )
-from aymurai.meta.entities import CanonicalEntity
-
 from aymurai.settings import settings
 from aymurai.text.anonymization import DocAnonymizer
 from aymurai.text.extraction import MIMETYPE_EXTENSION_MAPPER
+from aymurai.utils.entity_disambiguation import (
+    build_canonical_entities,
+    llm_canonical_entities_inference,
+    load_prompts_from_yaml,
+    map_canonical_entities_ner_preds,
+)
 from aymurai.utils.misc import get_element
 
 logger = get_logger(__name__)
@@ -107,13 +105,11 @@ async def anonymizer_paragraph_predict(
 
     if use_cache:
         logger.info(f"saving in cache: {paragraph_id}")
-        paragraph = AnonymizationParagraph(
-            id=paragraph_id,
+        paragraph = AnonymizationParagraphCreate(
             text=text,
             prediction=labels,
         )
         paragraph = anonymization_paragraph_create(paragraph, session=session)
-
     return DocumentInformation(document=text, labels=paragraph.prediction)
 
 
@@ -135,12 +131,16 @@ async def anonymizer_disambiguate(
     target_labels: list[str]
     | None = Query(
         None,
-        description="Optional label filter, e.g. PER,DNI.",
+        description=(
+            "Optional label filter for LLM refinement (e.g., PER,DNI). "
+            "Fuzzy clustering still runs across all detected labels."
+        ),
     ),
     mode: Literal["fuzzyregex", "llm"] = Query(
         "llm",
         description="Disambiguation mode: 'fuzzyregex' for fast clustering, 'llm' for AI refinement.",
     ),
+    session: Session = Depends(get_session),
 ) -> DocumentAnnotations:
     """
     Performs canonical entity disambiguation using fuzzy matching and LLM refinement.
@@ -151,9 +151,9 @@ async def anonymizer_disambiguate(
         custom_prompts: A PromptLibrary object containing optional system and
             user prompts. If not provided, the service uses the default prompts
             configured in the environment.
-        target_labels: An optional list of entity labels to filter the
-            disambiguation process (e.g., ["PER", "DNI"]). If None, all
-            detected labels are processed.
+        target_labels: An optional list of entity labels to refine via LLM
+            (e.g., ["PER", "DNI"]). Fuzzy clustering still runs across all
+            detected labels.
         mode: The operational mode for the endpoint. 'fuzzyregex' performs
             fast, distance-based clustering only, while 'llm' includes
             high-fidelity AI refinement and role curation.
@@ -162,30 +162,58 @@ async def anonymizer_disambiguate(
         DocumentAnnotations: The original annotations enriched with
             'canonical_entity_id' and 'role' fields for each resolved mention.
     """
+    logger.info(
+        "disambiguation start: mode=%s paragraphs=%d",
+        mode,
+        len(paragraphs),
+    )
 
     labels = [label for paragraph in paragraphs for label in (paragraph.labels or [])]
+    logger.info("disambiguation labels: %d", len(labels))
 
     prompt_library = load_prompts_from_yaml()
 
-    labels_to_process = (
-        target_labels if target_labels else list(prompt_library.as_dict.keys())
+    all_detected_labels = {
+        label.attrs.aymurai_label
+        for label in labels
+        if label.attrs and label.attrs.aymurai_label
+    }
+
+    llm_labels = target_labels if target_labels else list(prompt_library.as_dict.keys())
+    llm_labels = [label for label in llm_labels if label in all_detected_labels]
+    logger.info(
+        "disambiguation targets: detected=%s llm=%s",
+        sorted(all_detected_labels),
+        llm_labels,
     )
 
     canonical_entities = build_canonical_entities(
         labels,
-        target_labels=set(labels_to_process),
+        target_labels=all_detected_labels if all_detected_labels else None,
         threshold=settings.THRESHOLD,
+    )
+    logger.info(
+        "fuzzy clustering produced %d canonical entities", len(canonical_entities)
     )
 
     # --- FUZZYREGEX ONLY MODE ---
     if mode == "fuzzyregex":
-        canonical_entities_val = [
-            CanonicalEntity.model_validate(e) for e in canonical_entities
-        ]
-
         predictions_fuzzy = map_canonical_entities_ner_preds(
             predictions=paragraphs,
-            canonical_entities=canonical_entities_val,
+            canonical_entities=canonical_entities,
+        )
+
+        paragraph_updates = [
+            AnonymizationParagraphCreate(
+                text=paragraph.document,
+                prediction=paragraph.labels or [],
+            )
+            for paragraph in predictions_fuzzy
+        ]
+        anonymization_paragraph_batch_create_update(paragraph_updates, session=session)
+        logger.info(
+            "disambiguation persisted predictions (fuzzy) for %d paragraphs",
+            len(paragraph_updates),
         )
 
         return DocumentAnnotations(data=predictions_fuzzy)
@@ -193,7 +221,8 @@ async def anonymizer_disambiguate(
     # --- LLM REFINEMENT MODE ---
     canonical_entities_llm = []
 
-    for label in labels_to_process:
+    for label in llm_labels:
+        logger.info("llm refinement: label=%s", label)
         prompt_set = custom_prompts.get(label) or prompt_library.get(label)
 
         if (
@@ -201,16 +230,21 @@ async def anonymizer_disambiguate(
             or not prompt_set.system.strip()
             or not prompt_set.user.strip()
         ):
+            logger.info("llm refinement skipped: missing prompt for label=%s", label)
             continue
 
         entities_for_this_label = [
-            CanonicalEntity.model_validate(e)
-            for e in canonical_entities
-            if e.aymurai_label == label
+            e for e in canonical_entities if e.aymurai_label == label
         ]
 
         if not entities_for_this_label:
+            logger.info("llm refinement skipped: no entities for label=%s", label)
             continue
+        logger.info(
+            "llm refinement input: label=%s entities=%d",
+            label,
+            len(entities_for_this_label),
+        )
 
         llm_response = llm_canonical_entities_inference(
             paragraphs=paragraphs,
@@ -229,10 +263,38 @@ async def anonymizer_disambiguate(
 
         if llm_response:
             canonical_entities_llm.extend(llm_response)
+            logger.info(
+                "llm refinement output: label=%s entities=%d",
+                label,
+                len(llm_response),
+            )
+
+    canonical_entities_merged = canonical_entities_llm + [
+        ce for ce in canonical_entities if ce.aymurai_label not in set(llm_labels)
+    ]
+    logger.info(
+        "disambiguation merge: llm=%d fuzzy_only=%d total=%d",
+        len(canonical_entities_llm),
+        len(canonical_entities_merged) - len(canonical_entities_llm),
+        len(canonical_entities_merged),
+    )
 
     predictions_llm = map_canonical_entities_ner_preds(
         predictions=paragraphs,
-        canonical_entities=canonical_entities_llm,
+        canonical_entities=canonical_entities_merged,
+    )
+
+    paragraph_updates = [
+        AnonymizationParagraphCreate(
+            text=paragraph.document,
+            prediction=paragraph.labels or [],
+        )
+        for paragraph in predictions_llm
+    ]
+    anonymization_paragraph_batch_create_update(paragraph_updates, session=session)
+    logger.info(
+        "disambiguation persisted predictions (llm) for %d paragraphs",
+        len(paragraph_updates),
     )
 
     return DocumentAnnotations(data=predictions_llm)
@@ -314,8 +376,7 @@ async def anonymizer_compile_document(
     # Add paragraphs to the database
     # validation MUST be at least an empty list, to remember user feedback
     paragraphs = [
-        AnonymizationParagraph(
-            id=text_to_uuid(paragraph.document),
+        AnonymizationParagraphCreate(
             text=paragraph.document,
             validation=paragraph.labels or [],
         )
