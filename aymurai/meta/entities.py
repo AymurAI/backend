@@ -32,6 +32,10 @@ class EntityAttributes(BaseModel):
         description="Method used on the prediction label",
     )
     aymurai_score: float | None = Field(None, description="Score for prediction")
+    aymurai_label_instance: int | None = Field(
+        None,
+        description="Label instance index assigned by order of appearance (e.g., 1, 2, 3).",
+    )
     canonical_entity_id: UUID | None = Field(
         None, description="Reference to the canonical entity ID"
     )
