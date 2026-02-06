@@ -9,10 +9,8 @@ from aymurai.database.schema import (
     AnonymizationParagraphUpdate,
 )
 from aymurai.database.utils import text_to_uuid
-from aymurai.logger import get_logger
 from aymurai.meta.api_interfaces import DocLabel
 
-logger = get_logger(__name__)
 
 _DOC_LABELS_ADAPTER = TypeAdapter(list[DocLabel])
 
