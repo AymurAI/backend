@@ -10,7 +10,12 @@ DATES = [
     r"%d/%m/%y",
     r"(?i)%-d de %B del? %Y",
     r"(?i)%-d de %B %Y",
+    r"(?i)%-d %B de %Y",
+    r"(?i)%-d de %B %Y",
+    r"%d-%m-%Y",
+    r"%Y-%m-%d",
 ]
+
 HOURS = [
     r"%H[\.:]%M",
     r"(?i)%-H[\.:]%M horas",
@@ -18,7 +23,7 @@ HOURS = [
 ]
 
 patterns = {
-    "FECHA_RESOLUCION": DATES,
+    "FECHA": DATES,
     "HORA_DE_INICIO": HOURS,
     "HORA_DE_CIERRE": HOURS,
 }

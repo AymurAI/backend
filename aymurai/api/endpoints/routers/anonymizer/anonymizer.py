@@ -38,6 +38,7 @@ from aymurai.utils.entity_disambiguation import (
     llm_canonical_entities_inference,
     load_prompts_from_yaml,
     map_canonical_entities_ner_preds,
+    get_canonical_dates,
 )
 from aymurai.utils.misc import get_element
 
@@ -285,12 +286,17 @@ async def anonymizer_disambiguate(
     canonical_entities = (
         build_canonical_entities(
             labels,
-            target_labels=fuzzy_labels if fuzzy_labels else None,
+            target_labels=[label for label in fuzzy_labels if label != "FECHA"]
+            if fuzzy_labels
+            else None,
             threshold=settings.THRESHOLD,
         )
         if fuzzy_labels
         else []
     )
+
+    canonical_entities += get_canonical_dates(labels=labels)
+
     logger.info(
         "fuzzy clustering produced %d canonical entities", len(canonical_entities)
     )
@@ -364,19 +370,28 @@ async def anonymizer_disambiguate(
 
     for document in predictions:
         for label in document.labels or []:
-            if label.attrs.aymurai_disambiguation is None:
-                label.attrs.aymurai_disambiguation = (
-                    effective_disambiguation_by_label.get(
-                        label.attrs.aymurai_label, "fuzzy"
-                    )
-                )
+            # if label.attrs.aymurai_disambiguation is None:
+            #     label.attrs.aymurai_disambiguation = (
+            #         effective_disambiguation_by_label.get(
+            #             label.attrs.aymurai_label, "fuzzy"
+            #         )
+            #     )
 
-            if label.attrs.aymurai_anonymize is None:
-                policy = effective_policies.get(label.attrs.aymurai_label)
-                if policy and policy.anonymize is not None:
-                    label.attrs.aymurai_anonymize = policy.anonymize
-                else:
-                    label.attrs.aymurai_anonymize = True
+            # if label.attrs.aymurai_anonymize is None:
+            #     policy = effective_policies.get(label.attrs.aymurai_label)
+            #     if policy and policy.anonymize is not None:
+            #         label.attrs.aymurai_anonymize = policy.anonymize
+            #     else:
+            #         label.attrs.aymurai_anonymize = True
+
+            label.attrs.aymurai_disambiguation = effective_disambiguation_by_label.get(
+                label.attrs.aymurai_label, "fuzzy"
+            )
+
+            policy = effective_policies.get(label.attrs.aymurai_label)
+            label.attrs.aymurai_anonymize = (
+                policy.anonymize if policy and policy.anonymize is not None else True
+            )
 
     paragraph_updates = [
         AnonymizationParagraphCreate(

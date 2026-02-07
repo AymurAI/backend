@@ -151,7 +151,6 @@ def _clusters_to_canonical_entities(
                 canonical_text=canonical_text,
                 aliases=aliases,
                 attributes={},
-                relations=[],
             )
         )
     return canonical_entities
