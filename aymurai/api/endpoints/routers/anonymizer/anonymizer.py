@@ -397,7 +397,7 @@ async def anonymizer_disambiguate(
     predictions = map_canonical_entities_ner_preds(
         predictions=paragraphs,
         canonical_entities=canonical_entities_merged,
-        force_labels=set(llm_labels + ["FECHA"]),
+        force_labels=set(llm_labels),
     )
 
     for document in predictions:

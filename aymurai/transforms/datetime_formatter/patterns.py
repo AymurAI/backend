@@ -25,6 +25,7 @@ HOURS = [
 ]
 
 patterns = {
+    "FECHA_RESOLUCION": DATES,
     "FECHA": DATES,
     "HORA_DE_INICIO": HOURS,
     "HORA_DE_CIERRE": HOURS,
