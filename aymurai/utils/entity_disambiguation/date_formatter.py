@@ -2,17 +2,6 @@ from aymurai.transforms.datetime_formatter import DatetimeFormatter
 from aymurai.meta.api_interfaces import DocLabel
 from aymurai.meta.entities import CanonicalEntity
 
-import locale
-
-original_setlocale = locale.setlocale
-locale.setlocale = lambda *args, **kwargs: "C"
-
-try:
-    from aymurai.transforms.datetime_formatter.core import DatetimeFormatter
-except Exception as e:
-    print(f"Error importing DatetimeFormatter: {e}")
-finally:
-    locale.setlocale = original_setlocale
 
 formatter = DatetimeFormatter()
 
@@ -34,16 +23,20 @@ def get_canonical_dates(labels: list[DocLabel]) -> list[CanonicalEntity]:
             else None
         )
 
-        if norm_date not in groups:
-            groups[norm_date] = CanonicalEntity(
+        day_month_key = norm_date[:5] if norm_date is not None else norm_date
+
+        if day_month_key not in groups:
+            groups[day_month_key] = CanonicalEntity(
                 aymurai_label="FECHA",
                 canonical_text=raw_date,
                 aliases=[],
                 attributes={},
             )
-        if norm_date in groups and raw_date not in groups[norm_date].aliases:
-            groups[norm_date].aliases.append(raw_date)
 
-        label.attrs.canonical_entity_id = groups[norm_date].entity_id
+        if day_month_key in groups and raw_date not in groups[day_month_key].aliases:
+            groups[day_month_key].aliases.append(raw_date)
+            groups[day_month_key].attributes["norm_date"] = raw_date
+
+        label.attrs.canonical_entity_id = groups[day_month_key].entity_id
 
     return list(groups.values())

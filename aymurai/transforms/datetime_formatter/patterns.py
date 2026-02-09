@@ -1,7 +1,8 @@
 import locale
 
 # set locale to es_AR to handle month names
-locale.setlocale(locale.LC_ALL, "es_AR.UTF-8")
+# locale.setlocale(locale.LC_ALL, "es_AR.UTF-8")
+locale.setlocale(locale.LC_ALL, "es_ES.UTF-8")
 
 DATES = [
     r"%-d/%-m/%Y",
@@ -14,6 +15,7 @@ DATES = [
     r"(?i)%-d de %B %Y",
     r"%d-%m-%Y",
     r"%Y-%m-%d",
+    r"(?i)%-d de %B",
 ]
 
 HOURS = [
