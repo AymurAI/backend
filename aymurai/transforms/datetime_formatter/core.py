@@ -8,6 +8,8 @@ from aymurai.meta.pipeline_interfaces import Transform
 
 from .patterns import patterns
 
+from aymurai.meta.api_interfaces import DocLabel
+
 
 class DatetimeFormatter(Transform):
     """
@@ -25,7 +27,7 @@ class DatetimeFormatter(Transform):
 
         self.day0 = self.dtm.extract_datetime("%H:%M", "00:00")
 
-    def process(self, ent):
+    def process(self, ent: DocLabel) -> DocLabel:
         """
         parse datetime and format it. If it is a date, format it as dd/mm/yyyy
         if it is a time, format it as hh:mm
@@ -36,13 +38,13 @@ class DatetimeFormatter(Transform):
         Returns:
             dict: processed entity
         """
-        if (label := ent["label"]) not in self.VALID_ENTS:
+        if (label := ent.attrs.aymurai_label) not in self.VALID_ENTS:
             return ent
 
         pats = patterns.get(label, [])
         suggestions = []
         for pat in pats:
-            datetime = self.dtm.extract_datetime(pat, ent["text"])
+            datetime = self.dtm.extract_datetime(pat, ent.text)
             if not datetime:
                 continue
 
@@ -55,7 +57,7 @@ class DatetimeFormatter(Transform):
                 text_repr = datetime.strftime("%d/%m/%Y")
             suggestions.append(text_repr)
 
-        ent["attrs"]["aymurai_label_subclass"] = suggestions
+        ent.attrs.aymurai_label_subclass = suggestions if suggestions else None
 
         return ent
 
