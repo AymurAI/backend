@@ -28,6 +28,7 @@ from aymurai.meta.api_interfaces import (
     DocumentInformation,
     LabelPolicy,
     PromptLibrary,
+    RenderPolicy,
     TextRequest,
 )
 from aymurai.settings import settings
@@ -89,6 +90,122 @@ def _merge_label_policies(
     return policies
 
 
+def _merge_render_policy(
+    request_policy: RenderPolicy | None,
+) -> RenderPolicy:
+    """
+    Merges render policies from settings and request, with request policy taking precedence.
+
+    Args:
+        request_policy (RenderPolicy | None): Render policy from request.
+
+    Returns:
+        RenderPolicy: Effective render policy.
+    """
+    policy = RenderPolicy(
+        use_subclass_when_available=True,
+        fallback_to_label=True,
+        suffix_mode="auto",
+        suffix_threshold=1,
+    )
+
+    def apply(incoming: RenderPolicy) -> None:
+        nonlocal policy
+        if incoming.use_subclass_when_available is not None:
+            policy.use_subclass_when_available = incoming.use_subclass_when_available
+        if incoming.fallback_to_label is not None:
+            policy.fallback_to_label = incoming.fallback_to_label
+        if incoming.suffix_mode is not None:
+            policy.suffix_mode = incoming.suffix_mode
+        if incoming.suffix_threshold is not None:
+            policy.suffix_threshold = incoming.suffix_threshold
+
+    if settings.RENDER_POLICY:
+        apply(RenderPolicy.model_validate(settings.RENDER_POLICY))
+
+    if request_policy:
+        apply(RenderPolicy.model_validate(request_policy))
+
+    return policy
+
+
+def _resolve_token_base(
+    label: DocLabel,
+    render_policy: RenderPolicy,
+) -> str:
+    """
+    Resolves the base token label for rendering.
+
+    Args:
+        label (DocLabel): Label to render.
+        render_policy (RenderPolicy): Render policy rules.
+
+    Returns:
+        str: Base token label (e.g., PER, DENUNCIANTE).
+    """
+    attrs = label.attrs
+    if attrs is None:
+        return label.text
+
+    subclass = None
+    if attrs.aymurai_label_subclass:
+        subclass = attrs.aymurai_label_subclass[0]
+
+    if render_policy.use_subclass_when_available and subclass:
+        return subclass.upper()
+
+    if render_policy.fallback_to_label:
+        return attrs.aymurai_label
+
+    return attrs.aymurai_label
+
+
+def _build_render_context(
+    annotations: list[DocumentInformation],
+    render_policy: RenderPolicy,
+) -> dict:
+    """
+    Builds render context with per-entity indices and counts.
+
+    Args:
+        annotations (list[DocumentInformation]): Document annotations.
+        render_policy (RenderPolicy): Render policy rules.
+
+    Returns:
+        dict: Render context with policy, indices, and counts.
+    """
+    occurrences: list[tuple[int, int, str, str]] = []
+
+    for p_idx, paragraph in enumerate(annotations):
+        for label in paragraph.labels or []:
+            base = _resolve_token_base(label, render_policy)
+            entity_id = (
+                str(label.attrs.canonical_entity_id)
+                if label.attrs and label.attrs.canonical_entity_id
+                else label.text
+            )
+            occurrences.append((p_idx, label.start_char, base, entity_id))
+
+    occurrences.sort(key=lambda item: (item[0], item[1]))
+
+    index_by_entity: dict[tuple[str, str], int] = {}
+    next_index_by_base: dict[str, int] = {}
+
+    for _, _, base, entity_id in occurrences:
+        key = (base, entity_id)
+        if key not in index_by_entity:
+            next_index_by_base[base] = next_index_by_base.get(base, 0) + 1
+            index_by_entity[key] = next_index_by_base[base]
+
+    count_by_base = {base: count for base, count in next_index_by_base.items()}
+
+    return {
+        "policy": render_policy,
+        "index_by_entity": index_by_entity,
+        "count_by_base": count_by_base,
+    }
+
+
 def _should_anonymize_label(
     label: DocLabel,
     label_policies: dict[str, LabelPolicy],
@@ -106,7 +223,11 @@ def _should_anonymize_label(
     if label.attrs and label.attrs.aymurai_anonymize is not None:
         return bool(label.attrs.aymurai_anonymize)
 
-    policy = label_policies.get(label.attrs.aymurai_label) if label.attrs else None
+    policy = (
+        label_policies.get(str(label.attrs.aymurai_label).strip().upper())
+        if label.attrs and label.attrs.aymurai_label
+        else None
+    )
     if policy is None:
         return True
 
@@ -470,6 +591,7 @@ async def anonymizer_compile_document(
     annots = DocumentAnnotations.model_validate(annots_json)
     logger.info(f"processing annotations => {annots}")
     effective_policies = _merge_label_policies(annots.label_policies)
+    effective_render_policy = _merge_render_policy(annots.render_policy)
 
     # Add paragraphs to the database
     # validation MUST be at least an empty list, to remember user feedback
@@ -509,8 +631,13 @@ async def anonymizer_compile_document(
             )
         )
 
+    render_context = _build_render_context(
+        filtered_annotations, effective_render_policy
+    )
+
     if suffix == ".docx":
         item = {"path": tmp_filename}
+        doc_anonymizer.render_context = render_context
         doc_anonymizer(
             item,
             [
@@ -523,6 +650,7 @@ async def anonymizer_compile_document(
 
     else:
         # Export as raw document
+        doc_anonymizer.render_context = render_context
         anonymized_doc = [
             doc_anonymizer.replace_labels_in_text(document_information.model_dump())
             .replace("&lt;", "<")

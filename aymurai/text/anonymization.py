@@ -40,6 +40,7 @@ class DocAnonymizer(Transform):
     def __init__(self, use_cache: bool = False, **kwargs):
         self.use_cache = use_cache
         self.kwargs = kwargs
+        self.render_context = None
 
     def unzip_document(self, doc_path: str, output_dir: str) -> None:
         """
@@ -231,7 +232,7 @@ class DocAnonymizer(Transform):
             text = label["attrs"]["aymurai_alt_text"] or label["text"]
             start_char = label["attrs"]["aymurai_alt_start_char"] or label["start_char"]
             end_char = label["attrs"]["aymurai_alt_end_char"] or label["end_char"]
-            aymurai_label = label["attrs"]["aymurai_label"]
+            aymurai_label = self._resolve_render_token(label)
 
             if current_group is None:
                 # Start a new group with the current label
@@ -268,6 +269,46 @@ class DocAnonymizer(Transform):
             unified_labels.append(current_group)
 
         return unified_labels
+
+    def _resolve_render_token(self, label: dict) -> str:
+        """
+        Resolves the render token for a label using the current render context.
+
+        Args:
+            label (dict): Label dictionary with attrs.
+
+        Returns:
+            str: Render token to insert in the document.
+        """
+        if not self.render_context:
+            return label["attrs"]["aymurai_label"]
+
+        policy = self.render_context["policy"]
+        count_by_base = self.render_context["count_by_base"]
+        index_by_entity = self.render_context["index_by_entity"]
+
+        attrs = label.get("attrs") or {}
+        base = attrs.get("aymurai_label")
+
+        subclasses = attrs.get("aymurai_label_subclass") or []
+        if policy.use_subclass_when_available and subclasses:
+            base = subclasses[0].upper()
+
+        if not base:
+            base = label.get("label") or label.get("text") or "ENT"
+
+        entity_id = attrs.get("canonical_entity_id") or label.get("text")
+        key = (base, str(entity_id))
+        index = index_by_entity.get(key)
+
+        if policy.suffix_mode == "never" or index is None:
+            return base
+
+        if policy.suffix_mode == "auto":
+            if count_by_base.get(base, 0) <= policy.suffix_threshold:
+                return base
+
+        return f"{base}_{index}"
 
     def replace_labels_in_text(self, pred: dict, text_key: str = "document") -> str:
         """

@@ -3,8 +3,8 @@ import os
 from pathlib import Path
 
 from dotenv import load_dotenv
+from pydantic import ConfigDict, FilePath, field_validator
 from pydantic_settings import BaseSettings
-from pydantic import FilePath, ConfigDict, field_validator
 
 import aymurai
 
@@ -82,6 +82,18 @@ class Settings(BaseSettings):
     @field_validator("DISAMBIGUATION_LABEL_POLICIES", mode="before")
     @classmethod
     def parse_label_policies(cls, v):
+        if v is None or v == "":
+            return None
+        if isinstance(v, str):
+            return json.loads(v)
+        return v
+
+    # Render policy (JSON dict)
+    RENDER_POLICY: dict | None = None
+
+    @field_validator("RENDER_POLICY", mode="before")
+    @classmethod
+    def parse_render_policy(cls, v):
         if v is None or v == "":
             return None
         if isinstance(v, str):
