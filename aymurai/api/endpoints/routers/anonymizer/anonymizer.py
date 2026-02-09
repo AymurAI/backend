@@ -402,20 +402,6 @@ async def anonymizer_disambiguate(
 
     for document in predictions:
         for label in document.labels or []:
-            # if label.attrs.aymurai_disambiguation is None:
-            #     label.attrs.aymurai_disambiguation = (
-            #         effective_disambiguation_by_label.get(
-            #             label.attrs.aymurai_label, "fuzzy"
-            #         )
-            #     )
-
-            # if label.attrs.aymurai_anonymize is None:
-            #     policy = effective_policies.get(label.attrs.aymurai_label)
-            #     if policy and policy.anonymize is not None:
-            #         label.attrs.aymurai_anonymize = policy.anonymize
-            #     else:
-            #         label.attrs.aymurai_anonymize = True
-
             label.attrs.aymurai_disambiguation = effective_disambiguation_by_label.get(
                 label.attrs.aymurai_label, "fuzzy"
             )
