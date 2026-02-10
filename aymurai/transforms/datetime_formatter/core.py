@@ -55,7 +55,9 @@ class DatetimeFormatter(Transform):
                 text_repr = datetime.strftime("%d/%m/%Y")
             suggestions.append(text_repr)
 
-        ent["attrs"]["aymurai_label_subclass"] = suggestions
+        ent["attrs"]["aymurai_label_subclass"] = (
+            [max(suggestions)] if suggestions else []
+        )
 
         return ent
 

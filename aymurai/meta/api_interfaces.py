@@ -1,8 +1,11 @@
 import uuid
 
 from pydantic import UUID5, BaseModel, Field, RootModel
+from typing import Literal
 
 from aymurai.meta.entities import EntityAttributes
+
+from functools import cached_property
 
 
 class SuccessResponse(BaseModel):
@@ -42,10 +45,18 @@ class DocumentInformation(BaseModel):
     labels: list[DocLabel] = Field(default_factory=list)
 
 
+class LabelPolicy(BaseModel):
+    """Per-label policy for disambiguation and anonymization."""
+
+    disambiguation: Literal["none", "fuzzy", "llm"] | None = None
+    anonymize: bool | None = None
+
+
 class DocumentAnnotations(BaseModel):
     """Datatype for document annotations"""
 
     data: list[DocumentInformation]
+    label_policies: dict[str, LabelPolicy] | None = None
 
 
 class DataPublicDocumentAnnotations(RootModel):
@@ -59,3 +70,20 @@ class Document(BaseModel):
     document_id: UUID5
     header: list[str] | None = None
     footer: list[str] | None = None
+
+
+class PromptSet(BaseModel):
+    label: str
+    system: str
+    user: str
+
+
+class PromptLibrary(RootModel):
+    root: list[PromptSet] = Field(default_factory=list)
+
+    @cached_property
+    def as_dict(self) -> dict[str, PromptSet]:
+        return {p.label: p for p in self.root}
+
+    def get(self, label: str) -> PromptSet | None:
+        return self.as_dict.get(label)
