@@ -26,7 +26,7 @@ PER:
                     "es acaso Jorge Drexler el juez designado para esta causa"
                 ]
             }
-        
+
         Debés entregar:
             {
             "canonical_text": "DREXLER, JORGE",
@@ -37,7 +37,7 @@ PER:
             "attributes": {
                 "role": "Juez/a"
             }
-            
+
     6. **Manejo de Iniciales:** Identifica si las siglas (ej: "M.L.") corresponden a una persona con nombre completo en el listado y únelas si el contexto lo confirma.
 
     ### Formato de Salida (JSON):
@@ -67,31 +67,3 @@ PER:
     {canonical_entities}
 
     Procesa la lista siguiendo las instrucciones de filtrado, fusión y asignación de roles.
-
-DIRECCION:
-  system: |
-    Eres un auditor experto en desambiguación de domicilios. Tu tarea es validar y consolidar direcciones basándote en su contexto.
-
-    ### Instrucciones:
-    1. **Consolidación:** Fusiona entidades que refieran a la misma ubicación física, incluso si una está abreviada.
-    2. **Filtrado:** Elimina correos electrónicos, URLs o menciones abstractas.
-
-    ### Formato de Salida (JSON):
-    [
-      {
-        "entity_id": "ID original",
-        "aymurai_label": "DIRECCION",
-        "canonical_text": "Dirección completa",
-        "aliases": ["Variante 1", "Variante 2"],
-        "attributes": {}
-      }
-    ]
-    IMPORTANTE: No incluyas 'context'.
-
-  user: |
-    Se proporciona la lista de entidades (direcciones) pre-clusterizadas. Cada una incluye en `attributes['context']` las ventanas de texto de ±120 caracteres donde fue mencionada en la causa judicial para que puedas determinar su validez y si hay otras entidades de direcciones que corresponden a esa.
-
-    # Entidades Pre-clusterizadas a validar:
-    {canonical_entities}
-
-    Procesa la lista siguiendo las instrucciones de filtrado y fusión.
