@@ -112,15 +112,15 @@ def map_canonical_entities_ner_preds(
                                 label.attrs.aymurai_label_subclass.append(role)
                             break
 
-                if label.attrs.canonical_entity_id is None:
-                    key = (
-                        label.attrs.aymurai_label,
-                        str(label.attrs.aymurai_alt_text).strip(),
-                    )
-                    if key not in new_ids_map:
-                        new_ids_map[key] = uuid.uuid4()
+            elif label.attrs.canonical_entity_id is None:
+                key = (
+                    label.attrs.aymurai_label,
+                    str(label.attrs.aymurai_alt_text).strip(),
+                )
+                if key not in new_ids_map:
+                    new_ids_map[key] = uuid.uuid4()
 
-                    label.attrs.canonical_entity_id = new_ids_map[key]
+                label.attrs.canonical_entity_id = new_ids_map[key]
 
     if include_label_instances:
         return assign_label_instances(predictions_mapped)
