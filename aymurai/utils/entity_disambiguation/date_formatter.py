@@ -3,6 +3,16 @@ from aymurai.meta.entities import CanonicalEntity
 
 
 def get_canonical_dates(labels: list[DocLabel]) -> list[CanonicalEntity]:
+    """
+    Groups date labels by their normalized day and month (if available) to create canonical entities.
+
+    Args:
+        labels (list[DocLabel]): A list of document labels to process.
+
+    Returns:
+        list[CanonicalEntity]: A list of canonical entities representing unique dates,
+            each with its aliases and attributes.
+    """
     groups = {}
 
     for label in labels:
