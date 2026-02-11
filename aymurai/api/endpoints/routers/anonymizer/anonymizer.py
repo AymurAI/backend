@@ -32,7 +32,7 @@ from aymurai.meta.api_interfaces import (
     TextRequest,
 )
 from aymurai.settings import settings
-from aymurai.text.anonymization import DocAnonymizer
+from aymurai.text.anonymization import DocAnonymizer, replace_labels_in_text
 from aymurai.text.extraction import MIMETYPE_EXTENSION_MAPPER
 from aymurai.utils.entity_disambiguation import (
     build_canonical_entities,
@@ -684,9 +684,11 @@ async def anonymizer_compile_document(
 
     else:
         # Export as raw document
-        doc_anonymizer.render_context = render_context
         anonymized_doc = [
-            doc_anonymizer.replace_labels_in_text(document_information.model_dump())
+            replace_labels_in_text(
+                document_information.model_dump(),
+                render_context=render_context,
+            )
             .replace("&lt;", "<")
             .replace("&gt;", ">")
             for document_information in filtered_annotations
