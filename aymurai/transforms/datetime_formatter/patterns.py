@@ -1,8 +1,7 @@
 import locale
 
 # set locale to es_AR to handle month names
-# locale.setlocale(locale.LC_ALL, "es_AR.UTF-8")
-locale.setlocale(locale.LC_ALL, "es_ES.UTF-8")
+locale.setlocale(locale.LC_ALL, "es_AR.UTF-8")
 
 DATES = [
     r"%-d/%-m/%Y",
@@ -25,6 +24,7 @@ HOURS = [
 ]
 
 patterns = {
+    "FECHA_RESOLUCION": DATES,
     "FECHA": DATES,
     "HORA_DE_INICIO": HOURS,
     "HORA_DE_CIERRE": HOURS,

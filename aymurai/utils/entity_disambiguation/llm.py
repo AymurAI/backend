@@ -27,7 +27,7 @@ def load_prompts_from_yaml():
     Returns:
         PromptLibrary: The loaded prompt library.
     """
-    path = Path(settings.RESOURCES_BASEPATH) / "llm/entity_disambiguation.yaml"
+    path = Path(settings.RESOURCES_BASEPATH) / "llm/entity_disambiguation.yml"
     data = load_yaml(file_path=str(path))
 
     prompts = []

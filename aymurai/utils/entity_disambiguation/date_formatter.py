@@ -1,12 +1,18 @@
-from aymurai.transforms.datetime_formatter import DatetimeFormatter
 from aymurai.meta.api_interfaces import DocLabel
 from aymurai.meta.entities import CanonicalEntity
 
 
-formatter = DatetimeFormatter()
-
-
 def get_canonical_dates(labels: list[DocLabel]) -> list[CanonicalEntity]:
+    """
+    Groups date labels by their normalized day and month (if available) to create canonical entities.
+
+    Args:
+        labels (list[DocLabel]): A list of document labels to process.
+
+    Returns:
+        list[CanonicalEntity]: A list of canonical entities representing unique dates,
+            each with its aliases and attributes.
+    """
     groups = {}
 
     for label in labels:
@@ -15,11 +21,9 @@ def get_canonical_dates(labels: list[DocLabel]) -> list[CanonicalEntity]:
 
         raw_date = label.attrs.aymurai_alt_text or label.text
 
-        label_processed = formatter.process(label)
-
         norm_date = (
-            label_processed.attrs.aymurai_label_subclass[0]
-            if label_processed.attrs.aymurai_label_subclass
+            max(label.attrs.aymurai_label_subclass)
+            if label.attrs.aymurai_label_subclass
             else None
         )
 
@@ -35,7 +39,6 @@ def get_canonical_dates(labels: list[DocLabel]) -> list[CanonicalEntity]:
 
         if day_month_key in groups and raw_date not in groups[day_month_key].aliases:
             groups[day_month_key].aliases.append(raw_date)
-            groups[day_month_key].attributes["norm_date"] = raw_date
 
         label.attrs.canonical_entity_id = groups[day_month_key].entity_id
 
