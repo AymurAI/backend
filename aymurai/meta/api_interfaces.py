@@ -1,8 +1,12 @@
 import uuid
 
-from pydantic import UUID5, BaseModel, Field, RootModel
+from pydantic import UUID4, UUID5, BaseModel, Field, RootModel, computed_field
 
+from aymurai.api.meta.asr.websocket import TranscriptionItem
+from aymurai.database.utils import text_to_uuid
 from aymurai.meta.entities import EntityAttributes
+
+UUID = UUID4 | UUID5
 
 
 class SuccessResponse(BaseModel):
@@ -59,3 +63,27 @@ class Document(BaseModel):
     document_id: UUID5
     header: list[str] | None = None
     footer: list[str] | None = None
+
+
+class ASRParagraph(TranscriptionItem):
+    @computed_field
+    @property
+    def paragraph_id(self) -> UUID:
+        return text_to_uuid(self.text)
+
+    def to_txt(self) -> str:
+        return "\n".join(
+            [
+                f"{self.start:.2f}s - {self.end:.2f}s",
+                f"speaker {self.speaker_no}",
+                self.text,
+            ]
+        )
+
+
+class ASRDocument(BaseModel):
+    document: list[ASRParagraph]
+    document_id: UUID
+
+    def to_txt(self) -> str:
+        return "\n\n".join([paragraph.to_txt() for paragraph in self.document])

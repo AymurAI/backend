@@ -2,7 +2,6 @@ import os
 import time
 from contextlib import asynccontextmanager
 
-import torch
 from alembic import command
 from alembic.config import Config
 from fastapi import FastAPI, Request
@@ -10,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 
 from aymurai.api import core
+from aymurai.api.exceptions.handlers import register_exceptions_handlers
 from aymurai.api.startup.database import check_db_connection
 from aymurai.api.startup.marker import warm_marker_models
 from aymurai.logger import get_logger
@@ -23,8 +23,6 @@ except ImportError:
 
 logger = get_logger(__name__)
 
-
-torch.set_num_threads = 100  # FIXME: polemic ?
 
 RESOURCES_BASEPATH = settings.RESOURCES_BASEPATH
 
@@ -49,6 +47,8 @@ api = FastAPI(
     version=__version__,
     lifespan=lifespan,
 )
+
+register_exceptions_handlers(api)
 
 
 # configure CORS

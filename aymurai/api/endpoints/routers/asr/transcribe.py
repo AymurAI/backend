@@ -1,158 +1,101 @@
-import asyncio
-import contextlib
-import io
-import json
+from hashlib import blake2b
+from io import BytesIO
 
-import librosa
-import numpy as np
-import websockets
-from fastapi import HTTPException, UploadFile
+from fastapi import Depends, UploadFile
 from fastapi.routing import APIRouter
-from pydantic import TypeAdapter, ValidationError
-from starlette import status
 
-from aymurai.api.meta.asr.websocket import (
-    TranscriptionItem,
-    WLKMessageRawResponse,
-    WLKMessageReadyToStopMessage,
-    WLKMessageStatus,
+from aymurai.api.exceptions.base import (
+    AymuraiAPIException,
+    ConfigurationError,
+    UpstreamServiceError,
 )
+from aymurai.audio.asr_client import transcribe_audio_bytes
+from aymurai.database.utils import data_to_uuid
 from aymurai.logger import get_logger
+from aymurai.meta.api_interfaces import ASRDocument, ASRParagraph
 from aymurai.settings import settings
-
-logger = get_logger(__name__)
+from aymurai.utils.cache import cache_load, cache_save, get_cache_key
 
 router = APIRouter()
-
-SAMPLE_RATE_HZ = 16000
-CHUNK_SECONDS = 1
-CHUNK_SAMPLES = SAMPLE_RATE_HZ * CHUNK_SECONDS
-MAX_WS_LOG_CHARS = 2000
-ASR_RAW_RESPONSE_ADAPTER = TypeAdapter(WLKMessageRawResponse)
+logger = get_logger(__name__)
 
 
-async def _stream_audio(
-    file: UploadFile,
-    websocket: websockets.ClientConnection,
-) -> int:
-    payload = await file.read()
-    audio, _ = librosa.load(io.BytesIO(payload), sr=SAMPLE_RATE_HZ, mono=True)
-    total_bytes = 0
-    for i in range(0, len(audio), CHUNK_SAMPLES):
-        chunk = audio[i : i + CHUNK_SAMPLES]
-        if len(chunk) == 0:
-            continue
-        chunk_int16 = (chunk * 32768).astype(np.int16)
-        data = chunk_int16.tobytes()
-        total_bytes += len(data)
-        await websocket.send(data)
-    return total_bytes
+def get_transcribe_ws_uri() -> str:
+    ws_uri = settings.TRANSCRIBE_WS_URI
+    if not ws_uri:
+        raise ConfigurationError(detail="TRANSCRIBE_WS_URI is not configured")
+    return ws_uri
 
 
-def _parse_ws_message(message: str | bytes) -> WLKMessageRawResponse | None:
-    if isinstance(message, bytes):
-        message = message.decode("utf-8", errors="replace")
-
-    payload_preview = message
-    if len(payload_preview) > MAX_WS_LOG_CHARS:
-        payload_preview = (
-            f"{payload_preview[:MAX_WS_LOG_CHARS]}"
-            f"...[truncated {len(payload_preview) - MAX_WS_LOG_CHARS} chars]"
-        )
-
+def _cache_key(data: bytes) -> str:
     try:
-        parsed = json.loads(message)
-    except json.JSONDecodeError:
-        logger.warning(f"received non-json websocket payload: {payload_preview}")
-        return None
+        hasher = blake2b(digest_size=32)
+        with BytesIO(data) as handle:
+            for chunk in iter(lambda: handle.read(65536), b""):
+                hasher.update(chunk)
+        fingerprint = hasher.hexdigest()
+        stat = handle.getbuffer()
 
-    try:
-        return ASR_RAW_RESPONSE_ADAPTER.validate_python(parsed)
-    except ValidationError as exc:
-        logger.warning(
-            "received unrecognized websocket payload: %s; payload=%s",
-            exc,
-            payload_preview,
+        return get_cache_key(
+            fingerprint,
+            context={"component": "audio-extractor", "size": stat.nbytes},
         )
-        return None
+    except OSError as exc:
+        raise RuntimeError("Failed to generate cache key") from exc
 
 
-async def _receive_updates(
-    websocket: websockets.ClientConnection,
-) -> WLKMessageStatus | None:
-    last_active_transcription: WLKMessageStatus | None = None
-    while True:
-        try:
-            msg = await websocket.recv()
-        except websockets.exceptions.ConnectionClosedOK:
-            logger.info("connection closed normally")
-            break
-        except websockets.exceptions.WebSocketException as exc:
-            logger.error(f"websocket error while receiving updates: {exc}")
-            break
-
-        parsed = _parse_ws_message(msg)
-        match parsed:
-            case None:
-                continue
-            case WLKMessageStatus(status="active_transcription") as message:
-                last_active_transcription = message
-            case WLKMessageReadyToStopMessage():
-                break
-
-    return last_active_transcription
-
-
-@router.post("/transcribe", response_model=list[TranscriptionItem])
-async def transcribe(file: UploadFile) -> list[TranscriptionItem]:
-    """
-    Stream an uploaded audio file to an external websocket transcription service.
-    """
-    if not settings.TRANSCRIBE_WS_URI:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="TRANSCRIBE_WS_URI is not configured",
-        )
-
-    logger.info("streaming audio for transcription")
-
+async def _transcribe_audio_bytes_with_error_handling(
+    data: bytes,
+) -> list[ASRParagraph]:
     try:
-        async with websockets.connect(settings.TRANSCRIBE_WS_URI) as websocket:
-            receive_task = asyncio.create_task(_receive_updates(websocket))
-            try:
-                total_bytes = await _stream_audio(file, websocket)
-                await websocket.send(b"")
-                logger.info(f"sent {total_bytes} bytes to transcription service")
-                last_active_transcription = await receive_task
-            except Exception:
-                if not receive_task.done():
-                    receive_task.cancel()
-                    with contextlib.suppress(asyncio.CancelledError):
-                        await receive_task
-                raise
-    except websockets.exceptions.WebSocketException as exc:
-        logger.error(f"websocket error during transcription: {exc}")
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Transcription service websocket error",
-        ) from exc
+        status = await transcribe_audio_bytes(data)
+    except RuntimeError as exc:
+        message = str(exc)
+        if "websocket" in message.lower():
+            raise UpstreamServiceError(detail=message) from exc
+        raise AymuraiAPIException(detail=message) from exc
     except Exception as exc:
-        logger.error(f"unexpected error during transcription: {exc}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Unexpected error during transcription",
+        raise AymuraiAPIException(
+            detail="Unexpected error during transcription"
         ) from exc
 
-    if not last_active_transcription:
-        return []
+    if not status:
+        raise AymuraiAPIException(detail="No transcription result received")
 
     return [
-        TranscriptionItem(
+        ASRParagraph(
             speaker_no=line.speaker,
             speaker_id=line.speaker_id or f"speaker-{line.speaker}",
             start=line.start,
             end=line.end,
             text=line.text,
         )
-        for line in last_active_transcription.lines
+        for line in status.lines
     ]
+
+
+@router.post("/transcribe", response_model=ASRDocument)
+async def transcribe(
+    file: UploadFile,
+    use_cache: bool = True,
+    ws_uri: str = Depends(get_transcribe_ws_uri),
+) -> ASRDocument:
+    """
+    Stream an uploaded audio file to an external websocket transcription service.
+    """
+    data = await file.read()
+    document_id = data_to_uuid(data)
+
+    if use_cache:
+        cached_text = cache_load(str(document_id))
+        if cached_text is not None:
+            logger.debug(f"Audio cache hit for {file.filename}")
+            return ASRDocument.model_validate_json(cached_text)
+
+    transcription_items = await _transcribe_audio_bytes_with_error_handling(data)
+    document = ASRDocument(document_id=document_id, document=transcription_items)
+
+    cache_save(document.model_dump_json(), key=str(document_id))
+    logger.debug(f"Audio cache stored for {file.filename}")
+
+    return document
