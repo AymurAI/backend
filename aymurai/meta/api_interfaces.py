@@ -48,8 +48,16 @@ class DocumentInformation(BaseModel):
 class LabelPolicy(BaseModel):
     """Per-label policy for disambiguation and anonymization."""
 
-    disambiguation: Literal["none", "fuzzy", "llm"] | None = None
     anonymize: bool | None = None
+    disambiguation: Literal["none", "fuzzy", "llm"] | None = None
+    use_subclass_when_available: bool | None = None
+
+
+class RenderPolicy(BaseModel):
+    """Render policy for anonymized tokens."""
+
+    suffix_mode: Literal["auto", "always", "never"] | None = None
+    suffix_threshold: int | None = None
 
 
 class DocumentAnnotations(BaseModel):
@@ -57,6 +65,7 @@ class DocumentAnnotations(BaseModel):
 
     data: list[DocumentInformation]
     label_policies: dict[str, LabelPolicy] | None = None
+    render_policy: RenderPolicy | None = None
 
 
 class DataPublicDocumentAnnotations(RootModel):

@@ -2,9 +2,9 @@ from copy import deepcopy
 
 from datetime_matcher import DatetimeMatcher
 
+from aymurai.meta.pipeline_interfaces import Transform
 from aymurai.meta.types import DataItem
 from aymurai.utils.misc import get_element
-from aymurai.meta.pipeline_interfaces import Transform
 
 from .patterns import patterns
 
