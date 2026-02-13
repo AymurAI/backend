@@ -48,15 +48,14 @@ class DocumentInformation(BaseModel):
 class LabelPolicy(BaseModel):
     """Per-label policy for disambiguation and anonymization."""
 
-    disambiguation: Literal["none", "fuzzy", "llm"] | None = None
     anonymize: bool | None = None
+    disambiguation: Literal["none", "fuzzy", "llm"] | None = None
+    use_subclass_when_available: bool | None = None
 
 
 class RenderPolicy(BaseModel):
     """Render policy for anonymized tokens."""
 
-    use_subclass_when_available: bool | None = None
-    fallback_to_label: bool | None = None
     suffix_mode: Literal["auto", "always", "never"] | None = None
     suffix_threshold: int | None = None
 

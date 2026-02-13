@@ -11,6 +11,7 @@ from more_itertools import flatten
 
 from aymurai.models.flair.utils import FlairTextNormalize
 from aymurai.utils.alignment.core import align_text, tokenize
+from aymurai.meta.api_interfaces import LabelPolicy
 
 REGEX_PARAGRAPH = r"((?<!\/)w:p\b)(?P<paragraph>.*?)(\/w:p\b)"
 REGEX_FRAGMENT = r"(?<!\/)w:t\b.*?>(?P<text>.*?)(<.*?\/w:t)"
@@ -29,15 +30,18 @@ def resolve_render_token(label: dict, render_context: dict | None = None) -> str
     if not render_context:
         return label["attrs"]["aymurai_label"]
 
-    policy = render_context["policy"]
+    render_policy = render_context["render_policy"]
+    label_policies = render_context["label_policies"]
     count_by_base = render_context["count_by_base"]
     index_by_entity = render_context["index_by_entity"]
 
     attrs = label.get("attrs") or {}
     base = attrs.get("aymurai_label")
 
+    label_policy = label_policies.get(base.upper(), LabelPolicy())
+
     subclasses = attrs.get("aymurai_label_subclass") or []
-    if policy.use_subclass_when_available and subclasses:
+    if label_policy.use_subclass_when_available and subclasses:
         base = subclasses[0].upper()
 
     if not base:
@@ -47,11 +51,11 @@ def resolve_render_token(label: dict, render_context: dict | None = None) -> str
     key = (base, str(entity_id))
     index = index_by_entity.get(key)
 
-    if policy.suffix_mode == "never" or index is None:
+    if render_policy.suffix_mode == "never" or index is None:
         return base
 
-    if policy.suffix_mode == "auto":
-        if count_by_base.get(base, 0) <= policy.suffix_threshold:
+    if render_policy.suffix_mode == "auto":
+        if count_by_base.get(base, 0) <= render_policy.suffix_threshold:
             return base
 
     return f"{base}_{index}"

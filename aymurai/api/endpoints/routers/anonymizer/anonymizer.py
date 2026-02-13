@@ -106,6 +106,10 @@ def _merge_label_policies(
                 current.disambiguation = incoming.disambiguation
             if incoming.anonymize is not None:
                 current.anonymize = incoming.anonymize
+            if incoming.use_subclass_when_available is not None:
+                current.use_subclass_when_available = (
+                    incoming.use_subclass_when_available
+                )
             policies[label] = current
 
     if request_policies:
@@ -116,6 +120,10 @@ def _merge_label_policies(
                 current.disambiguation = incoming.disambiguation
             if incoming.anonymize is not None:
                 current.anonymize = incoming.anonymize
+            if incoming.use_subclass_when_available is not None:
+                current.use_subclass_when_available = (
+                    incoming.use_subclass_when_available
+                )
             policies[label] = current
 
     return policies
@@ -134,18 +142,12 @@ def _merge_render_policy(
         RenderPolicy: Effective render policy.
     """
     policy = RenderPolicy(
-        use_subclass_when_available=True,
-        fallback_to_label=True,
         suffix_mode="auto",
         suffix_threshold=1,
     )
 
     def apply(incoming: RenderPolicy) -> None:
         nonlocal policy
-        if incoming.use_subclass_when_available is not None:
-            policy.use_subclass_when_available = incoming.use_subclass_when_available
-        if incoming.fallback_to_label is not None:
-            policy.fallback_to_label = incoming.fallback_to_label
         if incoming.suffix_mode is not None:
             policy.suffix_mode = incoming.suffix_mode
         if incoming.suffix_threshold is not None:
@@ -162,14 +164,14 @@ def _merge_render_policy(
 
 def _resolve_token_base(
     label: DocLabel,
-    render_policy: RenderPolicy,
+    label_policy: LabelPolicy,
 ) -> str:
     """
     Resolves the base token label for rendering.
 
     Args:
         label (DocLabel): Label to render.
-        render_policy (RenderPolicy): Render policy rules.
+        label_policy (LabelPolicy): Label policy rules.
 
     Returns:
         str: Base token label (e.g., PER, DENUNCIANTE).
@@ -182,11 +184,8 @@ def _resolve_token_base(
     if attrs.aymurai_label_subclass:
         subclass = attrs.aymurai_label_subclass[0]
 
-    if render_policy.use_subclass_when_available and subclass:
+    if label_policy.use_subclass_when_available and subclass:
         return subclass.upper()
-
-    if render_policy.fallback_to_label:
-        return attrs.aymurai_label
 
     return attrs.aymurai_label
 
@@ -194,6 +193,7 @@ def _resolve_token_base(
 def _build_render_context(
     annotations: list[DocumentInformation],
     render_policy: RenderPolicy,
+    label_policies: dict[str, LabelPolicy],
 ) -> dict:
     """
     Builds render context with per-entity indices and counts.
@@ -201,6 +201,7 @@ def _build_render_context(
     Args:
         annotations (list[DocumentInformation]): Document annotations.
         render_policy (RenderPolicy): Render policy rules.
+        label_policies (dict[str, LabelPolicy]): Per-label policies.
 
     Returns:
         dict: Render context with policy, indices, and counts.
@@ -209,7 +210,13 @@ def _build_render_context(
 
     for p_idx, paragraph in enumerate(annotations):
         for label in paragraph.labels or []:
-            base = _resolve_token_base(label, render_policy)
+            label_policy = label_policies.get(
+                label.attrs.aymurai_label
+                if label.attrs and label.attrs.aymurai_label
+                else None,
+                LabelPolicy(),
+            )
+            base = _resolve_token_base(label, label_policy)
             entity_id = (
                 str(label.attrs.canonical_entity_id)
                 if label.attrs and label.attrs.canonical_entity_id
@@ -231,7 +238,8 @@ def _build_render_context(
     count_by_base = {base: count for base, count in next_index_by_base.items()}
 
     return {
-        "policy": render_policy,
+        "render_policy": render_policy,
+        "label_policies": label_policies,
         "index_by_entity": index_by_entity,
         "count_by_base": count_by_base,
     }
@@ -386,7 +394,7 @@ async def anonymizer_disambiguate(
     )
 
     labels = [label for paragraph in paragraphs for label in (paragraph.labels or [])]
-    effective_policies = _merge_label_policies(label_policies)
+    effective_label_policies = _merge_label_policies(label_policies)
     logger.info("disambiguation labels: %d", len(labels))
 
     prompt_library = load_prompts_from_yaml()
@@ -394,7 +402,10 @@ async def anonymizer_disambiguate(
     all_detected_labels = {
         label.attrs.aymurai_label
         for label in labels
-        if label.attrs and label.attrs.aymurai_label
+        if label.attrs
+        and label.attrs.aymurai_label
+        and effective_label_policies.get(label.attrs.aymurai_label)
+        and effective_label_policies.get(label.attrs.aymurai_label).anonymize
     }
 
     default_llm_labels = (
@@ -405,7 +416,7 @@ async def anonymizer_disambiguate(
     fuzzy_labels: set[str] = set()
 
     for label in all_detected_labels:
-        policy = effective_policies.get(label)
+        policy = effective_label_policies.get(label)
         if policy and policy.disambiguation == "llm":
             llm_labels.append(label)
             fuzzy_labels.add(label)
@@ -528,7 +539,7 @@ async def anonymizer_disambiguate(
                 label.attrs.aymurai_label, "fuzzy"
             )
 
-            policy = effective_policies.get(label.attrs.aymurai_label)
+            policy = effective_label_policies.get(label.attrs.aymurai_label)
             label.attrs.aymurai_anonymize = (
                 policy.anonymize if policy and policy.anonymize is not None else True
             )
@@ -548,7 +559,7 @@ async def anonymizer_disambiguate(
 
     return DocumentAnnotations(
         data=predictions,
-        label_policies=effective_policies if effective_policies else None,
+        label_policies=effective_label_policies if effective_label_policies else None,
     )
 
 
@@ -624,7 +635,7 @@ async def anonymizer_compile_document(
     annots_json = json.loads(annotations)
     annots = DocumentAnnotations.model_validate(annots_json)
     logger.info(f"processing annotations => {annots}")
-    effective_policies = _merge_label_policies(annots.label_policies)
+    effective_label_policies = _merge_label_policies(annots.label_policies)
     effective_render_policy = _merge_render_policy(annots.render_policy)
 
     # Add paragraphs to the database
@@ -656,7 +667,7 @@ async def anonymizer_compile_document(
         filtered_labels = [
             label
             for label in (paragraph.labels or [])
-            if _should_anonymize_label(label, effective_policies)
+            if _should_anonymize_label(label, effective_label_policies)
         ]
         filtered_annotations.append(
             DocumentInformation(
@@ -666,7 +677,7 @@ async def anonymizer_compile_document(
         )
 
     render_context = _build_render_context(
-        filtered_annotations, effective_render_policy
+        filtered_annotations, effective_render_policy, effective_label_policies
     )
 
     if suffix == ".docx":
