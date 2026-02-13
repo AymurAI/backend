@@ -129,3 +129,11 @@ version_file = "aymurai/version.py"
 
 [tool.pylint.messages_control]
 disable = "C0330, C0326"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = ["-v", "--tb=short", "--strict-markers", "--disable-warnings"]
+markers = [
+    "integration: marks tests as integration tests",
+    "slow: marks tests as slow (model loading, >30s)",
+]

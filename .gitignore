@@ -128,3 +128,7 @@ resources
 .venv
 
 aymurai/version.py
+
+.agents
+.opencode.json
+.sisyphus
