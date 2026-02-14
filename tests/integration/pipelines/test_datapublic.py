@@ -1,6 +1,37 @@
+from typing import Any
+
 import pytest
 
 from aymurai.pipeline.pipeline import AymurAIPipeline
+
+
+@pytest.fixture
+def input_item(sample_text: str, build_pipeline_input) -> dict[str, Any]:
+    return build_pipeline_input(sample_text)
+
+
+@pytest.fixture
+def preprocessed_item(
+    datapublic_pipeline,
+    input_item: dict[str, Any],
+) -> dict[str, Any]:
+    return datapublic_pipeline.preprocess([input_item])[0]
+
+
+@pytest.fixture
+def predicted_item(
+    datapublic_pipeline,
+    preprocessed_item: dict[str, Any],
+) -> dict[str, Any]:
+    return datapublic_pipeline.predict_single(preprocessed_item)
+
+
+@pytest.fixture
+def postprocessed_item(
+    datapublic_pipeline,
+    predicted_item: dict[str, Any],
+) -> dict[str, Any]:
+    return datapublic_pipeline.postprocess([predicted_item])[0]
 
 
 @pytest.mark.integration
@@ -14,57 +45,35 @@ def test_should_load_pipeline_when_given_production_config(datapublic_pipeline):
 
 @pytest.mark.integration
 @pytest.mark.slow
-def test_should_preprocess_when_given_text_input(
-    datapublic_pipeline, sample_text, build_pipeline_input
-):
-    input_item = build_pipeline_input(sample_text)
-    result = datapublic_pipeline.preprocess([input_item])
-
-    assert isinstance(result, list)
-    assert len(result) > 0
-    assert isinstance(result[0], dict)
-    assert "data" in result[0]
+def test_should_preprocess_when_given_text_input(preprocessed_item: dict[str, Any]):
+    assert isinstance(preprocessed_item, dict)
+    assert "data" in preprocessed_item
 
 
 @pytest.mark.integration
 @pytest.mark.slow
 def test_should_predict_single_when_given_preprocessed_item(
-    datapublic_pipeline, sample_text, build_pipeline_input
+    predicted_item: dict[str, Any],
 ):
-    input_item = build_pipeline_input(sample_text)
-    preprocessed = datapublic_pipeline.preprocess([input_item])
-    result = datapublic_pipeline.predict_single(preprocessed[0])
-
-    assert isinstance(result, dict)
-    assert "predictions" in result
-    assert result["predictions"] is not None
+    assert isinstance(predicted_item, dict)
+    assert "predictions" in predicted_item
+    assert predicted_item["predictions"] is not None
 
 
 @pytest.mark.integration
 @pytest.mark.slow
 def test_should_postprocess_when_given_predicted_items(
-    datapublic_pipeline, sample_text, build_pipeline_input
+    postprocessed_item: dict[str, Any],
 ):
-    input_item = build_pipeline_input(sample_text)
-    preprocessed = datapublic_pipeline.preprocess([input_item])
-    predicted = datapublic_pipeline.predict_single(preprocessed[0])
-    result = datapublic_pipeline.postprocess([predicted])
-
-    assert isinstance(result, list)
-    assert len(result) > 0
+    assert isinstance(postprocessed_item, dict)
 
 
 @pytest.mark.integration
 @pytest.mark.slow
 def test_should_produce_entities_when_running_full_chain(
-    datapublic_pipeline, sample_text, build_pipeline_input
+    postprocessed_item: dict[str, Any],
 ):
-    input_item = build_pipeline_input(sample_text)
-    preprocessed = datapublic_pipeline.preprocess([input_item])
-    predicted = datapublic_pipeline.predict_single(preprocessed[0])
-    postprocessed = datapublic_pipeline.postprocess([predicted])
-
-    result = postprocessed[0]
+    result = postprocessed_item
     assert "predictions" in result
     predictions = result["predictions"]
     assert predictions is not None and (

@@ -1,10 +1,6 @@
 from unittest.mock import MagicMock
 
-from tests.conftest import (
-    build_label,
-    build_anonymization_paragraph,
-    build_datapublic_paragraph,
-)
+from tests.api.conftest import build_label
 
 
 def build_mock_pipeline():
@@ -13,7 +9,7 @@ def build_mock_pipeline():
     mock.preprocess.side_effect = lambda item: item
 
     def predict_single_impl(item):
-        item["predictions"] = {"entities": [build_label()]}
+        item["predictions"] = {"entities": [build_label().model_dump(mode="json")]}
         return item
 
     mock.predict_single.side_effect = predict_single_impl

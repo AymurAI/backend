@@ -1,12 +1,11 @@
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 import pytest
-from sqlmodel import Session
 
 from aymurai.database.schema import AnonymizationParagraph
 from aymurai.database.utils import text_to_uuid
-from tests.api.routers.conftest import build_mock_pipeline, build_processed_data_item
-from tests.conftest import build_label
+from tests.api.conftest import build_label
+from tests.api.routers.conftest import build_mock_pipeline
 
 
 @pytest.mark.integration
@@ -34,7 +33,7 @@ def test_should_return_cached_prediction_when_text_in_cache(
     mock_load_pipeline, client, db_session
 ):
     text = "Cached text with entities"
-    labels = [build_label("PER", "Juan Pérez")]
+    labels = [build_label("PER", "Juan Pérez").model_dump(mode="json")]
 
     paragraph_id = text_to_uuid(text)
     cached_para = AnonymizationParagraph(
@@ -182,8 +181,8 @@ def test_should_isolate_cache_when_different_texts(
     para1_id = text_to_uuid(text1)
     para2_id = text_to_uuid(text2)
 
-    labels1 = [build_label("PER", "Person1")]
-    labels2 = [build_label("LOC", "Location1")]
+    labels1 = [build_label("PER", "Person1").model_dump(mode="json")]
+    labels2 = [build_label("LOC", "Location1").model_dump(mode="json")]
 
     para1 = AnonymizationParagraph(id=para1_id, text=text1, prediction=labels1)
     para2 = AnonymizationParagraph(id=para2_id, text=text2, prediction=labels2)

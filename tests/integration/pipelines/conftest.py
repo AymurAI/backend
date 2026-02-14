@@ -1,8 +1,14 @@
-from typing import Any
+import os
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any
 
 import pytest
 
-from aymurai.pipeline.pipeline import AymurAIPipeline
+if TYPE_CHECKING:
+    from aymurai.pipeline.pipeline import AymurAIPipeline
+
+os.environ.setdefault("DISKCACHE_ROOT", "resources/cache/diskcache")
+os.environ.setdefault("AYMURAI_CACHE_BASEPATH", "resources/cache/aymurai")
 
 
 PIPELINE_CONFIGS = {
@@ -11,7 +17,9 @@ PIPELINE_CONFIGS = {
 }
 
 
-def load_test_pipeline(name: str) -> AymurAIPipeline:
+def load_test_pipeline(name: str) -> "AymurAIPipeline":
+    from aymurai.pipeline.pipeline import AymurAIPipeline
+
     if name not in PIPELINE_CONFIGS:
         raise ValueError(
             f"Unknown pipeline: {name}. Available: {list(PIPELINE_CONFIGS.keys())}"
@@ -22,12 +30,12 @@ def load_test_pipeline(name: str) -> AymurAIPipeline:
 
 
 @pytest.fixture(scope="session")
-def anonymizer_pipeline() -> AymurAIPipeline:
+def anonymizer_pipeline() -> "AymurAIPipeline":
     return load_test_pipeline("anonymizer")
 
 
 @pytest.fixture(scope="session")
-def datapublic_pipeline() -> AymurAIPipeline:
+def datapublic_pipeline() -> "AymurAIPipeline":
     return load_test_pipeline("datapublic")
 
 
@@ -39,12 +47,17 @@ def sample_text() -> str:
     )
 
 
-def build_pipeline_input(text: str) -> dict[str, Any]:
+def _build_pipeline_input(text: str) -> dict[str, Any]:
     return {
         "path": "test",
         "extension": "",
         "dataset": "",
         "data": {"doc.text": text},
         "annotations": None,
-        "predictions": None,
+        "predictions": {},
     }
+
+
+@pytest.fixture
+def build_pipeline_input() -> Callable[[str], dict[str, Any]]:
+    return _build_pipeline_input

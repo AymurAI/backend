@@ -1,17 +1,16 @@
+import uuid
 from unittest.mock import patch
-from uuid import UUID
 
 import pytest
-from pydantic import UUID5
 
 from aymurai.database.schema import (
-    DataPublicParagraph,
     DataPublicDocument,
     DataPublicDocumentParagraph,
+    DataPublicParagraph,
 )
 from aymurai.database.utils import text_to_uuid
+from tests.api.conftest import build_label
 from tests.api.routers.conftest import build_mock_pipeline
-from tests.conftest import build_label
 
 
 @pytest.mark.integration
@@ -22,10 +21,11 @@ def test_should_return_prediction_when_valid_document_id_and_text(
     mock_pipeline = build_mock_pipeline()
     mock_load_pipeline.return_value = mock_pipeline
 
-    document_id = UUID5("550e8400-e29b-41d4-a716-446655440000")
+    document_id = uuid.uuid5(uuid.NAMESPACE_URL, "datapublic-predict-valid")
     response = client.post(
         f"/datapublic/predict/{document_id}",
         json={"text": "Sample datapublic text"},
+        params={"use_cache": False},
     )
 
     assert response.status_code == 200
@@ -42,7 +42,7 @@ def test_should_return_cached_prediction_when_text_in_cache(
     mock_load_pipeline, client, db_session
 ):
     text = "Cached datapublic text"
-    labels = [build_label("PER", "Juan González")]
+    labels = [build_label("PER", "Juan González").model_dump(mode="json")]
 
     paragraph_id = text_to_uuid(text)
     cached_para = DataPublicParagraph(
@@ -53,7 +53,7 @@ def test_should_return_cached_prediction_when_text_in_cache(
     db_session.add(cached_para)
     db_session.commit()
 
-    document_id = UUID5("550e8400-e29b-41d4-a716-446655440000")
+    document_id = uuid.uuid5(uuid.NAMESPACE_URL, "datapublic-cached-text")
     response = client.post(
         f"/datapublic/predict/{document_id}",
         json={"text": text},
@@ -75,7 +75,7 @@ def test_should_store_paragraph_and_document_when_use_cache_true(
     mock_pipeline = build_mock_pipeline()
     mock_load_pipeline.return_value = mock_pipeline
 
-    document_id = UUID5("550e8400-e29b-41d4-a716-446655440001")
+    document_id = uuid.uuid5(uuid.NAMESPACE_URL, "datapublic-store-cache-true")
     text = "New datapublic paragraph"
 
     response = client.post(
@@ -114,7 +114,7 @@ def test_should_return_prediction_without_storing_when_use_cache_false(
     mock_pipeline = build_mock_pipeline()
     mock_load_pipeline.return_value = mock_pipeline
 
-    document_id = UUID5("550e8400-e29b-41d4-a716-446655440002")
+    document_id = uuid.uuid5(uuid.NAMESPACE_URL, "datapublic-cache-false")
     text = "No datapublic storage text"
 
     response = client.post(
@@ -151,7 +151,7 @@ def test_should_associate_multiple_paragraphs_with_same_document(
     mock_pipeline = build_mock_pipeline()
     mock_load_pipeline.return_value = mock_pipeline
 
-    document_id = UUID5("550e8400-e29b-41d4-a716-446655440003")
+    document_id = uuid.uuid5(uuid.NAMESPACE_URL, "datapublic-associate-paragraphs")
     text1 = "First paragraph for association"
     text2 = "Second paragraph for association"
 

@@ -1,8 +1,104 @@
 import concurrent.futures
-import uuid
+import io
 from unittest.mock import patch
 
 import pytest
+
+from aymurai.database.utils import data_to_uuid
+
+
+def _build_docx_bytes(paragraphs: list[str]) -> bytes:
+    import docx
+
+    document = docx.Document()
+    for paragraph in paragraphs:
+        document.add_paragraph(paragraph)
+
+    stream = io.BytesIO()
+    document.save(stream)
+    return stream.getvalue()
+
+
+def _build_pdf_bytes(paragraphs: list[str]) -> bytes:
+    import pymupdf
+
+    pdf_document = pymupdf.open()
+    page = pdf_document.new_page()  # type: ignore
+    for index, paragraph in enumerate(paragraphs):
+        page.insert_text((72, 72 + (index * 36)), paragraph)
+
+    try:
+        to_bytes = getattr(pdf_document, "tobytes", None)
+        if callable(to_bytes):
+            serialized = to_bytes()
+            if isinstance(serialized, bytes):
+                return serialized
+            raise TypeError("Expected bytes from pymupdf tobytes()")
+
+        serialized = pdf_document.write()
+        if isinstance(serialized, bytes):
+            return serialized
+        raise TypeError("Expected bytes from pymupdf write()")
+    finally:
+        pdf_document.close()
+
+
+@pytest.mark.integration
+@pytest.mark.slow
+def test_should_extract_real_text_from_sample_docx_without_mocking(client):
+    """Test that a generated DOCX is extracted without mocking."""
+    expected_paragraphs = [
+        "Lorem ipsum dolor sit amet, consectetur adipiscing elit.",
+        "Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.",
+        "Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris.",
+    ]
+    file_content = _build_docx_bytes(expected_paragraphs)
+    files = {
+        "file": (
+            "sample.docx",
+            file_content,
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        )
+    }
+
+    response = client.post("/document-extract", files=files)
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["document_id"] == str(data_to_uuid(file_content))
+    assert data["document"]
+    extracted_text = " ".join(data["document"])
+    for paragraph in expected_paragraphs:
+        assert paragraph in extracted_text
+
+
+@pytest.mark.integration
+@pytest.mark.slow
+def test_should_extract_real_text_from_pdf_without_mocking(client):
+    """Test that a real PDF upload is extracted without mocking."""
+    expected_paragraphs = [
+        "Lorem ipsum dolor sit amet, consectetur adipiscing elit.",
+        "Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.",
+        "Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris.",
+    ]
+    file_content = _build_pdf_bytes(expected_paragraphs)
+    files = {
+        "file": (
+            "sample.pdf",
+            file_content,
+            "application/pdf",
+        )
+    }
+
+    response = client.post("/document-extract", files=files)
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["document_id"] == str(data_to_uuid(file_content))
+    assert data["document"]
+    extracted_text = " ".join(data["document"])
+    for paragraph in expected_paragraphs:
+        assert paragraph in extracted_text
 
 
 @pytest.mark.integration
