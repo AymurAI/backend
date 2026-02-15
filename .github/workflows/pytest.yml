@@ -63,9 +63,11 @@ jobs:
       - name: Download pipelines data
         env:
           DISKCACHE_ROOT: /tmp
+          RESOURCES_BASEPATH: /tmp
         run: uv run --no-sync pipeline-download
 
       - name: Run pipeline tests
         env:
           DISKCACHE_ROOT: /tmp
+          RESOURCES_BASEPATH: /tmp
         run: uv run --no-sync pytest -q --tb=short --disable-warnings --color=yes --maxfail=5 tests/integration/pipelines
