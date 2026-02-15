@@ -40,10 +40,13 @@ def client(db_session):
 
     api.dependency_overrides[get_session] = override_get_session
 
-    with TestClient(api, raise_server_exceptions=False) as c:
+    # Avoid using the context manager to skip app lifespan startup in tests.
+    c = TestClient(api, raise_server_exceptions=False)
+    try:
         yield c
-
-    api.dependency_overrides.clear()
+    finally:
+        c.close()
+        api.dependency_overrides.clear()
 
 
 @pytest.fixture(scope="session")
