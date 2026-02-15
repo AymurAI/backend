@@ -128,6 +128,12 @@ pipeline-download = "aymurai.scripts.pipelines_download:pipelines_download"
 [tool.setuptools_scm]
 version_file = "aymurai/version.py"
 
+[tool.uv]
+required-environments = [
+    "sys_platform == 'linux' and platform_machine == 'x86_64'",
+    "sys_platform == 'win32' and platform_machine == 'AMD64'",
+]
+
 
 [tool.pylint.messages_control]
 disable = "C0330, C0326"
