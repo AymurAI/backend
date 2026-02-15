@@ -51,6 +51,17 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
+      - name: Configure es_AR locale (Ubuntu)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes locales
+          sudo locale-gen es_AR.UTF-8
+          sudo update-locale LANG=es_AR.UTF-8 LC_ALL=es_AR.UTF-8
+          echo "LANG=es_AR.UTF-8" >> "$GITHUB_ENV"
+          echo "LC_ALL=es_AR.UTF-8" >> "$GITHUB_ENV"
+          locale -a
+
       - name: Install dependencies
         run: |
           uv sync --frozen --python python --no-dev --no-managed-python --group tests
