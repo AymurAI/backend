@@ -37,7 +37,6 @@ from aymurai.text.extraction import MIMETYPE_EXTENSION_MAPPER
 from aymurai.utils.entity_disambiguation import (
     build_canonical_entities,
     get_canonical_dates,
-    llm_canonical_entities_inference,
     load_prompts_from_yaml,
     map_canonical_entities_ner_preds,
 )
@@ -466,70 +465,14 @@ async def anonymizer_disambiguate(
         "fuzzy clustering produced %d canonical entities", len(canonical_entities)
     )
 
-    # --- LLM REFINEMENT (policy-driven) ---
-    canonical_entities_llm = []
-
-    for label in llm_labels:
-        logger.info("llm refinement: label=%s", label)
-        prompt_set = custom_prompts.get(label) or prompt_library.get(label)
-
-        if (
-            not prompt_set
-            or not prompt_set.system.strip()
-            or not prompt_set.user.strip()
-        ):
-            logger.info("llm refinement skipped: missing prompt for label=%s", label)
-            continue
-
-        entities_for_this_label = [
-            e for e in canonical_entities if e.aymurai_label == label
-        ]
-
-        if not entities_for_this_label:
-            logger.info("llm refinement skipped: no entities for label=%s", label)
-            continue
-        logger.info(
-            "llm refinement input: label=%s entities=%d",
-            label,
-            len(entities_for_this_label),
-        )
-
-        llm_response = llm_canonical_entities_inference(
-            paragraphs=paragraphs,
-            canonical_entities_pre_cluster=entities_for_this_label,
-            system_prompt=prompt_set.system,
-            user_prompt_template=prompt_set.user,
-            model=settings.MODEL,
-            context_window_length=settings.CONTEXT_WINDOW_LENGTH,
-            model_context=settings.MODEL_CONTEXT,
-            token_limit_frac=settings.TOKEN_LIMIT_FRAC,
-            tokenizer_model=settings.TOKENIZER_MODEL,
-            target_label=label,
-            temperature=settings.TEMPERATURE,
-            decompose_by=settings.DECOMPOSE_BY,
-        )
-
-        if llm_response:
-            canonical_entities_llm.extend(llm_response)
-            logger.info(
-                "llm refinement output: label=%s entities=%d",
-                label,
-                len(llm_response),
-            )
-
-    canonical_entities_merged = canonical_entities_llm + [
-        ce for ce in canonical_entities if ce.aymurai_label not in set(llm_labels)
-    ]
     logger.info(
-        "disambiguation merge: llm=%d fuzzy_only=%d total=%d",
-        len(canonical_entities_llm),
-        len(canonical_entities_merged) - len(canonical_entities_llm),
-        len(canonical_entities_merged),
+        "disambiguation merge: total=%d",
+        len(canonical_entities),
     )
 
     predictions = map_canonical_entities_ner_preds(
         predictions=paragraphs,
-        canonical_entities=canonical_entities_merged,
+        canonical_entities=canonical_entities,
         force_labels=set(llm_labels),
     )
 
