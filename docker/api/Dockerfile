@@ -33,6 +33,7 @@ RUN --mount=type=bind,source=.git,target=.git \
     --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
     uv sync --frozen --no-editable
 
+
 # -------------------
 # Base API Stage
 # -------------------
@@ -74,7 +75,6 @@ COPY --from=builder --chown=app:app /app/.venv /app/.venv
 # Copy static resources
 COPY resources/api/static /resources/api/static
 COPY resources/pipelines /resources/pipelines
-COPY resources/llm /resources/llm
 
 # Set working directory
 WORKDIR /app
@@ -96,7 +96,6 @@ ENV TF_CPP_MIN_LOG_LEVEL=3 \
 # Copy additional resources
 COPY ./resources/api resources/api
 COPY ./resources/pipelines/production resources/pipelines/production
-COPY ./resources/llm resources/llm
 
 # Initialize application to download models
 RUN uv run python /app/.venv/lib/python3.10/site-packages/aymurai/api/main.py
