@@ -37,7 +37,6 @@ from aymurai.text.extraction import MIMETYPE_EXTENSION_MAPPER
 from aymurai.utils.entity_disambiguation import (
     build_canonical_entities,
     get_canonical_dates,
-    load_prompts_from_yaml,
     map_canonical_entities_ner_preds,
 )
 from aymurai.utils.misc import get_element
@@ -396,8 +395,6 @@ async def anonymizer_disambiguate(
     effective_label_policies = _merge_label_policies(label_policies)
     logger.info("disambiguation labels: %d", len(labels))
 
-    prompt_library = load_prompts_from_yaml()
-
     all_detected_labels = {
         label.attrs.aymurai_label
         for label in labels
@@ -407,9 +404,7 @@ async def anonymizer_disambiguate(
         and effective_label_policies.get(label.attrs.aymurai_label).anonymize
     }
 
-    default_llm_labels = (
-        target_labels if target_labels else list(prompt_library.as_dict.keys())
-    )
+    default_llm_labels = target_labels if target_labels else []
 
     llm_labels: list[str] = []
     fuzzy_labels: set[str] = set()
