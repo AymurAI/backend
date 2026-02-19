@@ -6,15 +6,14 @@ import torch
 from alembic import command
 from alembic.config import Config
 from fastapi import FastAPI, Request
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
+from fastapi.middleware.cors import CORSMiddleware
 
 from aymurai.api import core
-from aymurai.api.startup.database import check_db_connection
-from aymurai.api.startup.marker import warm_marker_models
 from aymurai.logger import get_logger
-from aymurai.pipeline import AymurAIPipeline
 from aymurai.settings import settings
+from aymurai.pipeline import AymurAIPipeline
+from aymurai.api.startup.database import check_db_connection
 
 try:
     from aymurai.version import __version__
@@ -105,11 +104,10 @@ api.include_router(core.router)
 
 if __name__ == "__main__":
     # download the necessary data
-    logger.info("Loading pipelines")
+    logger.info("Loading pipelines and exit.")
     AymurAIPipeline.load(
         os.path.join(RESOURCES_BASEPATH, "pipelines", "production", "flair-anonymizer")
     )
     AymurAIPipeline.load(
         os.path.join(RESOURCES_BASEPATH, "pipelines", "production", "full-paragraph")
     )
-    warm_marker_models()
