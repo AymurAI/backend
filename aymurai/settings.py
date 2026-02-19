@@ -67,15 +67,6 @@ class Settings(BaseSettings):
     # Fuzzy Matching
     THRESHOLD: int = 70
 
-    # LLM
-    MODEL: str = "phi4:14b"
-    MODEL_CONTEXT: int = 9500
-    TEMPERATURE: float = 0.0
-    CONTEXT_WINDOW_LENGTH: int | None = 120
-    TOKEN_LIMIT_FRAC: float = 2 / 3
-    TOKENIZER_MODEL: str = "microsoft/phi-4"
-    DECOMPOSE_BY: int | None = None
-
     # Label policies (JSON dict: label -> {disambiguation, anonymize})
     DISAMBIGUATION_LABEL_POLICIES: dict | None = None
 
