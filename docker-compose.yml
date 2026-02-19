@@ -1,196 +1,29 @@
-x-api-lite: &api-lite
-    image: ghcr.io/aymurai/api:latest
-    build:
-        context: .
-        dockerfile: ./docker/api/Dockerfile
-        target: aymurai-api
-    shm_size: "2gb"
-    ports:
-        - "8899:8899"
-    volumes:
-        - ./resources/cache:/resources/cache
-    env_file:
-        - .env
-        - .env.common
-
-x-api-full: &api-full
-    image: ghcr.io/aymurai/api:full
-    build:
-        context: .
-        dockerfile: ./docker/api/Dockerfile
-        target: aymurai-api-full
-    shm_size: "2gb"
-    ports:
-        - "8899:8899"
-    restart: always
-
-x-ollama: &ollama-base
-    image: ollama/ollama
-    ports:
-        - "11434:11434"
-    volumes:
-        - ollama:/root/.ollama
-    restart: always
-    shm_size: "2gb"
-
 services:
-    mlflow:
-        image: ghcr.io/mlflow/mlflow:latest
-        container_name: mlflow
-        ports:
-            - "5000:5000"
-        environment:
-            AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
-            AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
-            MLFLOW_S3_ENDPOINT_URL: http://minio:9000
-            MLFLOW_S3_IGNORE_TLS: ${MLFLOW_S3_IGNORE_TLS}
-        command:
-            [
-                "/bin/sh",
-                "-c",
-                "pip install --no-cache-dir psycopg2-binary boto3 && mlflow server --host 0.0.0.0 --port 5000 --backend-store-uri postgresql://mlflow:mlflow@postgres:5432/mlflow --default-artifact-root ${MLFLOW_ARTIFACT_ROOT}",
-            ]
-        depends_on:
-            postgres:
-                condition: service_healthy
-            minio:
-                condition: service_started
-        healthcheck:
-            test:
-                [
-                    "CMD",
-                    "python",
-                    "-c",
-                    "import urllib.request; urllib.request.urlopen('http://localhost:5000')",
-                ]
-            interval: 10s
-            timeout: 5s
-            retries: 6
-
-    postgres:
-        image: postgres:16
-        container_name: postgres
-        ports:
-            - "5432:5432"
-        environment:
-            POSTGRES_USER: mlflow
-            POSTGRES_PASSWORD: mlflow
-            POSTGRES_DB: mlflow
-        volumes:
-            - postgres-data:/var/lib/postgresql/data
-        healthcheck:
-            test: ["CMD-SHELL", "pg_isready -U mlflow"]
-            interval: 10s
-            timeout: 5s
-            retries: 6
-
-    minio:
-        image: minio/minio:latest
-        container_name: minio
-        ports:
-            - "9002:9000"
-            - "9001:9001"
-        environment:
-            MINIO_ROOT_USER: ${AWS_ACCESS_KEY_ID}
-            MINIO_ROOT_PASSWORD: ${AWS_SECRET_ACCESS_KEY}
-        command: ["server", "/data", "--console-address", ":9001"]
-        volumes:
-            - minio-data:/data
-        # Healthcheck removed; minio image lacks wget and minio-mc already waits for readiness.
-
-    minio-mc:
-        image: minio/mc:latest
-        container_name: minio-mc
-        depends_on:
-            minio:
-                condition: service_started
-        entrypoint:
-            [
-                "/bin/sh",
-                "-c",
-                "until (/usr/bin/mc alias set local http://minio:9000 ${AWS_ACCESS_KEY_ID} ${AWS_SECRET_ACCESS_KEY}) do sleep 1; done; /usr/bin/mc mb -p local/mlflow; /usr/bin/mc anonymous set none local/mlflow; exit 0;",
-            ]
-
-    # CPU-friendly API
     aymurai-api:
-        <<: *api-lite
-        container_name: aymurai-api
-        depends_on:
-            - ollama
-        environment:
-            OLLAMA_HOST: http://ollama:11434
-            TORCH_DEVICE: cpu
+        image: ghcr.io/aymurai/api:latest
+        ports:
+            - "8899:8899"
+        build:
+            context: .
+            dockerfile: ./docker/api/Dockerfile
+            target: aymurai-api
+        env_file:
+            - .env
+            - .env.common
+        volumes:
+            - ./resources/cache:/resources/cache
 
-    # GPU-enabled API
-    aymurai-api-gpu:
-        <<: *api-lite
-        container_name: aymurai-api-gpu
-        depends_on:
-            - ollama-gpu
-        environment:
-            OLLAMA_HOST: http://ollama-gpu:11434
-            TORCH_DEVICE: cuda
-        deploy:
-            resources:
-                reservations:
-                    devices:
-                        - driver: nvidia
-                          count: all
-                          capabilities: [ gpu ]
-
-    # CPU-friendly Full API
     aymurai-api-full:
-        <<: *api-full
-        container_name: aymurai-api-full
-        depends_on:
-            - ollama
-        environment:
-            OLLAMA_HOST: http://ollama:11434
-            TORCH_DEVICE: cpu
+        image: ghcr.io/aymurai/api:full
+        ports:
+            - "8899:8899"
+        build:
+            context: .
+            dockerfile: ./docker/api/Dockerfile
+            target: aymurai-api-full
+        restart: always
         deploy:
             resources:
                 limits:
                     memory: 4g
                     cpus: "4.0"
-
-    # GPU-enabled Full API
-    aymurai-api-full-gpu:
-        <<: *api-full
-        container_name: aymurai-api-full-gpu
-        depends_on:
-            - ollama-gpu
-        environment:
-            OLLAMA_HOST: http://ollama-gpu:11434
-            TORCH_DEVICE: cuda
-        deploy:
-            resources:
-                reservations:
-                    devices:
-                        - driver: nvidia
-                          count: all
-                          capabilities: [ gpu ]
-                limits:
-                    memory: 4g
-                    cpus: "4.0"
-
-    # CPU-only Ollama (default)
-    ollama:
-        <<: *ollama-base
-        container_name: ollama
-
-    # GPU-enabled Ollama (run instead on GPU hosts)
-    ollama-gpu:
-        <<: *ollama-base
-        container_name: ollama-gpu
-        deploy:
-            resources:
-                reservations:
-                    devices:
-                        - driver: nvidia
-                          count: all
-                          capabilities: [ gpu ]
-
-volumes:
-    ollama:
-    postgres-data:
-    minio-data:
