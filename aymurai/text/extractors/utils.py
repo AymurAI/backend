@@ -1,19 +1,16 @@
-import os
 import unicodedata
 import xml.etree.ElementTree as ET
 import zipfile
-from functools import cache
 from pathlib import Path
 from typing import Any
 
-import markdown2
 import xmltodict
-from bs4 import BeautifulSoup
 from lxml import etree
-from marker.converters.pdf import PdfConverter
-from marker.models import create_model_dict
-from marker.renderers.markdown import MarkdownRenderer
 from more_itertools import flatten
+
+import pymupdf
+import statistics
+import numpy as np
 
 from aymurai.logger import get_logger
 from aymurai.utils.misc import get_element, get_recursively
@@ -23,12 +20,11 @@ logger = get_logger(__file__)
 
 BLOCK_TAGS = {"h1", "h2", "h3", "h4", "h5", "h6", "p", "li", "blockquote", "pre"}
 
-MarkerPdfConfig = dict[str, int | str | bool]
 
 ODT_NS = {"text": "urn:oasis:names:tc:opendocument:xmlns:text:1.0"}
 
 
-def normalize_text(text: str) -> str:
+def _normalize_text(text: str) -> str:
     """
     Normalize Unicode output consistently across extractors.
 
@@ -41,127 +37,87 @@ def normalize_text(text: str) -> str:
     return unicodedata.normalize("NFKC", text)
 
 
-def markdown_to_text(md: str) -> str:
+def _compute_median_margin_between_blocks(pdf_path: str) -> float:
     """
-    Convert Markdown content to plain text by extracting relevant blocks.
-
+    Computes the median vertical margin between text blocks in a PDF.
     Args:
-        md (str): Markdown content produced by the renderer.
-
+        pdf_path (str): Path to the PDF file.
     Returns:
-        str: Plain text representation stripped of nested blocks.
+        float: Median margin between text blocks (in points).
     """
-    html = markdown2.markdown(md, extras=["tables"])
-    soup = BeautifulSoup(html, "html.parser")
+    margins = []
 
-    chunks: list[str] = []
-    for block in soup.find_all(BLOCK_TAGS):
-        if block.find_parent(BLOCK_TAGS):
-            continue
-        chunks.append(block.get_text(" ", strip=True))
+    with pymupdf.open(pdf_path) as doc:
+        for page in doc:
+            # Extract all text blocks from the page
+            blocks = page.get_text("blocks")
 
-    return "\n\n".join(filter(None, chunks))
+            # Sort blocks by their top y-coordinate (y0)
+            blocks_sorted = sorted(blocks, key=lambda b: b[1])
+
+            # Compute vertical margins between consecutive blocks
+            for i in range(1, len(blocks_sorted)):
+                previous_block = blocks_sorted[i - 1]
+                current_block = blocks_sorted[i]
+
+                # Calculate the vertical margin
+                previous_y1 = previous_block[3]  # Bottom of the previous block
+                current_y0 = current_block[1]  # Top of the current block
+                margin = current_y0 - previous_y1
+
+                if margin > 0:  # Ignore overlapping blocks
+                    margins.append(margin)
+
+    # Compute and return the median margin
+    if margins:
+        return statistics.median(margins)
+    else:
+        return 0.0  # Return 0 if no margins were found
 
 
-def _build_marker_pdf_config(
-    layout_batch_size: int = 8,
-    detection_batch_size: int = 8,
-    table_rec_batch_size: int = 8,
-    recognition_batch_size: int = 8,
-    ocr_error_batch_size: int = 8,
-    force_ocr: bool = False,
-    strip_existing_ocr: bool = True,
-    torch_device: str | None = None,
-    debug: bool | None = None,
-) -> MarkerPdfConfig:
+def _extract_and_merge_paragraphs(pdf_path: str, y_tolerance=5) -> list[str]:
     """
-    Build marker configuration factoring in environment overrides.
-
+    Extracts and merges paragraphs from a PDF by grouping close text blocks.
     Args:
-        layout_batch_size (int): Batch size for layout model inference. Defaults to 8.
-        detection_batch_size (int): Batch size for detection model inference. Defaults to 8.
-        table_rec_batch_size (int): Batch size for table recognition. Defaults to 8.
-        recognition_batch_size (int): Batch size for OCR recognition. Defaults to 8.
-        ocr_error_batch_size (int): Batch size for OCR error correction. Defaults to 8.
-        force_ocr (bool): Force OCR even if text is detected. Defaults to False.
-        strip_existing_ocr (bool): Remove embedded OCR layers before re-OCR. Defaults to True.
-        torch_device (str | None): Optional override for the torch device. Defaults to None.
-        debug (bool | None): Optional override for marker debug mode. Defaults to None.
-
+        pdf_path (str): Path to the PDF file.
+        y_tolerance (float): Maximum vertical gap (in points) to consider blocks part of the same paragraph.
     Returns:
-        dict[str, int | str | bool]: Effective configuration for marker-pdf.
+        list[str]: A list of merged paragraphs as strings.
     """
-    config: MarkerPdfConfig = {
-        "layout_batch_size": layout_batch_size,
-        "detection_batch_size": detection_batch_size,
-        "table_rec_batch_size": table_rec_batch_size,
-        "recognition_batch_size": recognition_batch_size,
-        "ocr_error_batch_size": ocr_error_batch_size,
-        "force_ocr": force_ocr,
-        "strip_existing_ocr": strip_existing_ocr,
-    }
+    paragraphs = []
+    current_paragraph = []
+    last_y1 = None
 
-    if torch_device is None:
-        torch_device = os.getenv("TORCH_DEVICE")
-    if torch_device:
-        config["TORCH_DEVICE"] = torch_device
+    with pymupdf.open(pdf_path) as doc:
+        for page in doc:
+            # Extract all text blocks from the page
+            blocks = page.get_text("blocks")
 
-    if debug is None:
-        log_level = os.getenv("LOG_LEVEL", "").lower()
-        debug = log_level == "debug"
+            # Sort blocks by their top y-coordinate (y0)
+            blocks_sorted = sorted(blocks, key=lambda b: b[1])
 
-    if debug:
-        config["debug"] = True
+            for block in blocks_sorted:
+                x0, y0, x1, y1, text, *_ = block
 
-    return config
+                if last_y1 is not None and (y0 - last_y1) > y_tolerance:
+                    # If the gap between blocks is too large, start a new paragraph
+                    if current_paragraph:
+                        paragraphs.append(" ".join(current_paragraph))
+                    current_paragraph = []
 
+                current_paragraph.append(text)
+                last_y1 = y1
 
-@cache
-def get_marker_pdf_converter_and_md_renderer(
-    config_items: tuple[tuple[str, int | str | bool], ...],
-) -> tuple[PdfConverter, MarkdownRenderer]:
-    """
-    Provide cached marker PDF converter and Markdown renderer instances.
+            if current_paragraph:
+                paragraphs.append(" ".join(current_paragraph))
+                current_paragraph = []
 
-    Args:
-        config_items (tuple[tuple[str, int | str | bool], ...]): Sorted config items
-            to build a stable cache key.
-
-    Returns:
-        tuple[PdfConverter, MarkdownRenderer]: Ready-to-use converter and renderer.
-    """
-    pdf_converter = PdfConverter(
-        artifact_dict=create_model_dict(),
-        config=dict(config_items),
-    )
-
-    markdown_renderer = MarkdownRenderer(
-        {
-            "keep_pageheader_in_output": True,
-            "keep_pagefooter_in_output": True,
-        }
-    )
-
-    return pdf_converter, markdown_renderer
-
-
-def _marker_config_key(
-    config: MarkerPdfConfig,
-) -> tuple[tuple[str, int | str | bool], ...]:
-    return tuple(sorted(config.items()))
+    return paragraphs
 
 
 def pdf_to_text(
-    file_path: Path,
-    *,
-    layout_batch_size: int = 8,
-    detection_batch_size: int = 8,
-    table_rec_batch_size: int = 8,
-    recognition_batch_size: int = 8,
-    ocr_error_batch_size: int = 8,
-    force_ocr: bool = False,
-    strip_existing_ocr: bool = True,
-    torch_device: str | None = None,
+    file_path: Path | str,
+    y_tolerance: float | None = None,
     debug: bool | None = None,
 ) -> str:
     """
@@ -169,38 +125,22 @@ def pdf_to_text(
 
     Args:
         file_path (Path): Path to the PDF document.
-        layout_batch_size (int): Batch size for layout model inference. Defaults to 8.
-        detection_batch_size (int): Batch size for detection model inference. Defaults to 8.
-        table_rec_batch_size (int): Batch size for table recognition. Defaults to 8.
-        recognition_batch_size (int): Batch size for OCR recognition. Defaults to 8.
-        ocr_error_batch_size (int): Batch size for OCR error correction. Defaults to 8.
-        force_ocr (bool): Force OCR even if text is detected. Defaults to False.
-        strip_existing_ocr (bool): Remove embedded OCR layers before re-OCR. Defaults to True.
-        torch_device (str | None): Optional override for the torch device. Defaults to None.
+        y_tolerance (float, optional):
+            Maximum vertical gap (in points) to consider blocks part of the same paragraph.
         debug (bool | None): Optional override for marker debug mode. Defaults to None.
 
     Returns:
         str: Cleaned textual content extracted from the PDF.
     """
     logger.info("Extracting text from PDF: %s", file_path)
-    config = _build_marker_pdf_config(
-        layout_batch_size=layout_batch_size,
-        detection_batch_size=detection_batch_size,
-        table_rec_batch_size=table_rec_batch_size,
-        recognition_batch_size=recognition_batch_size,
-        ocr_error_batch_size=ocr_error_batch_size,
-        force_ocr=force_ocr,
-        strip_existing_ocr=strip_existing_ocr,
-        torch_device=torch_device,
-        debug=debug,
-    )
-    pdf_converter, markdown_renderer = get_marker_pdf_converter_and_md_renderer(
-        _marker_config_key(config)
-    )
-    document = pdf_converter.build_document(filepath=file_path.as_posix())
-    markdown_output = markdown_renderer(document)
-    plain_text = markdown_to_text(markdown_output.markdown)
-    return normalize_text(plain_text)
+
+    if y_tolerance is None:
+        y_tolerance = _compute_median_margin_between_blocks(file_path)
+
+    paragraphs = _extract_and_merge_paragraphs(file_path, np.ceil(y_tolerance))
+    docu = "\n\n".join(paragraphs)
+
+    return _normalize_text(docu)
 
 
 def load_xml_from_docx(path: Path, xmlfile: str = "word/footnotes.xml") -> Any | None:

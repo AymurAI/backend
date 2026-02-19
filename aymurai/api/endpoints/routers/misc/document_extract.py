@@ -77,14 +77,7 @@ def run_safe_text_extraction(
 def plain_text_extractor(
     file: UploadFile,
     use_cache: bool = True,
-    layout_batch_size: int = 8,
-    detection_batch_size: int = 8,
-    table_rec_batch_size: int = 8,
-    recognition_batch_size: int = 8,
-    ocr_error_batch_size: int = 8,
-    force_ocr: bool = False,
-    strip_existing_ocr: bool = True,
-    torch_device: str | None = None,
+    y_tolerance: float | None = None,
     debug: bool | None = None,
 ) -> Document:
     """
@@ -93,14 +86,7 @@ def plain_text_extractor(
     Args:
         file (UploadFile): Incoming document upload.
         use_cache (bool): Whether to use caching for the extraction. Defaults to True.
-        layout_batch_size (int): Batch size for layout model inference. Defaults to 8.
-        detection_batch_size (int): Batch size for detection model inference. Defaults to 8.
-        table_rec_batch_size (int): Batch size for table recognition. Defaults to 8.
-        recognition_batch_size (int): Batch size for OCR recognition. Defaults to 8.
-        ocr_error_batch_size (int): Batch size for OCR error correction. Defaults to 8.
-        force_ocr (bool): Force OCR even if text is detected. Defaults to False.
-        strip_existing_ocr (bool): Remove embedded OCR layers before re-OCR. Defaults to True.
-        torch_device (str | None): Optional override for the torch device. Defaults to None.
+        y_tolerance (float | None): Optional vertical tolerance for PDF paragraph merging. Defaults to None.
         debug (bool | None): Optional override for marker debug mode. Defaults to None.
 
     Returns:
@@ -126,14 +112,7 @@ def plain_text_extractor(
             document = run_safe_text_extraction(
                 tmp_filename,
                 use_cache=use_cache,
-                layout_batch_size=layout_batch_size,
-                detection_batch_size=detection_batch_size,
-                table_rec_batch_size=table_rec_batch_size,
-                recognition_batch_size=recognition_batch_size,
-                ocr_error_batch_size=ocr_error_batch_size,
-                force_ocr=force_ocr,
-                strip_existing_ocr=strip_existing_ocr,
-                torch_device=torch_device,
+                y_tolerance=y_tolerance,
                 debug=debug,
             )
 
