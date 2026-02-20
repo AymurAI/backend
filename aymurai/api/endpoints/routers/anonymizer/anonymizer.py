@@ -27,7 +27,6 @@ from aymurai.meta.api_interfaces import (
     DocumentAnnotations,
     DocumentInformation,
     LabelPolicy,
-    PromptLibrary,
     RenderPolicy,
     TextRequest,
 )
@@ -344,12 +343,6 @@ async def anonymizer_disambiguate(
         ...,
         description=(
             "List of per-paragraph predictions returned by /anonymizer/predict."
-        ),
-    ),
-    custom_prompts: PromptLibrary = Body(
-        default_factory=PromptLibrary,
-        description=(
-            "Set of prompts, user and system, for each label if it is provided."
         ),
     ),
     label_policies: dict[str, LabelPolicy]

@@ -30,7 +30,7 @@
 Se incorpora un esquema de políticas por etiqueta que permite decidir:
 
 - `anonymize`: `true | false`
-- `disambiguation`: `"none" | "fuzzy" | "llm"`
+- `disambiguation`: `"none" | "fuzzy"`
 - `use_subclass_when_available`: `true | false`
 
 Estas políticas pueden venir de:
