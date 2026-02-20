@@ -92,6 +92,7 @@ Homepage = "https://www.aymurai.info/"
 Repository = "https://github.com/aymurAI/backend"
 Issues = "https://github.com/AymurAI/backend/issues"
 
+[dependency-groups]
 dev = [
     "matplotlib>=3.10.0",
     "seaborn>=0.13.2",
