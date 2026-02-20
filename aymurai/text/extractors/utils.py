@@ -1,24 +1,20 @@
+import statistics
 import unicodedata
 import xml.etree.ElementTree as ET
 import zipfile
 from pathlib import Path
 from typing import Any
 
+import numpy as np
+import pymupdf
 import xmltodict
 from lxml import etree
 from more_itertools import flatten
-
-import pymupdf
-import statistics
-import numpy as np
 
 from aymurai.logger import get_logger
 from aymurai.utils.misc import get_element, get_recursively
 
 logger = get_logger(__file__)
-
-
-BLOCK_TAGS = {"h1", "h2", "h3", "h4", "h5", "h6", "p", "li", "blockquote", "pre"}
 
 
 ODT_NS = {"text": "urn:oasis:names:tc:opendocument:xmlns:text:1.0"}
@@ -75,12 +71,13 @@ def _compute_median_margin_between_blocks(pdf_path: str) -> float:
         return 0.0  # Return 0 if no margins were found
 
 
-def _extract_and_merge_paragraphs(pdf_path: str, y_tolerance=5) -> list[str]:
+def _extract_and_merge_paragraphs(pdf_path: str, y_tolerance: float = 5) -> list[str]:
     """
     Extracts and merges paragraphs from a PDF by grouping close text blocks.
     Args:
         pdf_path (str): Path to the PDF file.
-        y_tolerance (float): Maximum vertical gap (in points) to consider blocks part of the same paragraph.
+        y_tolerance (float, optional): Maximum vertical gap (in points) to consider blocks part of the same paragraph.
+            Defaults to 5.
     Returns:
         list[str]: A list of merged paragraphs as strings.
     """
@@ -118,16 +115,14 @@ def _extract_and_merge_paragraphs(pdf_path: str, y_tolerance=5) -> list[str]:
 def pdf_to_text(
     file_path: Path | str,
     y_tolerance: float | None = None,
-    debug: bool | None = None,
 ) -> str:
     """
     Extract text from a PDF file and return normalized plain text.
 
     Args:
         file_path (Path): Path to the PDF document.
-        y_tolerance (float, optional):
-            Maximum vertical gap (in points) to consider blocks part of the same paragraph.
-        debug (bool | None): Optional override for marker debug mode. Defaults to None.
+        y_tolerance (float, optional): Maximum vertical gap (in points) to consider blocks part of the same paragraph.
+            If None, it will be computed as the median margin between blocks. Defaults to None.
 
     Returns:
         str: Cleaned textual content extracted from the PDF.
