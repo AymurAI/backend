@@ -38,7 +38,7 @@ class EntityAttributes(BaseModel):
     )
     aymurai_disambiguation: str | None = Field(
         None,
-        description=("Override disambiguation mode for this entity (none, fuzzy)."),
+        description="Override disambiguation mode for this entity (none, fuzzy).",
     )
     aymurai_anonymize: bool | None = Field(
         None,
