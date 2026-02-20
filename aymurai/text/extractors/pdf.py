@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Any
 
 from aymurai.text.extractors.base import BaseExtractor, InvalidFile, register_extractor
 from aymurai.text.extractors.utils import pdf_to_text
@@ -8,11 +9,7 @@ from aymurai.text.extractors.utils import pdf_to_text
 class PdfExtractor(BaseExtractor):
     extension = "pdf"
 
-    def extract(
-        self,
-        path: Path,
-        y_tolerance: float | None = None,
-    ) -> str:
+    def extract(self, path: Path, y_tolerance: float | None = None, **_: Any) -> str:
         """
         Extract normalized text from a PDF document.
 
@@ -21,6 +18,7 @@ class PdfExtractor(BaseExtractor):
             y_tolerance (float | None, optional): Maximum vertical gap used to
                 merge nearby text blocks. If None, it is estimated from the
                 document. Defaults to None.
+            **_ (Any):  Ignored extra keyword arguments for backward compatibility.
 
         Returns:
             str: Cleaned textual content.
