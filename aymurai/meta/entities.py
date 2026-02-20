@@ -63,45 +63,6 @@ class Entity(BaseModel):
     attrs: EntityAttributes | None = None
 
 
-class EntityRelation(BaseModel):
-    """Semantic relation between canonical entities."""
-
-    relation_id: UUID | None = Field(
-        None, description="Unique identifier of the relation"
-    )
-    relation_type: str = Field(
-        description="Type of relation (e.g. identifies, resides_in)"
-    )
-    subject_entity_id: UUID = Field(
-        description="Identifier of the subject entity participating in the relation"
-    )
-    object_entity_id: UUID = Field(
-        description="Identifier of the object entity participating in the relation"
-    )
-    attributes: dict[str, Any] = Field(
-        default_factory=dict,
-        description="Additional attributes captured for the relation",
-    )
-
-    @model_validator(mode="after")
-    def assign_relation_id(self) -> EntityRelation:
-        """Populate relation_id deterministically when not provided."""
-
-        if self.relation_id is not None:
-            return self
-
-        payload = {
-            "relation_type": self.relation_type,
-            "subject_entity_id": str(self.subject_entity_id),
-            "object_entity_id": str(self.object_entity_id),
-            "attributes": self.attributes,
-        }
-        seed = json.dumps(payload, sort_keys=True, separators=(",", ":"))
-        object.__setattr__(self, "relation_id", uuid5(NAMESPACE_URL, seed))
-
-        return self
-
-
 class CanonicalEntity(BaseModel):
     """Canonical representation of an entity cluster."""
 
