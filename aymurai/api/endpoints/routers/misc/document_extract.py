@@ -19,32 +19,24 @@ logger = get_logger(__name__)
 router = APIRouter()
 
 
-def extraction(
-    path: str,
-    use_cache: bool = True,
-    **kwargs,
-) -> str:
+def extraction(path: str) -> str:
     """
     Wrapper function to call the extract_document function.
     This is necessary to ensure that the function can be pickled and run in a separate process.
 
     Args:
         path (str): Path to the file to be processed.
-        use_cache (bool): Whether to use caching for the extraction.
-        **kwargs: Extractor-specific configuration overrides.
 
     Returns:
         str: Extracted text from the document.
     """
-    text = extract_document(path, use_cache=use_cache, **kwargs)
+    text = extract_document(path)
     return document_normalize(text) if text else ""
 
 
 def run_safe_text_extraction(
     path: str,
-    timeout_s: float | None = None,
-    use_cache: bool = True,
-    **kwargs,
+    timeout_s: float | None = 30,
 ) -> str:
     """
     Runs the text extraction in a separate process to avoid blocking the main thread.
@@ -53,9 +45,7 @@ def run_safe_text_extraction(
     Args:
         path (str): Path to the file to be processed.
         timeout_s (float | None): Timeout in seconds for the extraction process.
-            If None, waits indefinitely. Defaults to None.
-        use_cache (bool): Whether to use caching for the extraction.
-        **kwargs: Extractor-specific configuration overrides.
+            If None, waits indefinitely. Defaults to 30.
 
     Returns:
         str: Extracted text from the document.
@@ -64,7 +54,7 @@ def run_safe_text_extraction(
         TimeoutError: If the extraction process exceeds the specified timeout.
     """
     with concurrent.futures.ProcessPoolExecutor(max_workers=1) as executor:
-        future = executor.submit(extraction, path, use_cache, **kwargs)
+        future = executor.submit(extraction, path)
         try:
             return future.result(timeout=timeout_s)
         except concurrent.futures.TimeoutError:
@@ -74,20 +64,12 @@ def run_safe_text_extraction(
 
 
 @router.post("/document-extract", response_model=Document)
-def plain_text_extractor(
-    file: UploadFile,
-    use_cache: bool = True,
-    y_tolerance: float | None = None,
-    debug: bool | None = None,
-) -> Document:
+def plain_text_extractor(file: UploadFile) -> Document:
     """
     Extract plain text from an uploaded document.
 
     Args:
         file (UploadFile): Incoming document upload.
-        use_cache (bool): Whether to use caching for the extraction. Defaults to True.
-        y_tolerance (float | None): Optional vertical tolerance for PDF paragraph merging. Defaults to None.
-        debug (bool | None): Optional override for marker debug mode. Defaults to None.
 
     Returns:
         Document: Extracted and normalized document payload.
@@ -109,12 +91,7 @@ def plain_text_extractor(
 
             logger.info(f"saved temp file on local storage => {tmp_filename}")
 
-            document = run_safe_text_extraction(
-                tmp_filename,
-                use_cache=use_cache,
-                y_tolerance=y_tolerance,
-                debug=debug,
-            )
+            document = run_safe_text_extraction(tmp_filename)
 
         except concurrent.futures.TimeoutError:
             logger.error(f"Timeout while extracting text from {file.filename}")
