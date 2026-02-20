@@ -21,8 +21,8 @@
 
 - `canonical_entity_id`: UUID de la entidad canónica asignada a cada mención.
 - `aymurai_label_instance`: índice entero por orden de aparición del `canonical_entity_id` dentro de un mismo label (1, 2, 3...).
-- `aymurai_label_subclass`: lista de roles inferidos por LLM (p. ej. "Denunciante", "Juez/a").
-- `aymurai_disambiguation`: método aplicado para la desambiguación efectiva del label (`llm`, `fuzzy`, `none`).
+- `aymurai_label_subclass`: en el caso de fechas donde encuentra el patrón se escribe la fecha en formato DD/MM/YYYY.
+- `aymurai_disambiguation`: método aplicado para la desambiguación efectiva del label (`fuzzy`, `none`).
 - `aymurai_anonymize`: flag efectivo de anonimización (True/False).
 
 ### Políticas por label (nueva interfaz)
@@ -59,7 +59,7 @@ El `render_policy` puede definirse por entorno (`RENDER_POLICY`) o por request y
 
 - **Nuevo input opcional**: `label_policies`.
 - **Nuevo output**: `label_policies` y metadatos efectivos en cada `DocLabel` (`aymurai_disambiguation`, `aymurai_anonymize`).
-- La selección de labels para LLM/fuzzy se define por políticas, no por un modo global.
+- La selección de labels para fuzzy se define por políticas, no por un modo global.
 
 ### `/anonymizer/anonymize-document`
 
