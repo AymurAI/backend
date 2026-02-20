@@ -24,7 +24,7 @@ BLOCK_TAGS = {"h1", "h2", "h3", "h4", "h5", "h6", "p", "li", "blockquote", "pre"
 ODT_NS = {"text": "urn:oasis:names:tc:opendocument:xmlns:text:1.0"}
 
 
-def _normalize_text(text: str) -> str:
+def normalize_text(text: str) -> str:
     """
     Normalize Unicode output consistently across extractors.
 
@@ -140,7 +140,7 @@ def pdf_to_text(
     paragraphs = _extract_and_merge_paragraphs(file_path, np.ceil(y_tolerance))
     docu = "\n\n".join(paragraphs)
 
-    return _normalize_text(docu)
+    return normalize_text(docu)
 
 
 def load_xml_from_docx(path: Path, xmlfile: str = "word/footnotes.xml") -> Any | None:
