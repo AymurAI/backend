@@ -7,7 +7,6 @@ from typing import Any
 
 from aymurai.logger import get_logger
 from aymurai.utils.json_data import load_json
-from aymurai.utils.paths import prediction_filename_for_test, test_id_from_filename
 
 logger = get_logger(__name__)
 
