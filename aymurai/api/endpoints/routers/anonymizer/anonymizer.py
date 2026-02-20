@@ -352,29 +352,16 @@ async def anonymizer_disambiguate(
             "Optional per-label policy overrides for disambiguation/anonymization."
         ),
     ),
-    target_labels: list[str]
-    | None = Query(
-        None,
-        description=(
-            "Optional label filter for LLM refinement (e.g., PER,DNI). "
-            "Fuzzy clustering still runs across all detected labels."
-        ),
-    ),
     session: Session = Depends(get_session),
 ) -> DocumentAnnotations:
     """
-    Performs canonical entity disambiguation using fuzzy matching and LLM refinement.
+    Performs canonical entity disambiguation using fuzzy matching.
 
     Args:
         paragraphs: A list of DocumentInformation objects containing the NER
             predictions per paragraph that need to be disambiguated.
-        custom_prompts: A PromptLibrary object containing optional system and
-            user prompts. If not provided, the service uses the default prompts
-            configured in the environment.
         label_policies: Optional per-label disambiguation/anonymization policies.
-        target_labels: An optional list of entity labels to refine via LLM
-            (e.g., ["PER", "DNI"]). Fuzzy clustering still runs across all
-            detected labels.
+        session: Database session dependency for caching results.
     Returns:
         DocumentAnnotations: The original annotations enriched with
             'canonical_entity_id' and 'role' fields for each resolved mention.
@@ -397,41 +384,28 @@ async def anonymizer_disambiguate(
         and effective_label_policies.get(label.attrs.aymurai_label).anonymize
     }
 
-    default_llm_labels = target_labels if target_labels else []
-
-    llm_labels: list[str] = []
     fuzzy_labels: set[str] = set()
 
     for label in all_detected_labels:
         policy = effective_label_policies.get(label)
-        if policy and policy.disambiguation == "llm":
-            llm_labels.append(label)
-            fuzzy_labels.add(label)
-            continue
         if policy and policy.disambiguation == "fuzzy":
             fuzzy_labels.add(label)
             continue
         if policy and policy.disambiguation == "none":
             continue
 
-        if label in default_llm_labels:
-            llm_labels.append(label)
-            fuzzy_labels.add(label)
-        else:
-            fuzzy_labels.add(label)
+        fuzzy_labels.add(label)
 
     effective_disambiguation_by_label: dict[str, str] = {}
     for label in all_detected_labels:
-        if label in llm_labels:
-            effective_disambiguation_by_label[label] = "llm"
-        elif label in fuzzy_labels:
+        if label in fuzzy_labels:
             effective_disambiguation_by_label[label] = "fuzzy"
         else:
             effective_disambiguation_by_label[label] = "none"
     logger.info(
-        "disambiguation targets: detected=%s llm=%s",
+        "disambiguation targets: detected=%s fuzzy=%s",
         sorted(all_detected_labels),
-        llm_labels,
+        sorted(fuzzy_labels),
     )
 
     canonical_entities = (
@@ -461,7 +435,6 @@ async def anonymizer_disambiguate(
     predictions = map_canonical_entities_ner_preds(
         predictions=paragraphs,
         canonical_entities=canonical_entities,
-        force_labels=set(llm_labels),
     )
 
     for document in predictions:
