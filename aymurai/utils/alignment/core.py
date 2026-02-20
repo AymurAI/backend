@@ -11,6 +11,15 @@ from aymurai.text.extraction import extract_document
 
 
 def tokenize(text: str) -> list[str]:
+    """
+    Split multi-line text into whitespace-delimited tokens.
+
+    Args:
+        text (str): Input text to tokenize.
+
+    Returns:
+        list[str]: Tokens extracted from the text.
+    """
     tokens = map(str.split, text.splitlines())
     tokens = flatten(tokens)
     return list(tokens)
@@ -21,15 +30,17 @@ def align_text(
     target_text: str,
     columns: tuple[str, str] = ("source", "target"),
 ) -> pd.DataFrame:
-    """align source and target text into a table
+    """
+    Align source and target text into a token-level mapping table.
 
     Args:
-        source_text (str): reference text
-        target_text (str): second text to align with
-        columns (tuple[str, str]): names of columns on output
+        source_text (str): Reference text.
+        target_text (str): Text to align against `source_text`.
+        columns (tuple[str, str], optional): Output column names.
+            Defaults to ("source", "target").
 
     Returns:
-        pd.DataFrame: alignment table
+        pd.DataFrame: Alignment table.
     """
     source_tokens = [t.strip() for t in tokenize(source_text)]
     target_tokens = [t.strip() for t in tokenize(target_text)]
@@ -78,15 +89,22 @@ def align_docs(
     columns: tuple[str, str] = ("source", "target"),
     source_preprocess: Callable[[str], str] | None = None,
     target_preprocess: Callable[[str], str] | None = None,
-):
-    """align two documents word to word
+) -> pd.DataFrame:
+    """
+    Align two documents word by word.
 
     Args:
-        source_path (str | Path): source document path (reference)
-        target_path (str | Path): target document path (target)
+        source_path (str | Path): Source document path (reference).
+        target_path (str | Path): Target document path.
+        columns (tuple[str, str], optional): Output column names.
+            Defaults to ("source", "target").
+        source_preprocess (Callable[[str], str] | None, optional): Preprocessing
+            function applied to extracted source text. Defaults to None.
+        target_preprocess (Callable[[str], str] | None, optional): Preprocessing
+            function applied to extracted target text. Defaults to None.
 
     Returns:
-        pd.DataFrame: alignment table
+        pd.DataFrame: Alignment table.
     """
     source: str = extract_document(source_path, errors="raise")  # type: ignore
     target: str = extract_document(target_path, errors="raise")  # type: ignore
@@ -140,6 +158,16 @@ def add_empty_lines_between_paragraphs(
     reference: str,
     mapping: pd.DataFrame,
 ) -> pd.DataFrame:
+    """
+    Insert empty rows in an alignment table at paragraph break boundaries.
+
+    Args:
+        reference (str): Reference text used to infer paragraph boundaries.
+        mapping (pd.DataFrame): Alignment table to augment.
+
+    Returns:
+        pd.DataFrame: Alignment table with inserted empty rows.
+    """
     mapping = mapping.copy()
     reference = re.sub(r"\n+", "\n", reference)
     splitted = reference.splitlines()

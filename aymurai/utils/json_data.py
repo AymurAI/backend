@@ -9,7 +9,7 @@ def json_serial(obj: Any) -> str:
     JSON serializer for objects not serializable by default JSON encoder.
 
     Args:
-        obj: The object to serialize. This function currently supports
+        obj (Any): The object to serialize. This function currently supports
              datetime.date and datetime.datetime objects.
 
     Returns:
@@ -17,7 +17,7 @@ def json_serial(obj: Any) -> str:
 
     Raises:
         TypeError: If the object is not of type datetime.date or datetime.datetime.
-    """  # noqa: E501
+    """
     if isinstance(obj, (datetime, date)):
         return obj.isoformat()
     raise TypeError(f"Type {type(obj)} not serializable")
@@ -28,17 +28,16 @@ def get_pretty(obj: dict | list[Any]) -> str:
     Returns a pretty json string.
 
     Args:
-        obj (Union[dict, list[Any]]): the object to be converted to json.
+        obj (dict | list[Any]): The object to be converted to JSON.
 
     Returns:
-        str: the pretty json string.
+        str: The pretty JSON string.
     """
     return json.dumps(obj, indent=4, ensure_ascii=False, default=json_serial)
 
 
 def save_json(json_data: dict | list[dict], file_path: str) -> None:
     """
-
     Saves a JSON object to a file.
 
     Args:

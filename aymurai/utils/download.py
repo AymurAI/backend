@@ -19,11 +19,14 @@ def download(url: str, output: str) -> str:
     Skips download when the target exists and NO_DOWNLOAD_IF_EXISTS is truthy.
 
     Args:
-        url: URL to download.
-        output: Path to save the downloaded file.
+        url (str): URL to download.
+        output (str): Path to save the downloaded file.
 
     Returns:
         str: Path to the downloaded file.
+
+    Raises:
+        requests.HTTPError: If the download request returns an HTTP error status.
     """
 
     output_path = Path(output)

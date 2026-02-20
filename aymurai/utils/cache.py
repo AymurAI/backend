@@ -21,7 +21,7 @@ def flatten_dict(current: dict, key: str = "", result: dict = {}) -> dict:
 
     Args:
         current (dict): Source dictionary to flatten.
-        key (str): Parent key prefix. Defaults to "".
+        key (str, optional): Parent key prefix. Defaults to "".
         result (dict, optional): Accumulator reused across recursion. Defaults to {}.
 
     Returns:
@@ -53,7 +53,8 @@ def get_cache_key(item: Any, context: Any = "") -> str:
 
     Args:
         item (Any): Value to hash into the key namespace.
-        context (Any): Additional context used to scope the key. Defaults to "".
+        context (Any, optional): Additional context used to scope the key.
+            Defaults to "".
 
     Returns:
         str: Deterministic hash suitable for cache lookups.
@@ -91,9 +92,6 @@ def cache_save(data_item: Any, key: str) -> None:
     Args:
         data_item (Any): Serializable payload to store.
         key (str): Cache key under which the payload is saved.
-
-    Returns:
-        None: This function does not return a value.
     """
 
     data = pickle.dumps(data_item)

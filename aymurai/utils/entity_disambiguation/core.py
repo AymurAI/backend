@@ -58,10 +58,10 @@ def map_canonical_entities_ner_preds(
     Args:
         predictions (DocumentAnnotations): Original predictions to update.
         canonical_entities (CanonicalEntities): Canonical entities with IDs/roles.
-        include_label_instances (bool): Whether to assign ordered label instance
-            indices (e.g., 1, 2). Defaults to True.
-        force_labels (set[str] | None): Labels to remap even if a canonical ID
-            already exists.
+        include_label_instances (bool, optional): Whether to assign ordered label
+            instance indices (e.g., 1, 2). Defaults to True.
+        force_labels (set[str] | None, optional): Labels to remap even if a
+            canonical ID already exists. Defaults to None.
 
     Returns:
         DocumentAnnotations: Updated predictions with canonical IDs, roles, and

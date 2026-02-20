@@ -33,9 +33,6 @@ def _union_parent(parent: list[int], left: int, right: int) -> None:
         parent (list[int]): Parent pointers for the union-find structure.
         left (int): First index to union.
         right (int): Second index to union.
-
-    Returns:
-        None
     """
     root_left, root_right = _find_parent(parent, left), _find_parent(parent, right)
     if root_left != root_right:
@@ -167,8 +164,8 @@ def build_canonical_entities(
 
     Args:
         labels (Iterable[DocLabel]): NER labels to cluster.
-        target_labels (set[str] | None): Optional label filter; if provided,
-            only these labels are clustered.
+        target_labels (set[str] | None, optional): Label filter; if provided,
+            only these labels are clustered. Defaults to None.
         threshold (int): Minimum similarity threshold for clustering.
 
     Returns:
