@@ -73,7 +73,6 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 COPY --from=builder --chown=app:app /app/.venv /app/.venv
 
 # Copy static resources
-COPY resources/api/static /resources/api/static
 COPY resources/pipelines /resources/pipelines
 
 # Set working directory
@@ -94,7 +93,6 @@ ENV TF_CPP_MIN_LOG_LEVEL=3 \
     RESOURCES_BASEPATH=resources
 
 # Copy additional resources
-COPY ./resources/api resources/api
 COPY ./resources/pipelines/production resources/pipelines/production
 
 # Initialize application to download models
