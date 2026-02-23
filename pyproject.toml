@@ -115,6 +115,7 @@ aymurai-api = "aymurai.api.main:main"
 
 [tool.setuptools_scm]
 version_file = "aymurai/version.py"
+version_scheme = "only-version"
 local_scheme = "no-local-version"
 
 
