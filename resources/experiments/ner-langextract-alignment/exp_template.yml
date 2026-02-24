@@ -1,0 +1,70 @@
+experiment:
+  name: "ner-langextract-alignment"
+  run_name: "{model}-{timestamp}"
+
+data:
+  input_documents_dir: "/resources/data/restricted/disambiguation-eval/docs"
+  # input_paragraphs_jsonl: "/workspace/data/paragraphs.jsonl"
+  include_extensions: [".pdf", ".docx"]
+  max_documents: 5
+  max_paragraphs: 300
+
+api:
+  base_url: "http://localhost:8999"
+  document_extract_path: "/misc/document-extract"
+  anonymizer_predict_path: "/anonymizer/predict"
+  timeout_s: 120
+  retries: 2
+  retry_backoff_s: 1.0
+  use_cache: false
+
+langextract:
+  provider: "ollama"
+  model_id: "qwen2.5:7b"
+  base_url: "http://localhost:11434/v1"
+  api_key_env: "OLLAMA_API_KEY"
+  api_key_fallback: "ollama"
+  prompt_description: |
+    Extrae entidades nombradas de textos judiciales en español usando las clases definidas en los ejemplos.
+    Devuelve solo entidades explícitas del texto.
+  examples_yaml_path: "resources/langextract/ner_alignment_examples.yaml"
+  temperature: 0.0
+  think: false
+  max_workers: 4
+  extraction_passes: 1
+  batch_length: 1
+
+mapping:
+  labels_yaml_path: "resources/experiments/ner-langextract-alignment/label_mapping.yaml"
+
+comparison:
+  mode: "exact_span_label"
+  normalize_case: true
+  normalize_accents: true
+  normalize_punctuation: true
+
+labelstudio:
+  enabled: true
+  export_dir: "outputs/ner-langextract-alignment/labelstudio"
+  qa_sample_rate: 0.10
+  qa_seed: 42
+  # import_annotations_path: "outputs/ner-langextract-alignment/labelstudio/reviewed.json"
+
+logging:
+  mlflow:
+    tracking_uri: "http://localhost:5000"
+    experiment_name: "ner-langextract-alignment"
+    enable_openai_autolog: false
+  privacy:
+    log_prompt_text: true
+    log_llm_outputs: true
+    log_raw_predictions: true
+    redact_sensitive_fields: false
+
+outputs:
+  base_dir: "outputs/ner-langextract-alignment"
+  samples_jsonl: "samples.jsonl"
+  traces_jsonl: "llm_traces/traces.jsonl"
+  traces_summary_csv: "llm_traces/traces_summary.csv"
+  train_candidates_jsonl: "train_candidates.jsonl"
+  review_required_jsonl: "review_required.jsonl"

@@ -88,3 +88,58 @@ the model, prompts, and data paths as needed.
 
 The main runner is:
 - `aymurai/experiments/entity_disambiguation/runner.py`
+
+## NER + LangExtract alignment experiment
+
+Config template:
+- `resources/experiments/ner-langextract-alignment/exp-template.yaml`
+
+Run:
+
+```bash
+uv run --group mlops -- python -m aymurai.experiments.ner_langextract_alignment.runner \
+  --config resources/experiments/ner-langextract-alignment/exp-template.yaml
+```
+
+Key outputs (under `outputs.base_dir`):
+- `samples.jsonl`
+- `llm_traces/traces.jsonl`
+- `llm_traces/traces_summary.csv`
+- `train_candidates.jsonl`
+- `review_required.jsonl`
+- `labelstudio/discrepancies.json`
+- `labelstudio/agreements_qa_sample.json`
+
+## NER/LangExtract test set evaluation experiment
+
+Config template:
+- `resources/experiments/ner-testset-evaluation/exp-template.yaml`
+
+Run:
+
+```bash
+uv run --group mlops -- python -m aymurai.experiments.ner_testset_evaluation.runner \
+  --config resources/experiments/ner-testset-evaluation/exp-template.yaml
+```
+
+Notes:
+- `backend.mode` runs one backend per execution: `ner_api` or `langextract`.
+- Dataset formats supported in `data.format`:
+  - `conll_bio`
+  - `hf_token_classification`
+  - `span_jsonl`
+- The experiment logs hybrid MLflow tracking:
+  - classic params/metrics/artifacts
+  - per-sample categorical feedback (`perfect_prediction`) as YES/NO
+
+Key outputs (under `outputs.base_dir`):
+- `samples_gold.jsonl`
+- `predictions.jsonl`
+- `per_sample_scores.jsonl`
+- `metrics_summary.json`
+- `reports/label_metrics.csv`
+- `reports/token_relaxed_confusion.csv`
+- `feedback/perfect_prediction.jsonl`
+- `llm_traces/traces.jsonl` (only for `backend.mode=langextract`)
+- `llm_traces/traces_summary.csv` (only for `backend.mode=langextract`)
+- `manifest.json`

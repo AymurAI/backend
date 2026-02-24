@@ -129,6 +129,18 @@ ifndef CONFIG
 endif
 	uv run --group mlops -- python -m aymurai.experiments.entity_disambiguation.runner --config $(CONFIG)
 
+exp-run-ner-testset:
+ifndef CONFIG
+	$(error CONFIG variable is required, e.g. make exp-run-ner-testset CONFIG=resources/experiments/ner-testset-evaluation/exp-template.yaml)
+endif
+	uv run --group mlops -- python -m aymurai.experiments.ner_testset_evaluation.runner --config $(CONFIG)
+
+exp-run-ner-langextract-alignment:
+ifndef CONFIG
+	$(error CONFIG variable is required, e.g. make exp-run-ner-langextract-alignment CONFIG=resources/experiments/ner-langextract-alignment/exp-template.yml)
+endif
+	uv run --group mlops -- python -m aymurai.experiments.ner_langextract_alignment.runner --config $(CONFIG)
+
 stress-test:
 	locust -f locustfile.py --host http://localhost:8899
 
