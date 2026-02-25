@@ -96,6 +96,9 @@ workspace.xml
 # Mypy cache
 .mypy_cache/
 
+#MLflow
+mlartifacts
+
 resources
 *.mp4
 *.mkv
