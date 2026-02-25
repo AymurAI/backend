@@ -108,14 +108,14 @@ def build_task(sample: dict[str, Any]) -> dict[str, Any]:
                 model_version="ner_api",
                 from_name="label",
                 to_name="text",
-                diff_tag="only_ner",
+                diff_tag="ner_only",
             ),
             _prediction_payload(
                 entities=sample.get("langextract_predictions", []),
                 model_version="langextract",
                 from_name="label",
                 to_name="text",
-                diff_tag="only_langextract",
+                diff_tag="langextract_only",
             ),
             _prediction_payload(
                 entities=sample.get("comparison", {}).get("exact_match", []),

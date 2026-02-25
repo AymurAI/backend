@@ -79,7 +79,7 @@ def parse_ner_predictions(
             flags.append(f"ner_invalid_span:{idx}")
             continue
 
-        exact_text = alt_text or text[start:end]
+        exact_text = text[start:end]
         entities.append(
             NormalizedEntity(
                 label=normalize_label(raw_label),

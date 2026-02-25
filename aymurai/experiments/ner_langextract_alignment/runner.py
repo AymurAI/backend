@@ -81,7 +81,6 @@ def _ensure_dirs(config: NERLangExtractRunConfig) -> dict[str, Path]:
         "traces_jsonl": base / config.outputs.traces_jsonl,
         "traces_csv": base / config.outputs.traces_summary_csv,
         "train_candidates": base / config.outputs.train_candidates_jsonl,
-        "partial_review_required": base / config.outputs.partial_review_required_jsonl,
         "review_required": base / config.outputs.review_required_jsonl,
     }
 
@@ -519,11 +518,9 @@ def run_experiment(config_path: str) -> None:
 
         (
             train_candidates,
-            partial_review_required,
             review_required,
         ) = consolidate_datasets(samples_output, decisions)
         write_jsonl(paths["train_candidates"], train_candidates)
-        write_jsonl(paths["partial_review_required"], partial_review_required)
         write_jsonl(paths["review_required"], review_required)
 
         metrics = summarize_metrics(samples_output, traces)

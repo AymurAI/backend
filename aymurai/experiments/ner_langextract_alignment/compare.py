@@ -16,46 +16,68 @@ def compare_entities(
     lx_map: dict[tuple, list[NormalizedEntity]] = defaultdict(list)
 
     for ent in ner_entities:
-        ner_map[(ent.label, ent.start_char, ent.end_char, ent.text)].append(ent)
+        ner_map[(ent.text, ent.label)].append(ent)
     for ent in langextract_entities:
-        lx_map[(ent.label, ent.start_char, ent.end_char, ent.text)].append(ent)
+        lx_map[(ent.text, ent.label)].append(ent)
 
     exact_match: list[NormalizedEntity] = []
-    partial_match: list[NormalizedEntity] = []
-    only_in_ner: list[NormalizedEntity] = []
-    only_in_langextract: list[NormalizedEntity] = []
+    remaining_ner: list[NormalizedEntity] = []
+    remaining_lx: list[NormalizedEntity] = []
 
-    keys = set(ner_map.keys()) | set(lx_map.keys())
-
-    for key in sorted(keys):
+    all_exact_keys = set(ner_map.keys()) | set(lx_map.keys())
+    for key in all_exact_keys:
         ner_items = ner_map.get(key, [])
         lx_items = lx_map.get(key, [])
         n_match = min(len(ner_items), len(lx_items))
-
         exact_match.extend(ner_items[:n_match])
 
         if len(ner_items) > n_match:
-            only_in_ner.extend(ner_items[n_match:])
+            remaining_ner.extend(ner_items[n_match:])
         if len(lx_items) > n_match:
-            only_in_langextract.extend(lx_items[n_match:])
+            remaining_lx.extend(lx_items[n_match:])
 
-    for ner_ent in ner_entities:
-        for lx_ent in langextract_entities:
-            if (
-                lx_ent.text != ner_ent.text
-                and lx_ent.text in ner_ent.text
-                and ner_ent.label == lx_ent.label
-            ):
+    partial_match: list[NormalizedEntity] = []
+    matched_in_remaining_lx = set()
+    matched_in_remaining_ner = set()
+
+    for ner_ent in remaining_ner:
+        for lx_ent in remaining_lx:
+            if ner_ent.label == lx_ent.label and lx_ent.text in ner_ent.text:
                 partial_match.append(ner_ent)
+                matched_in_remaining_ner.add(id(ner_ent))
+                matched_in_remaining_lx.add(id(lx_ent))
+                break
 
-    if not only_in_ner and not only_in_langextract:
+    only_in_ner: list[NormalizedEntity] = [
+        e for e in remaining_ner if id(e) not in matched_in_remaining_ner
+    ]
+    only_in_langextract: list[NormalizedEntity] = [
+        e for e in remaining_lx if id(e) not in matched_in_remaining_lx
+    ]
+
+    if exact_match and not remaining_ner and not remaining_lx:
         status = "exact_match"
-    elif only_in_ner and not only_in_langextract:
-        status = "ner_only"
-    elif only_in_langextract and not only_in_ner:
-        status = "langextract_only"
-    elif partial_match:
+    elif (
+        partial_match
+        and not exact_match
+        and not only_in_ner
+        and not only_in_langextract
+    ):
         status = "partial_match"
+    elif (
+        only_in_ner
+        and not only_in_langextract
+        and not exact_match
+        and not partial_match
+    ):
+        status = "ner_only"
+    elif (
+        only_in_langextract
+        and not only_in_ner
+        and not exact_match
+        and not partial_match
+    ):
+        status = "langextract_only"
     else:
         status = "mixed"
 

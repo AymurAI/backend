@@ -136,7 +136,6 @@ class OutputsConfig(BaseModel):
     traces_jsonl: str = "llm_traces/traces.jsonl"
     traces_summary_csv: str = "llm_traces/traces_summary.csv"
     train_candidates_jsonl: str = "train_candidates.jsonl"
-    partial_review_required_jsonl: str = "partial_review_required.jsonl"
     review_required_jsonl: str = "review_required.jsonl"
 
 
