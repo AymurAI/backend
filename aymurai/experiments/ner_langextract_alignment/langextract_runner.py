@@ -20,6 +20,20 @@ from aymurai.utils.yaml_data import load_yaml
 
 logger = get_logger(__name__)
 
+import httpx
+
+_original_is_closed = httpx.Client.is_closed
+
+
+@property
+def _fixed_is_closed(self):
+    if not hasattr(self, "_state"):
+        return True
+    return self._state == httpx._client.ClientState.CLOSED
+
+
+httpx.Client.is_closed = _fixed_is_closed
+
 
 class TracingOpenAIModel(OpenAILanguageModel):
     """OpenAI-compatible model that captures raw prompt/output traces."""
