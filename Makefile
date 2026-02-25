@@ -135,6 +135,8 @@ ifndef CONFIG
 endif
 	uv run --group mlops -- python -m aymurai.experiments.ner_testset_evaluation.runner --config $(CONFIG)
 
+
+export MLFLOW_TRACKING_URI=http://localhost:8080
 exp-run-ner-langextract-alignment:
 ifndef CONFIG
 	$(error CONFIG variable is required, e.g. make exp-run-ner-langextract-alignment CONFIG=resources/experiments/ner-langextract-alignment/exp-template.yml)
