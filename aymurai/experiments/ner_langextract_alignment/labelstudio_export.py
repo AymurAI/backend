@@ -68,7 +68,7 @@ def sample_agreements_stratified(
     for sample in match_samples:
         labels = {
             entity.get("label")
-            for entity in sample.get("comparison", {}).get("matched", [])
+            for entity in sample.get("comparison", {}).get("exact_match", [])
             if entity.get("label")
         }
         group_key = "|".join(sorted(labels)) if labels else "__NO_ENTITY__"
@@ -118,11 +118,18 @@ def build_task(sample: dict[str, Any]) -> dict[str, Any]:
                 diff_tag="only_langextract",
             ),
             _prediction_payload(
-                entities=sample.get("comparison", {}).get("matched", []),
-                model_version="matched",
+                entities=sample.get("comparison", {}).get("exact_match", []),
+                model_version="exact_match",
                 from_name="label",
                 to_name="text",
-                diff_tag="matched",
+                diff_tag="exact_match",
+            ),
+            _prediction_payload(
+                entities=sample.get("comparison", {}).get("partial_match", []),
+                model_version="partial_match",
+                from_name="label",
+                to_name="text",
+                diff_tag="partial_match",
             ),
         ],
     }
@@ -145,17 +152,22 @@ def export_labelstudio_tasks(
         in {"ner_only", "langextract_only", "mixed"}
     ]
     agreements = [
-        s for s in samples if s.get("comparison", {}).get("status") == "match_full"
+        s for s in samples if s.get("comparison", {}).get("status") == "exact_match"
     ]
     sampled_agreements = sample_agreements_stratified(
         agreements, qa_sample_rate, qa_seed
     )
+    partial_agreements = [
+        s for s in samples if s.get("comparison", {}).get("status") == "partial_match"
+    ]
 
     discrepancies_tasks = [build_task(s) for s in discrepancies]
     agreements_tasks = [build_task(s) for s in sampled_agreements]
+    partial_agreements_tasks = [build_task(s) for s in partial_agreements]
 
     discrepancies_path = export_dir / "discrepancies.json"
     agreements_path = export_dir / "agreements_qa_sample.json"
+    partial_agreements_path = export_dir / "partial_agreements.json"
 
     discrepancies_path.write_text(
         json.dumps(discrepancies_tasks, ensure_ascii=False, indent=2), encoding="utf-8"
@@ -163,8 +175,13 @@ def export_labelstudio_tasks(
     agreements_path.write_text(
         json.dumps(agreements_tasks, ensure_ascii=False, indent=2), encoding="utf-8"
     )
+    partial_agreements_path.write_text(
+        json.dumps(partial_agreements_tasks, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
 
     return {
         "discrepancies": discrepancies_path,
         "agreements_qa_sample": agreements_path,
+        "partial_agreements": partial_agreements_path,
     }

@@ -20,7 +20,8 @@ def compare_entities(
     for ent in langextract_entities:
         lx_map[(ent.label, ent.start_char, ent.end_char, ent.text)].append(ent)
 
-    matched: list[NormalizedEntity] = []
+    exact_match: list[NormalizedEntity] = []
+    partial_match: list[NormalizedEntity] = []
     only_in_ner: list[NormalizedEntity] = []
     only_in_langextract: list[NormalizedEntity] = []
 
@@ -31,25 +32,37 @@ def compare_entities(
         lx_items = lx_map.get(key, [])
         n_match = min(len(ner_items), len(lx_items))
 
-        matched.extend(ner_items[:n_match])
+        exact_match.extend(ner_items[:n_match])
 
         if len(ner_items) > n_match:
             only_in_ner.extend(ner_items[n_match:])
         if len(lx_items) > n_match:
             only_in_langextract.extend(lx_items[n_match:])
 
+    for ner_ent in ner_entities:
+        for lx_ent in langextract_entities:
+            if (
+                lx_ent.text != ner_ent.text
+                and lx_ent.text in ner_ent.text
+                and ner_ent.label == lx_ent.label
+            ):
+                partial_match.append(ner_ent)
+
     if not only_in_ner and not only_in_langextract:
-        status = "match_full"
+        status = "exact_match"
     elif only_in_ner and not only_in_langextract:
         status = "ner_only"
     elif only_in_langextract and not only_in_ner:
         status = "langextract_only"
+    elif partial_match:
+        status = "partial_match"
     else:
         status = "mixed"
 
     return ComparisonResult(
         status=status,
-        matched=matched,
+        exact_match=exact_match,
+        partial_match=partial_match,
         only_in_ner=only_in_ner,
         only_in_langextract=only_in_langextract,
     )
@@ -57,9 +70,10 @@ def compare_entities(
 
 def status_distribution(samples: list[dict]) -> dict[str, int]:
     out: dict[str, int] = {
-        "match_full": 0,
+        "exact_match": 0,
         "ner_only": 0,
         "langextract_only": 0,
+        "partial_match": 0,
         "mixed": 0,
     }
     for sample in samples:

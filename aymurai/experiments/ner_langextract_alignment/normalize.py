@@ -58,6 +58,8 @@ def parse_ner_predictions(
     for idx, label in enumerate(labels or []):
         attrs = label.get("attrs") or {}
         raw_label = attrs.get("aymurai_label") or label.get("label")
+        alt_text = attrs.get("aymurai_alt_text")
+
         if not raw_label:
             flags.append(f"ner_missing_label:{idx}")
             continue
@@ -77,7 +79,7 @@ def parse_ner_predictions(
             flags.append(f"ner_invalid_span:{idx}")
             continue
 
-        exact_text = text[start:end]
+        exact_text = alt_text or text[start:end]
         entities.append(
             NormalizedEntity(
                 label=normalize_label(raw_label),
@@ -95,6 +97,7 @@ def parse_ner_predictions(
                 extra={
                     "attrs": attrs,
                     "original_text": label.get("text"),
+                    "alt_text": alt_text,
                 },
             )
         )

@@ -4,7 +4,9 @@ from dataclasses import dataclass, field
 from typing import Any, Literal
 
 
-ComparisonStatus = Literal["match_full", "ner_only", "langextract_only", "mixed"]
+ComparisonStatus = Literal[
+    "exact_match", "partial_match", "ner_only", "langextract_only", "mixed"
+]
 
 
 @dataclass(frozen=True)
@@ -38,7 +40,8 @@ class NormalizedEntity:
 @dataclass
 class ComparisonResult:
     status: ComparisonStatus
-    matched: list[NormalizedEntity]
+    exact_match: list[NormalizedEntity]
+    partial_match: list[NormalizedEntity]
     only_in_ner: list[NormalizedEntity]
     only_in_langextract: list[NormalizedEntity]
 

@@ -84,6 +84,7 @@ def consolidate_datasets(
     decisions: dict[str, dict[str, Any]],
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     train_candidates: list[dict[str, Any]] = []
+    partial_review_required: list[dict[str, Any]] = []
     review_required: list[dict[str, Any]] = []
 
     for sample in samples:
@@ -91,10 +92,14 @@ def consolidate_datasets(
         status = sample.get("comparison", {}).get("status")
         resolved = decisions.get(sample_id)
 
-        if status == "match_full" and not resolved:
+        if status == "exact_match" and not resolved:
             sample["final_entities"] = sample.get("ner_predictions", [])
-            sample["final_decision"] = "auto_match_full"
+            sample["final_decision"] = "auto_exact_match"
             train_candidates.append(sample)
+            continue
+
+        if status == "partial_match" and not resolved:
+            partial_review_required.append(sample)
             continue
 
         if not resolved:
@@ -121,4 +126,4 @@ def consolidate_datasets(
         else:
             review_required.append(sample)
 
-    return train_candidates, review_required
+    return train_candidates, partial_review_required, review_required

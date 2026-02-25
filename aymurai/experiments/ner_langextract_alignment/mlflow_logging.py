@@ -82,28 +82,29 @@ def summarize_metrics(
         out[f"status_{status}_count"] = float(count)
         out[f"status_{status}_rate"] = float(count / total)
 
-    agreement = status_counts.get("match_full", 0)
+    agreement = status_counts.get("exact_match", 0)
     out["agreement_global_rate"] = float(agreement / total)
 
     label_seen: dict[str, int] = {}
     label_agreed: dict[str, int] = {}
     for sample in samples:
-        matched = sample.get("comparison", {}).get("matched", [])
+        exact_match = sample.get("comparison", {}).get("exact_match", [])
+        partial_match = sample.get("comparison", {}).get("partial_match", [])
         only_ner = sample.get("comparison", {}).get("only_in_ner", [])
         only_lx = sample.get("comparison", {}).get("only_in_langextract", [])
         labels = {
             str(ent.get("label", "")).strip().upper()
-            for ent in (matched + only_ner + only_lx)
+            for ent in (exact_match + partial_match + only_ner + only_lx)
             if ent.get("label")
         }
-        matched_labels = {
+        exact_matched_labels = {
             str(ent.get("label", "")).strip().upper()
-            for ent in matched
+            for ent in exact_match
             if ent.get("label")
         }
         for label in labels:
             label_seen[label] = label_seen.get(label, 0) + 1
-        for label in matched_labels:
+        for label in exact_matched_labels:
             label_agreed[label] = label_agreed.get(label, 0) + 1
 
     for label, seen in label_seen.items():

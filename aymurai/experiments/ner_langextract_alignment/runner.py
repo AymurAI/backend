@@ -81,6 +81,7 @@ def _ensure_dirs(config: NERLangExtractRunConfig) -> dict[str, Path]:
         "traces_jsonl": base / config.outputs.traces_jsonl,
         "traces_csv": base / config.outputs.traces_summary_csv,
         "train_candidates": base / config.outputs.train_candidates_jsonl,
+        "partial_review_required": base / config.outputs.partial_review_required_jsonl,
         "review_required": base / config.outputs.review_required_jsonl,
     }
 
@@ -175,7 +176,10 @@ def _record_from_paragraph(
         "langextract_predictions": [serialize_entity(ent) for ent in lx_entities],
         "comparison": {
             "status": comparison.status,
-            "matched": [serialize_entity(ent) for ent in comparison.matched],
+            "exact_match": [serialize_entity(ent) for ent in comparison.exact_match],
+            "partial_match": [
+                serialize_entity(ent) for ent in comparison.partial_match
+            ],
             "only_in_ner": [serialize_entity(ent) for ent in comparison.only_in_ner],
             "only_in_langextract": [
                 serialize_entity(ent) for ent in comparison.only_in_langextract
@@ -314,7 +318,8 @@ def _write_reports(samples: list[dict[str, Any]], reports_dir: Path) -> None:
             writer.writerow({"label": label, "count": count})
 
     representatives: dict[str, list[dict[str, Any]]] = {
-        "match_full": [],
+        "exact_match": [],
+        "partial_match": [],
         "ner_only": [],
         "langextract_only": [],
         "mixed": [],
@@ -512,10 +517,13 @@ def run_experiment(config_path: str) -> None:
                 )
                 decisions = parse_labelstudio_decisions(tasks)
 
-        train_candidates, review_required = consolidate_datasets(
-            samples_output, decisions
-        )
+        (
+            train_candidates,
+            partial_review_required,
+            review_required,
+        ) = consolidate_datasets(samples_output, decisions)
         write_jsonl(paths["train_candidates"], train_candidates)
+        write_jsonl(paths["partial_review_required"], partial_review_required)
         write_jsonl(paths["review_required"], review_required)
 
         metrics = summarize_metrics(samples_output, traces)

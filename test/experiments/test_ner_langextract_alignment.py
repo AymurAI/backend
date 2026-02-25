@@ -22,7 +22,7 @@ from aymurai.experiments.ner_langextract_alignment.types import (
 
 
 class CompareTests(unittest.TestCase):
-    def test_status_match_full(self):
+    def test_status_exact_match(self):
         ner = [
             NormalizedEntity(
                 label="PER", start_char=0, end_char=4, text="Juan", source="ner"
@@ -38,7 +38,25 @@ class CompareTests(unittest.TestCase):
             )
         ]
         result = compare_entities(ner, lx)
-        self.assertEqual(result.status, "match_full")
+        self.assertEqual(result.status, "exact_match")
+
+    def test_status_partial_match(self):
+        ner = [
+            NormalizedEntity(
+                label="PER", start_char=0, end_char=4, text="Juan.", source="ner"
+            )
+        ]
+        lx = [
+            NormalizedEntity(
+                label="PER",
+                start_char=0,
+                end_char=4,
+                text="Juan",
+                source="langextract",
+            )
+        ]
+        result = compare_entities(ner, lx)
+        self.assertEqual(result.status, "partial_match")
 
     def test_status_ner_only(self):
         ner = [
@@ -124,7 +142,7 @@ class LabelStudioTests(unittest.TestCase):
         samples = [
             {
                 "sample_id": "a",
-                "comparison": {"status": "match_full"},
+                "comparison": {"status": "exact_match"},
                 "ner_predictions": [{"label": "PER"}],
                 "langextract_predictions": [{"label": "PER"}],
             },
