@@ -3,13 +3,13 @@ experiment:
   run_name: '{model}-{timestamp}'
 
 data:
-  input_documents_dir: /resources/data/restricted/disambiguation-eval/docs
+  input_documents_dir: resources/data/restricted/disambiguation-eval/docs
   include_extensions:
   - .pdf
   - .docx
 
 api:
-  base_url: http://localhost:8899
+  base_url: http://localhost:8000
   document_extract_path: /misc/document-extract
   anonymizer_predict_path: /anonymizer/predict
   timeout_s: 300
@@ -55,7 +55,7 @@ langextract:
     \ en redes sociales o plataformas digitales.\n    - \"TEXTO_ANONIMIZAR\": Comodín\
     \ para fragmento sensible libre que deba anonimizarse si no encaja claramente\
     \ en las clases anteriores."
-  examples_yaml_path: resources/langextract/ner_alignment_examples.yaml
+  examples_yaml_path: resources/langextract/ner_alignment_examples.yml
   temperature: 0.0
   think: true
   max_workers: 1
@@ -63,7 +63,7 @@ langextract:
   batch_length: 1
 
 mapping:
-  labels_yaml_path: resources/experiments/ner-langextract-alignment/label_mapping.yaml
+  labels_yaml_path: resources/experiments/ner-langextract-alignment/label_mapping.yml
 
 comparison:
   mode: exact_span_label
@@ -73,24 +73,26 @@ comparison:
 
 labelstudio:
   enabled: true
-  export_dir: "/resources/outputs/ner-langextract-alignment/labelstudio"
+  export_dir: resources/outputs/ner-langextract-alignment/labelstudio
   qa_sample_rate: 1.0
 
 logging:
   mlflow:
-    tracking_uri: http://localhost:5000
-    experiment_name: ner-langextract-alignment
-    enable_openai_autolog: false
-  privacy:
-    log_prompt_text: true
-    log_llm_outputs: true
-    log_raw_predictions: true
-    redact_sensitive_fields: false
+    enabled: false
+  #   tracking_uri: http://localhost:8080
+  #   experiment_name: ner-langextract-alignment
+  #   enable_openai_autolog: false
+  # privacy:
+  #   log_prompt_text: true
+  #   log_llm_outputs: true
+  #   log_raw_predictions: true
+  #   redact_sensitive_fields: false
 
 outputs:
-  base_dir: /resources/outputs/ner-langextract-alignment
+  base_dir: resources/outputs/ner-langextract-alignment
   samples_jsonl: samples.jsonl
   traces_jsonl: llm_traces/traces.jsonl
   traces_summary_csv: llm_traces/traces_summary.csv
   train_candidates_jsonl: train_candidates.jsonl
+  partial_review_required_jsonl: partial_review_required.jsonl
   review_required_jsonl: review_required.jsonl
