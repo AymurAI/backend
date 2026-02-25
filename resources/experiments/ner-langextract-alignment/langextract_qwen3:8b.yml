@@ -78,15 +78,14 @@ labelstudio:
 
 logging:
   mlflow:
-    enabled: false
-  #   tracking_uri: http://localhost:8080
-  #   experiment_name: ner-langextract-alignment
-  #   enable_openai_autolog: false
-  # privacy:
-  #   log_prompt_text: true
-  #   log_llm_outputs: true
-  #   log_raw_predictions: true
-  #   redact_sensitive_fields: false
+    tracking_uri: http://localhost:8080
+    experiment_name: ner-langextract-alignment
+    enable_openai_autolog: false
+  privacy:
+    log_prompt_text: true
+    log_llm_outputs: true
+    log_raw_predictions: true
+    redact_sensitive_fields: false
 
 outputs:
   base_dir: resources/outputs/ner-langextract-alignment
