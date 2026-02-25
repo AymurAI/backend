@@ -94,5 +94,4 @@ outputs:
   traces_jsonl: llm_traces/traces.jsonl
   traces_summary_csv: llm_traces/traces_summary.csv
   train_candidates_jsonl: train_candidates.jsonl
-  partial_review_required_jsonl: partial_review_required.jsonl
   review_required_jsonl: review_required.jsonl
