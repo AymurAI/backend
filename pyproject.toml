@@ -98,7 +98,7 @@ Issues = "https://github.com/AymurAI/backend/issues"
 
 [dependency-groups]
 mlops = [
-    "mlflow>=2.12.1",
+    "mlflow>=3.10.0",
     "boto3>=1.34.0",
 ]
 dev = [

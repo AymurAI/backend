@@ -405,7 +405,7 @@ dev = [
 ]
 mlops = [
     { name = "boto3", specifier = ">=1.34.0" },
-    { name = "mlflow", specifier = ">=2.12.1" },
+    { name = "mlflow", specifier = ">=3.10.0" },
 ]
 
 [[package]]
@@ -2381,7 +2381,7 @@ wheels = [
 
 [[package]]
 name = "mlflow"
-version = "3.8.1"
+version = "3.10.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "alembic" },
@@ -2400,17 +2400,18 @@ dependencies = [
     { name = "pyarrow" },
     { name = "scikit-learn" },
     { name = "scipy" },
+    { name = "skops" },
     { name = "sqlalchemy" },
     { name = "waitress", marker = "sys_platform == 'win32'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/ad/f8/10ccb111ed53732dfceae0369073023f96acd6b00f92fb3c24473938702d/mlflow-3.8.1.tar.gz", hash = "sha256:0823377bedff4d530b0d560bf394daf9f7e9fbba53453add04eadad34de962cc", size = 8550037, upload-time = "2025-12-26T16:46:49.199Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/bc/ed/048a6a3198516153f8babae7553d2db4e5988501cf84fd1e197cf2133558/mlflow-3.10.0.tar.gz", hash = "sha256:54a6e18100623855d5d2a5b22fdec4a929543088adee49ca164d72439fdce2e3", size = 9534884, upload-time = "2026-02-20T13:48:10.96Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/d5/d5/a20b87c6cd99395fee04d6034686512305530c71ceaabe3a151eeaa25ed7/mlflow-3.8.1-py3-none-any.whl", hash = "sha256:42f26b52438fdb615588e150407c6516d0f64d417436dfc75599c525a464f210", size = 9062281, upload-time = "2025-12-26T16:46:46.528Z" },
+    { url = "https://files.pythonhosted.org/packages/d6/60/92e01281968358412b322bc9a7a7e0b28c61ae983ba8428a9039cefa7ae0/mlflow-3.10.0-py3-none-any.whl", hash = "sha256:13655d611fb97972d63e1b78839511470ba9d2de95fb997eb01b2fc4fc4df19c", size = 10159634, upload-time = "2026-02-20T13:48:08.038Z" },
 ]
 
 [[package]]
 name = "mlflow-skinny"
-version = "3.8.1"
+version = "3.10.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "cachetools" },
@@ -2433,14 +2434,14 @@ dependencies = [
     { name = "typing-extensions" },
     { name = "uvicorn" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/7e/00/18486d9072739e63471c1e441e78cdb6a10c641312d98f6699715406451e/mlflow_skinny-3.8.1.tar.gz", hash = "sha256:0c0aade08187030a4653e267bcd63de2f12cbfebf4c6737832cba45d6fb3594d", size = 2082226, upload-time = "2025-12-26T16:30:11.171Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/d5/af/135911a40cc65164f92ccbaacdf029c21a96eaecc9d99b60189b17a56e52/mlflow_skinny-3.10.0.tar.gz", hash = "sha256:d864b14241f8e26a565e60b343a9644db3b2279b5039bd4e5cc2d0a6757bce99", size = 2475421, upload-time = "2026-02-20T12:57:22.456Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/8d/24/42e52320636fcbabeaf50704f9269a328acc995e1b8a44df6fea33130a0a/mlflow_skinny-3.8.1-py3-none-any.whl", hash = "sha256:3a6ee27f5ac1e67c1d565fa0e12c070b27129b03e669dcaf88ff841176429142", size = 2506002, upload-time = "2025-12-26T16:30:09.357Z" },
+    { url = "https://files.pythonhosted.org/packages/9f/16/9fadceaad2659be5974d054ed866855b403a2ba199a909f94b447779f4a5/mlflow_skinny-3.10.0-py3-none-any.whl", hash = "sha256:c711653b446214c863023e49e72ac3bae950aa82a5eeca5bdc642680065117af", size = 2983620, upload-time = "2026-02-20T12:57:20.025Z" },
 ]
 
 [[package]]
 name = "mlflow-tracing"
-version = "3.8.1"
+version = "3.10.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "cachetools" },
@@ -2452,9 +2453,9 @@ dependencies = [
     { name = "protobuf" },
     { name = "pydantic" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/52/e5/9cdca5a91afd71e15943f3dbe00e788bd36479637e9b2e0625224027ff01/mlflow_tracing-3.8.1.tar.gz", hash = "sha256:c032ba715994a4580323f3045fa2700a6323033d87e564bbcbda37e6ab993071", size = 1130700, upload-time = "2025-12-26T16:31:39.314Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/c5/98/a1d9ea8671f75c4e71633e579ae4dc659d3f160f928bb8123b053da90614/mlflow_tracing-3.10.0.tar.gz", hash = "sha256:206ca8ed2c25c15935fcfb9c9c5102198b1060a61bb2ce9df4eabb6329f3ddbf", size = 1242152, upload-time = "2026-02-20T12:54:43.274Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/fd/e3/ddbe3e2d1219fa9235559ab88ebf98e1e4f48c62672f0dfb8f1eb07276dc/mlflow_tracing-3.8.1-py3-none-any.whl", hash = "sha256:12d9b5b7177b4152979d003e0d967b280c4252758639aebdfd672734283b17bf", size = 1359007, upload-time = "2025-12-26T16:31:37.514Z" },
+    { url = "https://files.pythonhosted.org/packages/81/3e/778b559cfa58cd25ccf2020ba6f758c1032d66e942d9dee65b17ab495e97/mlflow_tracing-3.10.0-py3-none-any.whl", hash = "sha256:eb172a48e8f8078b0387e3e044864bf2c83124f7e773b223d37f6da79227a714", size = 1493631, upload-time = "2026-02-20T12:54:41.372Z" },
 ]
 
 [[package]]
@@ -3145,6 +3146,18 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/40/f1/6d86a29246dfd2e9b6237f0b5823717f60cad94d47ddc26afa916d21f525/pre_commit-4.5.1.tar.gz", hash = "sha256:eb545fcff725875197837263e977ea257a402056661f09dae08e4b149b030a61", size = 198232, upload-time = "2025-12-16T21:14:33.552Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/5d/19/fd3ef348460c80af7bb4669ea7926651d1f95c23ff2df18b9d24bab4f3fa/pre_commit-4.5.1-py2.py3-none-any.whl", hash = "sha256:3b3afd891e97337708c1674210f8eba659b52a38ea5f822ff142d10786221f77", size = 226437, upload-time = "2025-12-16T21:14:32.409Z" },
+]
+
+[[package]]
+name = "prettytable"
+version = "3.17.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "wcwidth" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/79/45/b0847d88d6cfeb4413566738c8bbf1e1995fad3d42515327ff32cc1eb578/prettytable-3.17.0.tar.gz", hash = "sha256:59f2590776527f3c9e8cf9fe7b66dd215837cca96a9c39567414cbc632e8ddb0", size = 67892, upload-time = "2025-11-14T17:33:20.212Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ee/8c/83087ebc47ab0396ce092363001fa37c17153119ee282700c0713a195853/prettytable-3.17.0-py3-none-any.whl", hash = "sha256:aad69b294ddbe3e1f95ef8886a060ed1666a0b83018bbf56295f6f226c43d287", size = 34433, upload-time = "2025-11-14T17:33:19.093Z" },
 ]
 
 [[package]]
@@ -4040,6 +4053,22 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/94/e7/b2c673351809dca68a0e064b6af791aa332cf192da575fd474ed7d6f16a2/six-1.17.0.tar.gz", hash = "sha256:ff70335d468e7eb6ec65b95b99d3a2836546063f63acc5171de367e834932a81", size = 34031, upload-time = "2024-12-04T17:35:28.174Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/b7/ce/149a00dd41f10bc29e5921b496af8b574d8413afcd5e30dfa0ed46c2cc5e/six-1.17.0-py2.py3-none-any.whl", hash = "sha256:4721f391ed90541fddacab5acf947aa0d3dc7d27b2e1e8eda2be8970586c3274", size = 11050, upload-time = "2024-12-04T17:35:26.475Z" },
+]
+
+[[package]]
+name = "skops"
+version = "0.13.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy" },
+    { name = "packaging" },
+    { name = "prettytable" },
+    { name = "scikit-learn" },
+    { name = "scipy" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/b5/0c/5ec987633e077dd0076178ea6ade2d6e57780b34afea0b497fb507d7a1ed/skops-0.13.0.tar.gz", hash = "sha256:66949fd3c95cbb5c80270fbe40293c0fe1e46cb4a921860e42584dd9c20ebeb1", size = 581312, upload-time = "2025-08-06T09:48:14.916Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/04/e8/6a2b2030f0689f894432b9c2f0357f2f3286b2a00474827e04b8fe9eea13/skops-0.13.0-py3-none-any.whl", hash = "sha256:55e2cccb18c86f5916e4cfe5acf55ed7b0eecddf08a151906414c092fa5926dc", size = 131200, upload-time = "2025-08-06T09:48:13.356Z" },
 ]
 
 [[package]]
