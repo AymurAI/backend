@@ -1,5 +1,7 @@
 import uuid
 from datetime import timedelta
+from functools import cached_property
+from typing import Literal
 
 from pydantic import UUID4, UUID5, BaseModel, Field, RootModel, computed_field
 
@@ -47,10 +49,27 @@ class DocumentInformation(BaseModel):
     labels: list[DocLabel] = Field(default_factory=list)
 
 
+class LabelPolicy(BaseModel):
+    """Per-label policy for disambiguation and anonymization."""
+
+    anonymize: bool | None = None
+    disambiguation: Literal["none", "fuzzy", "llm"] | None = None
+    use_subclass_when_available: bool | None = None
+
+
+class RenderPolicy(BaseModel):
+    """Render policy for anonymized tokens."""
+
+    suffix_mode: Literal["auto", "always", "never"] | None = None
+    suffix_threshold: int | None = None
+
+
 class DocumentAnnotations(BaseModel):
     """Datatype for document annotations"""
 
     data: list[DocumentInformation]
+    label_policies: dict[str, LabelPolicy] | None = None
+    render_policy: RenderPolicy | None = None
 
 
 class DataPublicDocumentAnnotations(RootModel):
@@ -111,3 +130,20 @@ class ASRDocument(BaseModel):
 
     def to_txt(self) -> str:
         return "\n\n".join([paragraph.to_txt() for paragraph in self.document])
+
+
+class PromptSet(BaseModel):
+    label: str
+    system: str
+    user: str
+
+
+class PromptLibrary(RootModel):
+    root: list[PromptSet] = Field(default_factory=list)
+
+    @cached_property
+    def as_dict(self) -> dict[str, PromptSet]:
+        return {p.label: p for p in self.root}
+
+    def get(self, label: str) -> PromptSet | None:
+        return self.as_dict.get(label)

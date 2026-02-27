@@ -32,6 +32,20 @@ class EntityAttributes(BaseModel):
         description="Method used on the prediction label",
     )
     aymurai_score: float | None = Field(None, description="Score for prediction")
+    aymurai_label_instance: int | None = Field(
+        None,
+        description="Label instance index assigned by order of appearance (e.g., 1, 2, 3).",
+    )
+    aymurai_disambiguation: str | None = Field(
+        None,
+        description=(
+            "Override disambiguation mode for this entity (none, fuzzy, llm)."
+        ),
+    )
+    aymurai_anonymize: bool | None = Field(
+        None,
+        description="Whether this entity should be anonymized in output.",
+    )
     canonical_entity_id: UUID | None = Field(
         None, description="Reference to the canonical entity ID"
     )
@@ -102,10 +116,6 @@ class CanonicalEntity(BaseModel):
     )
     attributes: dict[str, Any] = Field(
         default_factory=dict, description="Additional metadata for the entity"
-    )
-    relations: list[EntityRelation] = Field(
-        default_factory=list,
-        description="References to relations involving this entity",
     )
 
     @model_validator(mode="after")
