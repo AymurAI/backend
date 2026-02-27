@@ -102,7 +102,7 @@ def build_task(sample: dict[str, Any]) -> dict[str, Any]:
                 "status": status,
             },
         },
-        "predictions": [
+        "predictions": [  # Order of appearence bottom to top in LabelStudio, last payload extract the default tag.
             _prediction_payload(
                 entities=sample.get("ner_predictions", []),
                 model_version="ner_api",
@@ -118,18 +118,18 @@ def build_task(sample: dict[str, Any]) -> dict[str, Any]:
                 diff_tag="langextract_only",
             ),
             _prediction_payload(
-                entities=sample.get("comparison", {}).get("exact_match", []),
-                model_version="exact_match",
-                from_name="label",
-                to_name="text",
-                diff_tag="exact_match",
-            ),
-            _prediction_payload(
                 entities=sample.get("comparison", {}).get("partial_match", []),
                 model_version="partial_match",
                 from_name="label",
                 to_name="text",
                 diff_tag="partial_match",
+            ),
+            _prediction_payload(
+                entities=sample.get("comparison", {}).get("exact_match", []),
+                model_version="exact_match",
+                from_name="label",
+                to_name="text",
+                diff_tag="exact_match",
             ),
         ],
     }

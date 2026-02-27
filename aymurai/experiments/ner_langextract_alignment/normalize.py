@@ -59,6 +59,8 @@ def parse_ner_predictions(
         attrs = label.get("attrs") or {}
         raw_label = attrs.get("aymurai_label") or label.get("label")
         alt_text = attrs.get("aymurai_alt_text")
+        alt_start_char = attrs.get("aymurai_alt_start_char")
+        alt_end_char = attrs.get("aymurai_alt_end_char")
 
         if not raw_label:
             flags.append(f"ner_missing_label:{idx}")
@@ -89,15 +91,16 @@ def parse_ner_predictions(
                 source="ner",
                 raw_label=str(raw_label),
                 normalized_text=normalize_text(
-                    exact_text,
+                    alt_text,
                     normalize_case=normalize_case,
                     normalize_accents=normalize_accents,
                     normalize_punctuation=normalize_punctuation,
                 ),
+                alt_start_char=alt_start_char,
+                alt_end_char=alt_end_char,
                 extra={
                     "attrs": attrs,
                     "original_text": label.get("text"),
-                    "alt_text": alt_text,
                 },
             )
         )

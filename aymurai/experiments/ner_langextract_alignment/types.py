@@ -26,14 +26,16 @@ class NormalizedEntity:
     source: Literal["ner", "langextract"]
     raw_label: str | None = None
     normalized_text: str | None = None
+    alt_start_char: int | None = None
+    alt_end_char: int | None = None
     extra: dict[str, Any] = field(default_factory=dict)
 
     def key(self) -> EntityKey:
         return EntityKey(
             label=self.label,
-            start_char=self.start_char,
-            end_char=self.end_char,
-            text=self.text,
+            start_char=self.alt_start_char or self.start_char,
+            end_char=self.alt_end_char or self.end_char,
+            text=self.normalized_text or self.text,
         )
 
 

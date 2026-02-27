@@ -16,9 +16,9 @@ def compare_entities(
     lx_map: dict[tuple, list[NormalizedEntity]] = defaultdict(list)
 
     for ent in ner_entities:
-        ner_map[(ent.text, ent.label)].append(ent)
+        ner_map[(ent.key())].append(ent)
     for ent in langextract_entities:
-        lx_map[(ent.text, ent.label)].append(ent)
+        lx_map[(ent.key())].append(ent)
 
     exact_match: list[NormalizedEntity] = []
     remaining_ner: list[NormalizedEntity] = []
@@ -42,7 +42,10 @@ def compare_entities(
 
     for ner_ent in remaining_ner:
         for lx_ent in remaining_lx:
-            if ner_ent.label == lx_ent.label and lx_ent.text in ner_ent.text:
+            if (
+                ner_ent.label == lx_ent.label
+                and lx_ent.normalized_text in ner_ent.normalized_text
+            ):
                 partial_match.append(ner_ent)
                 matched_in_remaining_ner.add(id(ner_ent))
                 matched_in_remaining_lx.add(id(lx_ent))
