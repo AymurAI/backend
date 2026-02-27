@@ -1,8 +1,6 @@
-from hashlib import blake2b
-from io import BytesIO
-
 from fastapi import Depends, UploadFile
 from fastapi.routing import APIRouter
+from sqlmodel import Session
 
 from aymurai.api.exceptions.base import (
     AymuraiAPIException,
@@ -10,11 +8,15 @@ from aymurai.api.exceptions.base import (
     UpstreamServiceError,
 )
 from aymurai.audio.asr_client import transcribe_audio_bytes
+from aymurai.database.crud.audio_transcription import (
+    audio_transcription_create_or_update,
+    audio_transcription_get,
+)
+from aymurai.database.session import get_session
 from aymurai.database.utils import data_to_uuid
 from aymurai.logger import get_logger
 from aymurai.meta.api_interfaces import ASRDocument, ASRParagraph
 from aymurai.settings import settings
-from aymurai.utils.cache import cache_load, cache_save, get_cache_key
 
 router = APIRouter()
 logger = get_logger(__name__)
@@ -25,23 +27,6 @@ def get_transcribe_ws_uri() -> str:
     if not ws_uri:
         raise ConfigurationError(detail="TRANSCRIBE_WS_URI is not configured")
     return ws_uri
-
-
-def _cache_key(data: bytes) -> str:
-    try:
-        hasher = blake2b(digest_size=32)
-        with BytesIO(data) as handle:
-            for chunk in iter(lambda: handle.read(65536), b""):
-                hasher.update(chunk)
-        fingerprint = hasher.hexdigest()
-        stat = handle.getbuffer()
-
-        return get_cache_key(
-            fingerprint,
-            context={"component": "audio-extractor", "size": stat.nbytes},
-        )
-    except OSError as exc:
-        raise RuntimeError("Failed to generate cache key") from exc
 
 
 async def _transcribe_audio_bytes_with_error_handling(
@@ -65,7 +50,7 @@ async def _transcribe_audio_bytes_with_error_handling(
     return [
         ASRParagraph(
             speaker_no=line.speaker,
-            speaker_id=line.speaker_id or f"speaker-{line.speaker}",
+            speaker_id=f"speaker-{line.speaker}",
             start=line.start,
             end=line.end,
             text=line.text,
@@ -79,6 +64,7 @@ async def transcribe(
     file: UploadFile,
     use_cache: bool = True,
     ws_uri: str = Depends(get_transcribe_ws_uri),
+    session: Session = Depends(get_session),
 ) -> ASRDocument:
     """
     Stream an uploaded audio file to an external websocket transcription service.
@@ -87,15 +73,25 @@ async def transcribe(
     document_id = data_to_uuid(data)
 
     if use_cache:
-        cached_text = cache_load(str(document_id))
-        if cached_text is not None:
-            logger.debug(f"Audio cache hit for {file.filename}")
-            return ASRDocument.model_validate_json(cached_text)
+        cached_record = audio_transcription_get(
+            transcription_id=document_id, session=session
+        )
+        if cached_record is not None:
+            logger.debug(f"Audio transcription DB hit for {file.filename}")
+            cached_document = ASRDocument(
+                document_id=document_id,
+                document=cached_record.validation or cached_record.transcription,
+            )
+            return cached_document
 
     transcription_items = await _transcribe_audio_bytes_with_error_handling(data)
     document = ASRDocument(document_id=document_id, document=transcription_items)
-
-    cache_save(document.model_dump_json(), key=str(document_id))
-    logger.debug(f"Audio cache stored for {file.filename}")
+    audio_transcription_create_or_update(
+        transcription_id=document_id,
+        name=file.filename or str(document_id),
+        transcription=document.document,
+        session=session,
+    )
+    logger.debug(f"Audio transcription stored in DB for {file.filename}")
 
     return document

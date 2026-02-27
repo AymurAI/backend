@@ -1,7 +1,13 @@
+import re
 from datetime import timedelta
 from typing import Literal
 
 from pydantic import BaseModel, field_validator
+
+
+ISO8601_DURATION_RE = re.compile(
+    r"^PT(?:(?P<hours>\d+(?:\.\d+)?)H)?(?:(?P<minutes>\d+(?:\.\d+)?)M)?(?:(?P<seconds>\d+(?:\.\d+)?)S)?$"
+)
 
 
 def _parse_hhmmss(value: str | int | float | timedelta) -> timedelta:
@@ -14,6 +20,17 @@ def _parse_hhmmss(value: str | int | float | timedelta) -> timedelta:
     if not isinstance(value, str):
         raise ValueError("Invalid time format")
 
+    if value.startswith("PT"):
+        match = ISO8601_DURATION_RE.match(value)
+        if match is None:
+            raise ValueError("Expected ISO 8601 duration format (PT#H#M#S)")
+
+        hours = float(match.group("hours") or 0)
+        minutes = float(match.group("minutes") or 0)
+        seconds = float(match.group("seconds") or 0)
+
+        return timedelta(hours=hours, minutes=minutes, seconds=seconds)
+
     parts = value.split(":")
     if len(parts) != 3:
         raise ValueError("Expected HH:MM:SS format")
@@ -25,17 +42,9 @@ def _parse_hhmmss(value: str | int | float | timedelta) -> timedelta:
     return timedelta(hours=hours, minutes=minutes, seconds=seconds)
 
 
-class WLKMessageModelConfig(BaseModel):
-    asr_model: str
-    asr_backend: str
-    diarization_model: str
-    diarization_backend: str
-
-
 class WLKMessageConfig(BaseModel):
     type: Literal["config"]
     useAudioWorklet: bool
-    models: WLKMessageModelConfig
 
 
 class WLKMessageTranscriptionLine(BaseModel):
@@ -43,9 +52,14 @@ class WLKMessageTranscriptionLine(BaseModel):
     text: str
     start: timedelta
     end: timedelta
-    final: bool
-    speaker_id: str | None = None
     detected_language: str | None = None
+
+    @field_validator("text", mode="before")
+    @classmethod
+    def normalize_text(cls, value: str | None) -> str:
+        if value is None:
+            return ""
+        return value
 
     @field_validator("start", "end", mode="before")
     @classmethod
@@ -64,22 +78,12 @@ class WLKMessageStatus(BaseModel):
     speaker_ids: dict[str, str] | None = None
 
 
-class WLKMessageSpeakerEmbeddings(BaseModel):
-    type: Literal["speaker_embeddings"]
-    speaker_ids: dict[str, str]
-    speaker_id_bits: int
-    models: WLKMessageModelConfig
-
-
 class WLKMessageReadyToStopMessage(BaseModel):
     type: Literal["ready_to_stop"]
 
 
 WLKMessageRawResponse = (
-    WLKMessageConfig
-    | WLKMessageStatus
-    | WLKMessageSpeakerEmbeddings
-    | WLKMessageReadyToStopMessage
+    WLKMessageConfig | WLKMessageStatus | WLKMessageReadyToStopMessage
 )
 
 
