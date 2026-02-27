@@ -11,6 +11,10 @@ class UnsupportedFileType(AymuraiAPIException):
     detail = "Unsupported file type"
 
 
+class NotFoundError(AymuraiAPIException):
+    detail = "Resource not found"
+
+
 class ConfigurationError(AymuraiAPIException):
     detail = "Configuration error"
 

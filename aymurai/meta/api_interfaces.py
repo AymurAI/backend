@@ -1,4 +1,5 @@
 import uuid
+from datetime import timedelta
 
 from pydantic import UUID4, UUID5, BaseModel, Field, RootModel, computed_field
 
@@ -71,14 +72,37 @@ class ASRParagraph(TranscriptionItem):
     def paragraph_id(self) -> UUID:
         return text_to_uuid(self.text)
 
+    @staticmethod
+    def _format_hh_mm_ss(value: timedelta | float | int | str) -> str:
+        if isinstance(value, timedelta):
+            total_seconds = value.total_seconds()
+        elif isinstance(value, str):
+            return value
+        else:
+            total_seconds = float(value)
+
+        seconds = max(0, int(total_seconds))
+        hours, remainder = divmod(seconds, 3600)
+        minutes, secs = divmod(remainder, 60)
+        return f"{hours:02d}:{minutes:02d}:{secs:02d}"
+
     def to_txt(self) -> str:
+        start = self._format_hh_mm_ss(self.start)
+        end = self._format_hh_mm_ss(self.end)
         return "\n".join(
             [
-                f"{self.start:.2f}s - {self.end:.2f}s",
+                f"{start} - {end}",
                 f"speaker {self.speaker_no}",
                 self.text,
             ]
         )
+
+
+class ASRParagraphRequest(BaseModel):
+    speaker_no: int
+    start: str | float | int
+    end: str | float | int
+    text: str
 
 
 class ASRDocument(BaseModel):

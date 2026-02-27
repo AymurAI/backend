@@ -291,7 +291,7 @@ async def anonymizer_compile_document(
             f"LibreOffice conversion failed: {e.output.decode('utf-8', errors='ignore')}"
         )
 
-    odt = str(tmp_filename).replace(f".{extension}", ".odt")
+    odt = str(Path(tmp_filename).with_suffix(".odt"))
     logger.info(f"Expected output file path: {odt}")
 
     if not os.path.exists(odt):

@@ -1,12 +1,13 @@
 import re
 from datetime import timedelta
-from typing import Literal
+from typing import ClassVar, Literal
 
-from pydantic import BaseModel, field_validator
-
+from pydantic import BaseModel, ConfigDict, field_validator
 
 ISO8601_DURATION_RE = re.compile(
-    r"^PT(?:(?P<hours>\d+(?:\.\d+)?)H)?(?:(?P<minutes>\d+(?:\.\d+)?)M)?(?:(?P<seconds>\d+(?:\.\d+)?)S)?$"
+    r"^PT(?:(?P<hours>\d+(?:\.\d+)?)H)?"
+    r"(?:(?P<minutes>\d+(?:\.\d+)?)M)?"
+    r"(?:(?P<seconds>\d+(?:\.\d+)?)S)?$"
 )
 
 
@@ -88,8 +89,9 @@ WLKMessageRawResponse = (
 
 
 class TranscriptionItem(BaseModel):
+    model_config: ClassVar[ConfigDict] = ConfigDict(from_attributes=True)
+
     speaker_no: int
-    speaker_id: str
     start: timedelta
     end: timedelta
     text: str
