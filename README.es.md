@@ -1,34 +1,34 @@
 # AymurAI Backend
-Language: **English** | [Español](README.es.md)
+Idioma: [English](README.md) | **Español**
 
-AymurAI Backend provides the API and ML pipelines used to process judicial rulings for two main workflows:
+AymurAI Backend provee la API y los pipelines de ML usados para procesar resoluciones judiciales en dos flujos principales:
 
-- `anonymizer`: extract named entities and produce anonymized documents.
-- `data-public`: extract structured information for public dataset curation.
+- `anonymizer`: extracción de entidades y generación de documentos anonimizados.
+- `data-public`: extracción de información estructurada para curación de dataset público.
 
-This repository contains the FastAPI service, production pipeline configs, and database persistence used by both workflows.
+Este repositorio contiene el servicio FastAPI, configuraciones de pipelines de producción y persistencia en base de datos para ambos flujos.
 
-## About AymurAI
-AymurAI is a project focused on supporting the generation of anonymized and structured judicial data for gender-based violence (GBV) cases in Latin America. The backend service orchestrates document ingestion, ML inference, validation persistence, and document export for downstream operational and research uses.
+## Qué es AymurAI
+AymurAI es un proyecto orientado a facilitar la generación de datos judiciales anonimizados y estructurados para casos de violencia de género (VG) en América Latina. El backend orquesta la ingesta de documentos, la inferencia de modelos, la persistencia de validaciones y la exportación de resultados para usos operativos y de investigación.
 
-This repository is backend-focused: it exposes APIs consumed by the frontend and runs the production pipelines for `anonymizer` and `data-public`.
+Este repositorio está enfocado en el backend: expone APIs consumidas por el frontend y ejecuta los pipelines de producción de `anonymizer` y `data-public`.
 
-## Documentation
-- Technical docs index: [docs/README.md](docs/README.md)
-- API reference: [docs/api/README.md](docs/api/README.md)
-- Pipelines index: [docs/pipelines/README.md](docs/pipelines/README.md)
-- Anonymizer flow: [docs/pipelines/anonymizer/README.md](docs/pipelines/anonymizer/README.md)
-- Datapublic flow: [docs/pipelines/datapublic/README.md](docs/pipelines/datapublic/README.md)
-- Internal database schema: [docs/database/README.md](docs/database/README.md)
+## Documentación
+- Índice técnico: [docs/es/README.md](docs/es/README.md)
+- Referencia de API: [docs/es/api/README.md](docs/es/api/README.md)
+- Índice de pipelines: [docs/es/pipelines/README.md](docs/es/pipelines/README.md)
+- Flujo anonymizer: [docs/es/pipelines/anonymizer/README.md](docs/es/pipelines/anonymizer/README.md)
+- Flujo datapublic: [docs/es/pipelines/datapublic/README.md](docs/es/pipelines/datapublic/README.md)
+- Esquema de base de datos interna: [docs/es/database/README.md](docs/es/database/README.md)
 
-## Quick Start (Docker Image)
-Run the full API image (includes production resources):
+## Inicio Rápido (imagen Docker)
+Ejecutar la imagen full de la API (incluye recursos de producción):
 
 ```bash
 docker run -d --name aymurai-backend -p 8899:8899 ghcr.io/aymurai/api:full
 ```
 
-Optional: persist DB/cache outside the container (host volume mounted at `/resources/cache`):
+Opcional: persistir DB/cache fuera del container (volumen host montado en `/resources/cache`):
 
 ```bash
 mkdir -p ./aymurai-cache
@@ -38,7 +38,7 @@ docker run -d --name aymurai-backend -p 8899:8899 \
   ghcr.io/aymurai/api:full
 ```
 
-Optional: GPU runtime (requires NVIDIA Container Toolkit):
+Opcional: runtime con GPU (requiere NVIDIA Container Toolkit):
 
 ```bash
 docker run -d --name aymurai-backend-gpu --gpus all \
@@ -47,49 +47,49 @@ docker run -d --name aymurai-backend-gpu --gpus all \
   ghcr.io/aymurai/api:full
 ```
 
-Open Swagger UI:
+Abrir Swagger UI:
 
 ```text
 http://localhost:8899/docs
 ```
 
-## Quick Start (Docker Compose)
-Use the services defined in `docker-compose.yml`:
+## Inicio Rápido (Docker Compose)
+Usar los servicios definidos en `docker-compose.yml`:
 
 ```bash
-# CPU, lightweight API profile
+# CPU, perfil liviano
 make api-up
 
-# CPU, full API profile
+# CPU, perfil full
 make api-full-up
 
-# GPU, lightweight API profile
+# GPU, perfil liviano
 API_SERVICE=aymurai-api-gpu make api-up
 
-# GPU, full API profile
+# GPU, perfil full
 API_FULL_SERVICE=aymurai-api-full-gpu make api-full-up
 ```
 
-Check logs:
+Ver logs:
 
 ```bash
 make api-logs
-# or make api-full-logs
+# o make api-full-logs
 ```
 
-## Runtime Overview
+## Resumen de runtime
 - Framework: `FastAPI`
-- Default API port: `8899`
-- DB engine: `SQLModel` + Alembic migrations on startup
-- Default DB URI: `sqlite:////resources/cache/sqlite/database.db`
-- Production pipeline configs:
+- Puerto por defecto: `8899`
+- Motor de DB: `SQLModel` + migraciones Alembic al iniciar
+- URI de DB por defecto: `sqlite:////resources/cache/sqlite/database.db`
+- Configs de pipeline de producción:
   - `resources/pipelines/production/flair-anonymizer/pipeline.json`
   - `resources/pipelines/production/full-paragraph/pipeline.json`
 
-## Main Public Endpoints
+## Endpoints públicos principales
 - `GET /server/healthcheck`
 - `GET /server/stats/summary`
-- `POST /misc/document-extract` (and deprecated alias `POST /document-extract`)
+- `POST /misc/document-extract` (y alias deprecado `POST /document-extract`)
 - `POST /anonymizer/predict`
 - `POST /anonymizer/disambiguate`
 - `POST /anonymizer/validation`
@@ -98,33 +98,32 @@ make api-logs
 - `GET /datapublic/validation/document/{document_id}`
 - `POST /datapublic/validation/document/{document_id}`
 
-For full request/response contracts and examples, see [docs/api/README.md](docs/api/README.md).
+Para contratos request/response y ejemplos completos, ver [docs/es/api/README.md](docs/es/api/README.md).
 
-## Closed-Network Deployment
-To move an image into a closed environment:
+## Despliegue en red cerrada
+Para mover una imagen a un entorno sin internet:
 
 ```bash
 docker image save ghcr.io/aymurai/api:full -o aymurai-api-full.tar
 docker load -i aymurai-api-full.tar
 ```
 
-## Contributing
-Contributions are welcome across documentation, API, and pipeline improvements.
+## Contribución
+Las contribuciones son bienvenidas en documentación, API y mejoras de pipelines.
 
-- Contributing guide: [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md)
-- Security and ethics: [docs/SECURITY.md](docs/SECURITY.md)
-- Code of conduct: [docs/CODE_OF_CONDUCT.md](docs/CODE_OF_CONDUCT.md)
+- Guía de contribución: [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md)
+- Seguridad y ética: [docs/SECURITY.md](docs/SECURITY.md)
+- Código de conducta: [docs/CODE_OF_CONDUCT.md](docs/CODE_OF_CONDUCT.md)
 
-## Contributors
+## Contribuidores
 - **Julián Ansaldo** - [@jansaldo](https://github.com/jansaldo) at [collective.ai](https://collectiveai.io) ([email](mailto:juli@collectiveai.io))
 - **Raúl Barriga** - [@jedzill4](https://github.com/jedzill4) at [collective.ai](https://collectiveai.io) ([email](mailto:r@collectiveai.io))
 - **Sofía del Pozo** - [@sofiadelpozo](https://github.com/sofiadelpozo) at [collective.ai](https://collectiveai.io) ([email](mailto:sofia.delpozo@collectiveai.io))
 - **Paolo Donizetti** - [@padonizetti](https://github.com/padonizetti) at [collective.ai](https://collectiveai.io) ([email](mailto:paolo@collectiveai.io))
 - **Conrado Beatriz** - [@conrabeatriz](https://github.com/conrabeatriz) at [collective.ai](https://collectiveai.io) ([email](mailto:conrado@collectiveai.io))
 
-
-## Citing AymurAI
-If you use AymurAI in research or publications, please cite:
+## Citar AymurAI
+Si usás AymurAI en investigación o publicaciones, por favor citá:
 
 ```bibtex
 @techreport{feldfeber2022,
@@ -156,7 +155,7 @@ If you use AymurAI in research or publications, please cite:
 }
 ```
 
-For the most up-to-date citation, please use the project-level reference in the organization repository: [github.com/aymurai](https://github.com/aymurai).
+Para usar la cita más actualizada, consulta la referencia del proyecto en el repositorio de la organización: [github.com/aymurai](https://github.com/aymurai).
 
-## License
-AymurAI is open-source software licensed under the [MIT License](LICENSE.md). This license allows modification, distribution, and private use, provided that appropriate credit is given to the original authors.
+## Licencia
+AymurAI es software de código abierto bajo licencia [MIT](LICENSE.md). Esta licencia permite modificar, distribuir y usar de forma privada el software, siempre que se mantenga el crédito correspondiente a la autoría original.

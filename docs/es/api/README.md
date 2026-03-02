@@ -1,38 +1,38 @@
-# API Reference
-Language: **English** | [Español](../es/api/README.md)
+# Referencia de API
+Idioma: [English](../../api/README.md) | **Español**
 
-This document describes the currently mounted public API in `aymurai/api/main.py` + `aymurai/api/core.py`.
+Este documento describe la API pública actualmente montada en `aymurai/api/main.py` + `aymurai/api/core.py`.
 
-## Base URL and OpenAPI
-- Local base URL: `http://localhost:8899`
+## Base URL y OpenAPI
+- Base local: `http://localhost:8899`
 - Swagger UI: `http://localhost:8899/docs`
 - OpenAPI JSON: `http://localhost:8899/openapi.json`
 
-## Public Endpoints (Mounted)
+## Endpoints públicos (montados)
 
-| Method | Path | Purpose |
+| Método | Path | Propósito |
 |---|---|---|
-| `GET` | `/server/healthcheck` | Service liveness check |
-| `GET` | `/server/stats/summary` | Runtime CPU/memory stats |
-| `POST` | `/document-extract` | Deprecated alias of `/misc/document-extract` |
-| `POST` | `/misc/document-extract` | Extract normalized paragraphs from uploaded document |
-| `POST` | `/anonymizer/predict` | NER prediction for a paragraph |
-| `POST` | `/anonymizer/disambiguate` | Canonical entity disambiguation + policy merge |
-| `POST` | `/anonymizer/validation` | Fetch paragraph-level manual validation |
-| `POST` | `/anonymizer/anonymize-document` | Compile and export anonymized document |
-| `POST` | `/datapublic/predict/{document_id}` | Predict entities for data-public flow |
-| `GET` | `/datapublic/validation/document/{document_id}` | Read document-level validation |
-| `POST` | `/datapublic/validation/document/{document_id}` | Save document-level validation |
-| `POST` | `/convert/pdf/odt` | Convert PDF to ODT |
-| `POST` | `/convert/pdf/docx` | Convert PDF to DOCX |
-| `POST` | `/convert/docx/odt` | Convert DOCX to ODT |
-| `POST` | `/convert/docx/pdf` | Convert DOCX to PDF |
-| `POST` | `/convert/odt/pdf` | Convert ODT to PDF |
-| `POST` | `/convert/odt/docx` | Convert ODT to DOCX |
+| `GET` | `/server/healthcheck` | Liveness del servicio |
+| `GET` | `/server/stats/summary` | Métricas de CPU/memoria |
+| `POST` | `/document-extract` | Alias deprecado de `/misc/document-extract` |
+| `POST` | `/misc/document-extract` | Extrae párrafos normalizados de un documento |
+| `POST` | `/anonymizer/predict` | Predicción NER por párrafo |
+| `POST` | `/anonymizer/disambiguate` | Desambiguación canónica + merge de políticas |
+| `POST` | `/anonymizer/validation` | Obtiene validación manual por párrafo |
+| `POST` | `/anonymizer/anonymize-document` | Compila y exporta documento anonimizado |
+| `POST` | `/datapublic/predict/{document_id}` | Predicción para flujo data-public |
+| `GET` | `/datapublic/validation/document/{document_id}` | Lee validación a nivel documento |
+| `POST` | `/datapublic/validation/document/{document_id}` | Guarda validación a nivel documento |
+| `POST` | `/convert/pdf/odt` | Convierte PDF a ODT |
+| `POST` | `/convert/pdf/docx` | Convierte PDF a DOCX |
+| `POST` | `/convert/docx/odt` | Convierte DOCX a ODT |
+| `POST` | `/convert/docx/pdf` | Convierte DOCX a PDF |
+| `POST` | `/convert/odt/pdf` | Convierte ODT a PDF |
+| `POST` | `/convert/odt/docx` | Convierte ODT a DOCX |
 
-## Core Data Contracts
+## Contratos de datos principales
 
-Note: the JSON snippets below are minimal valid examples. Real payloads may include additional fields depending on the endpoint and processing stage.
+Nota: los snippets JSON de abajo son ejemplos mínimos válidos. Los payloads reales pueden incluir campos adicionales según el endpoint y la etapa de procesamiento.
 
 ### `TextRequest`
 ```json
@@ -41,7 +41,7 @@ Note: the JSON snippets below are minimal valid examples. Real payloads may incl
 }
 ```
 
-### `EntityAttributes` (relevant fields)
+### `EntityAttributes` (campos relevantes)
 ```json
 {
   "aymurai_label": "PER",
@@ -124,12 +124,12 @@ Note: the JSON snippets below are minimal valid examples. Real payloads may incl
 }
 ```
 
-## Endpoint Details and Examples
+## Detalle de endpoints y ejemplos
 
 ### Server
 
 #### `GET /server/healthcheck`
-- Response `200`:
+- Respuesta `200`:
 
 ```json
 {"status": "ok"}
@@ -140,7 +140,7 @@ curl -s http://localhost:8899/server/healthcheck
 ```
 
 #### `GET /server/stats/summary`
-- Response `200` (shape):
+- Respuesta `200` (forma):
 
 ```json
 {
@@ -156,17 +156,17 @@ curl -s http://localhost:8899/server/healthcheck
 curl -s http://localhost:8899/server/stats/summary
 ```
 
-### Document Extraction
+### Extracción de documentos
 
 #### `POST /misc/document-extract`
-#### `POST /document-extract` (deprecated alias)
-- Request: `multipart/form-data` with `file`
-- Supported MIME types in extraction flow: DOCX, ODT, PDF
-- Response `200`:
+#### `POST /document-extract` (alias deprecado)
+- Request: `multipart/form-data` con `file`
+- MIME types soportados en extracción: DOCX, ODT, PDF
+- Respuesta `200`:
 
 ```json
 {
-  "document": ["Paragraph 1", "Paragraph 2"],
+  "document": ["Párrafo 1", "Párrafo 2"],
   "document_id": "f2b25507-cf88-5b11-8f2a-c0b6f940b7f8"
 }
 ```
@@ -177,16 +177,16 @@ curl -s -X POST \
   http://localhost:8899/misc/document-extract
 ```
 
-Common errors:
-- `504` extraction timeout
-- `500` extractor/internal errors
+Errores comunes:
+- `504` timeout de extracción
+- `500` errores del extractor/internos
 
 ### Anonymizer
 
 #### `POST /anonymizer/predict`
-- Request body: `TextRequest`
+- Body: `TextRequest`
 - Query param: `use_cache=true|false` (default `true`)
-- Response `200`: `DocumentInformation`
+- Respuesta `200`: `DocumentInformation`
 
 ```bash
 curl -s -X POST "http://localhost:8899/anonymizer/predict?use_cache=true" \
@@ -195,7 +195,7 @@ curl -s -X POST "http://localhost:8899/anonymizer/predict?use_cache=true" \
 ```
 
 #### `POST /anonymizer/disambiguate`
-- Request body:
+- Body request:
 
 ```json
 {
@@ -215,7 +215,7 @@ curl -s -X POST "http://localhost:8899/anonymizer/predict?use_cache=true" \
 }
 ```
 
-- Response `200`: `DocumentAnnotations` (with `data` and effective `label_policies`)
+- Respuesta `200`: `DocumentAnnotations` (incluye `data` y `label_policies` efectivas)
 
 ```bash
 curl -s -X POST http://localhost:8899/anonymizer/disambiguate \
@@ -224,8 +224,8 @@ curl -s -X POST http://localhost:8899/anonymizer/disambiguate \
 ```
 
 #### `POST /anonymizer/validation`
-- Request body: `TextRequest`
-- Response `200`: `list[DocLabel] | null`
+- Body: `TextRequest`
+- Respuesta `200`: `list[DocLabel] | null`
 
 ```bash
 curl -s -X POST http://localhost:8899/anonymizer/validation \
@@ -235,9 +235,9 @@ curl -s -X POST http://localhost:8899/anonymizer/validation \
 
 #### `POST /anonymizer/anonymize-document`
 - Request: `multipart/form-data`
-  - `file`: original document (`.docx`, `.pdf`, `.odt`)
-  - `annotations`: JSON string serialized from `DocumentAnnotations`
-- Response `200`: binary anonymized `.odt` file
+  - `file`: documento original (`.docx`, `.pdf`, `.odt`)
+  - `annotations`: string JSON serializado de `DocumentAnnotations`
+- Respuesta `200`: archivo `.odt` anonimizado (binario)
 
 ```bash
 curl -X POST http://localhost:8899/anonymizer/anonymize-document \
@@ -245,17 +245,17 @@ curl -X POST http://localhost:8899/anonymizer/anonymize-document \
   -F 'annotations={"data":[{"document":"Acusado: Ramiro Marrón DNI 34.555.666.","labels":[]}],"label_policies":{"PER":{"anonymize":true,"disambiguation":"fuzzy"}},"render_policy":{"suffix_mode":"auto","suffix_threshold":1}}'
 ```
 
-Common errors:
-- `400` invalid form payload
-- `500` conversion/anonymization failures
+Errores comunes:
+- `400` payload multipart inválido
+- `500` errores de anonimización/conversión
 
 ### Data-Public
 
 #### `POST /datapublic/predict/{document_id}`
 - Path param: `document_id` (`UUID5`)
-- Request body: `TextRequest`
+- Body: `TextRequest`
 - Query param: `use_cache=true|false` (default `true`)
-- Response `200`: `DocumentInformation`
+- Respuesta `200`: `DocumentInformation`
 
 ```bash
 curl -s -X POST "http://localhost:8899/datapublic/predict/7e6b6f35-2f29-58f7-9f8e-fd1d9026a6bc?use_cache=true" \
@@ -264,16 +264,16 @@ curl -s -X POST "http://localhost:8899/datapublic/predict/7e6b6f35-2f29-58f7-9f8
 ```
 
 #### `GET /datapublic/validation/document/{document_id}`
-- Response `200`: object or `null`
-- Response `404`: document not found
+- Respuesta `200`: objeto o `null`
+- Respuesta `404`: documento inexistente
 
 ```bash
 curl -s http://localhost:8899/datapublic/validation/document/7e6b6f35-2f29-58f7-9f8e-fd1d9026a6bc
 ```
 
 #### `POST /datapublic/validation/document/{document_id}`
-- Request body: free-form JSON object (stored as document-level validation)
-- Response `200`: empty body
+- Body: objeto JSON libre (se persiste como validación a nivel documento)
+- Respuesta `200`: body vacío
 
 ```bash
 curl -s -X POST http://localhost:8899/datapublic/validation/document/7e6b6f35-2f29-58f7-9f8e-fd1d9026a6bc \
@@ -281,11 +281,11 @@ curl -s -X POST http://localhost:8899/datapublic/validation/document/7e6b6f35-2f
   -d '{"materia":"penal","violencia_de_genero":"si"}'
 ```
 
-### Document Conversion
+### Conversión de documentos
 
-All conversion endpoints use `multipart/form-data` with a `file` field.
+Todos los endpoints de conversión usan `multipart/form-data` con campo `file`.
 
-| Method | Path | Input | Output |
+| Método | Path | Input | Output |
 |---|---|---|---|
 | `POST` | `/convert/pdf/odt` | `.pdf` | `.odt` |
 | `POST` | `/convert/pdf/docx` | `.pdf` | `.docx` |
@@ -294,28 +294,28 @@ All conversion endpoints use `multipart/form-data` with a `file` field.
 | `POST` | `/convert/odt/pdf` | `.odt` | `.pdf` |
 | `POST` | `/convert/odt/docx` | `.odt` | `.docx` |
 
-For PDF input endpoints, optional query param:
+Para endpoints con input PDF, query param opcional:
 - `backend=libreoffice|pandoc` (default: `libreoffice`)
 
-Example:
+Ejemplo:
 
 ```bash
 curl -X POST "http://localhost:8899/convert/pdf/docx?backend=libreoffice" \
   -F "file=@input.pdf" -o output.docx
 ```
 
-Common errors:
-- `400` unsupported input extension
-- `500` conversion tool failure
+Errores comunes:
+- `400` extensión de entrada no soportada
+- `500` falla de herramienta de conversión
 
-## Legacy / Not Public (Not Mounted)
-The following route modules exist in code but are not included in `core.router` at runtime:
+## Legacy / no pública (no montada)
+Las siguientes rutas existen en código pero no están incluidas en `core.router` en runtime:
 
 - `aymurai/api/endpoints/routers/datapublic/dataset.py`
-  - includes `/datapublic/dataset/*` CRUD/batch routes, but router is not mounted.
+  - define `/datapublic/dataset/*`, pero ese router no está montado.
 - `aymurai/api/endpoints/routers/anonymizer/database.py`
-  - `/anonymizer/database/*` routes exist, include is commented out.
+  - define `/anonymizer/database/*`, pero su include está comentado.
 - `aymurai/api/endpoints/routers/database/*`
-  - additional DB admin routes exist, but no mounting in `core.router`.
+  - rutas administrativas de DB, sin montaje en `core.router`.
 
-Treat these as legacy/internal code paths until explicitly exposed in the public router.
+Estas rutas deben tratarse como caminos internos/legacy hasta su exposición explícita.
