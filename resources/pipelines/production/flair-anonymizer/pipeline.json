@@ -20,6 +20,10 @@
         [
             "aymurai.transforms.anonymization_postprocess.core.AnonymizationEntityCleaner",
             {}
+        ],
+        [
+            "aymurai.transforms.datetime_formatter.core.DatetimeFormatter",
+            {}
         ]
     ],
     "use_cache": false

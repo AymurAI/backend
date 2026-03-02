@@ -1,13 +1,12 @@
-import os
 import json
+import os
 import pickle
-from typing import Any, Optional
+from typing import Any
 
-import joblib
 import diskcache
+import joblib
 
 from aymurai.logger import get_logger
-from aymurai.meta.types import DataItem
 from aymurai.utils.json_encoding import EnhancedJSONEncoder
 
 logger = get_logger(__name__)
@@ -18,15 +17,15 @@ cache = diskcache.Cache(DISKCACHE_ROOT)
 
 def flatten_dict(current: dict, key: str = "", result: dict = {}) -> dict:
     """
-    Flatten a dict
+    Flatten nested dictionaries into a dotted-key mapping.
 
     Args:
-        current (dict): dict to be flattened
-        key (str, optional): key to be used. Defaults to "".
-        result (dict, optional): result dict. Defaults to {}.
+        current (dict): Source dictionary to flatten.
+        key (str, optional): Parent key prefix. Defaults to "".
+        result (dict, optional): Accumulator reused across recursion. Defaults to {}.
 
     Returns:
-        dict: flattened dict
+        dict: Mapping of flattened keys to terminal values.
     """
     if type(current) is dict:
         for k in current:
@@ -37,12 +36,12 @@ def flatten_dict(current: dict, key: str = "", result: dict = {}) -> dict:
     return result
 
 
-def cache_clear(keys: list[str]):
+def cache_clear(keys: list[str]) -> None:
     """
-    Clear cache
+    Remove the provided keys from the disk-backed cache.
 
     Args:
-        keys (list[str]): keys to be cleared
+        keys (list[str]): Cache keys to delete.
     """
     for key in keys:
         cache.pop(key)
@@ -50,14 +49,15 @@ def cache_clear(keys: list[str]):
 
 def get_cache_key(item: Any, context: Any = "") -> str:
     """
-    Get cache key
+    Build a stable cache key combining the item payload and context.
 
     Args:
-        item (Any): Data to hash
-        context (Any): context object to create hash
+        item (Any): Value to hash into the key namespace.
+        context (Any, optional): Additional context used to scope the key.
+            Defaults to "".
 
     Returns:
-        str: hash
+        str: Deterministic hash suitable for cache lookups.
     """
 
     if type(item) in [dict]:
@@ -72,20 +72,26 @@ def get_cache_key(item: Any, context: Any = "") -> str:
     return cache_key
 
 
-def is_cached(key: str):
+def is_cached(key: str) -> bool:
+    """
+    Determine whether a cache entry exists for the given key.
+
+    Args:
+        key (str): Cache key to inspect.
+
+    Returns:
+        bool: True when the key is present, otherwise False.
+    """
     return key in cache
 
 
-def cache_save(
-    data_item: DataItem,
-    key: str,
-):
+def cache_save(data_item: Any, key: str) -> None:
     """
-    save data on cache
+    Persist a Python object in the disk-backed cache.
 
     Args:
-        data (Data): data to be cached
-        key (str): key to store
+        data_item (Any): Serializable payload to store.
+        key (str): Cache key under which the payload is saved.
     """
 
     data = pickle.dumps(data_item)
@@ -94,18 +100,16 @@ def cache_save(
     cache.set(key, data)
 
 
-def cache_load(key: str) -> Optional[DataItem]:
+def cache_load(key: str) -> Any | None:
     """
-    load data from cache
+    Retrieve and deserialize a cached payload when present.
 
     Args:
-        key (str): key to load
+        key (str): Cache key to resolve.
 
     Returns:
-        Optional[Data]: loaded data
-
+        Any | None: Cached payload on hit, otherwise ``None``.
     """
-
     if key in cache:
         # Retrieve the serialized object from cache
         data = cache.get(key)

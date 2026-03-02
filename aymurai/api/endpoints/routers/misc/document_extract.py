@@ -23,19 +23,29 @@ def extraction(path: str) -> str:
     """
     Wrapper function to call the extract_document function.
     This is necessary to ensure that the function can be pickled and run in a separate process.
+
+    Args:
+        path (str): Path to the file to be processed.
+
+    Returns:
+        str: Extracted text from the document.
     """
     text = extract_document(path)
     return document_normalize(text) if text else ""
 
 
-def run_safe_text_extraction(path: str, timeout_s: float = 30) -> str:
+def run_safe_text_extraction(
+    path: str,
+    timeout_s: float | None = 30,
+) -> str:
     """
     Runs the text extraction in a separate process to avoid blocking the main thread.
     This is useful for long-running tasks or when the extraction might hang.
 
     Args:
         path (str): Path to the file to be processed.
-        timeout_s (float): Timeout in seconds for the extraction process. Defaults to 30 seconds.
+        timeout_s (float | None): Timeout in seconds for the extraction process.
+            If None, waits indefinitely. Defaults to 30.
 
     Returns:
         str: Extracted text from the document.
@@ -43,7 +53,6 @@ def run_safe_text_extraction(path: str, timeout_s: float = 30) -> str:
     Raises:
         TimeoutError: If the extraction process exceeds the specified timeout.
     """
-
     with concurrent.futures.ProcessPoolExecutor(max_workers=1) as executor:
         future = executor.submit(extraction, path)
         try:
@@ -56,6 +65,15 @@ def run_safe_text_extraction(path: str, timeout_s: float = 30) -> str:
 
 @router.post("/document-extract", response_model=Document)
 def plain_text_extractor(file: UploadFile) -> Document:
+    """
+    Extract plain text from an uploaded document.
+
+    Args:
+        file (UploadFile): Incoming document upload.
+
+    Returns:
+        Document: Extracted and normalized document payload.
+    """
     logger.info(f"receiving => {file.filename}")
     extension = MIMETYPE_EXTENSION_MAPPER.get(file.content_type)
     logger.info(f"detected extension: {extension} ({file.content_type})")

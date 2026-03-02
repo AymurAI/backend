@@ -1,17 +1,17 @@
-import sys
 import logging
-import subprocess
+import sys
+from collections import UserList
+from datetime import date, time
 from pathlib import Path
 from typing import Any, Union
-from collections import UserList
-from datetime import date, time, datetime
 
 import datasets
 import pandas as pd
 
-from aymurai.text.extraction import get_extension
 from aymurai.datasets.ar_juz_pcyf_10.common import BASE, FIELDS
+from aymurai.text.extraction import get_extension
 from aymurai.utils.cache import cache_load, cache_save, get_cache_key
+from aymurai.utils.download import download
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -38,10 +38,7 @@ class ArgentinaJuzgadoPCyF10PublicDataset(UserList):
 
     @staticmethod
     def get_file(source: str, dest: str) -> str:
-        # gdown have to much verbosity and cant be quiet (at least in this version)
-        # as workaround we use subprocess to get all output (even errors)
-        cmd = f"gdown --fuzzy -q --continue -O {dest} {source}"
-        subprocess.getoutput(cmd)
+        download(source, dest)
         if not Path(dest).exists():
             Path(dest).touch()
 
@@ -118,7 +115,6 @@ class ArgentinaJuzgadoPCyF10PublicDataset(UserList):
         data = []
         GROUPBY_COLUMNS = ["nro_registro", "tomo", "path"]
         for keys, group in annotations.groupby(GROUPBY_COLUMNS):
-
             data_ = {}
             data_["path"] = keys[2]
             data_["metadata"] = {

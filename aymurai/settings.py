@@ -1,3 +1,4 @@
+import json
 import os
 from pathlib import Path
 
@@ -61,6 +62,35 @@ class Settings(BaseSettings):
     MEMORY_CACHE_TTL: int = 60
 
     LIBREOFFICE_BIN: str = "libreoffice"
+
+    # Disambiguation Config
+
+    # Fuzzy Matching
+    THRESHOLD: int = 70
+
+    # Label policies (JSON dict: label -> {disambiguation, anonymize})
+    DISAMBIGUATION_LABEL_POLICIES: dict | None = None
+
+    @field_validator("DISAMBIGUATION_LABEL_POLICIES", mode="before")
+    @classmethod
+    def parse_label_policies(cls, v):
+        if v is None or v == "":
+            return None
+        if isinstance(v, str):
+            return json.loads(v)
+        return v
+
+    # Render policy (JSON dict)
+    RENDER_POLICY: dict | None = None
+
+    @field_validator("RENDER_POLICY", mode="before")
+    @classmethod
+    def parse_render_policy(cls, v):
+        if v is None or v == "":
+            return None
+        if isinstance(v, str):
+            return json.loads(v)
+        return v
 
 
 load_env()

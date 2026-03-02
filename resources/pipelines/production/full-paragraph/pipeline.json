@@ -35,39 +35,35 @@
             {}
         ],
         [
-            "aymurai.transforms.entity_subcategories.usem.USEMSubcategorizer",
+            "aymurai.transforms.entity_subcategories.sentence_transformer.SentenceTransformerSubcategorizer",
             {
                 "category": "CONDUCTA",
-                "subcategories_path": "https://drive.google.com/uc?id=1Vj5BxyeHzDnR1T8jYjLuteM3YwzE7fTW&confirm=true",
-                "response_embeddings_path": "https://drive.google.com/uc?id=1zvBHGf1MeFyyG_I0TukJl1eaM-7TsbPF&confirm=true",
-                "device": "/cpu:0"
+                "embeddings_path": "conducta.npz",
+                "device": "cpu"
             }
         ],
         [
-            "aymurai.transforms.entity_subcategories.usem.USEMSubcategorizer",
+            "aymurai.transforms.entity_subcategories.sentence_transformer.SentenceTransformerSubcategorizer",
             {
                 "category": "CONDUCTA_DESCRIPCION",
-                "subcategories_path": "https://drive.google.com/uc?id=1A1I9xwzvynwxSv1I0SDHhN216Z3Yvoqj&confirm=true",
-                "response_embeddings_path": "https://drive.google.com/uc?id=1c3nYVDIq23kYqgMIIKGtDbIz6zDORpYK&confirm=true",
-                "device": "/cpu:0"
+                "embeddings_path": "conducta_descripcion.npz",
+                "device": "cpu"
             }
         ],
         [
-            "aymurai.transforms.entity_subcategories.usem.USEMSubcategorizer",
+            "aymurai.transforms.entity_subcategories.sentence_transformer.SentenceTransformerSubcategorizer",
             {
                 "category": "DETALLE",
-                "subcategories_path": "https://drive.google.com/uc?id=1o1Z4fhGTtNzUIL2m3WOfDr_f0KXHu_Ms&confirm=true",
-                "response_embeddings_path": "https://drive.google.com/uc?id=1OumPgnnM9ffjHjObnb5NL96e3hnlt7Ik&confirm=true",
-                "device": "/cpu:0"
+                "embeddings_path": "detalle.npz",
+                "device": "cpu"
             }
         ],
         [
-            "aymurai.transforms.entity_subcategories.usem.USEMSubcategorizer",
+            "aymurai.transforms.entity_subcategories.sentence_transformer.SentenceTransformerSubcategorizer",
             {
                 "category": "OBJETO_DE_LA_RESOLUCION",
-                "subcategories_path": "https://drive.google.com/uc?id=1ksmfX_AJaE-OFEEGzj2N2mZgg5HZWB_4&confirm=true",
-                "response_embeddings_path": "https://drive.google.com/uc?id=18wOgqzNDsqF13nrvX2XscE0JS_xrgqBU&confirm=true",
-                "device": "/cpu:0"
+                "embeddings_path": "objeto_de_la_resolucion.npz",
+                "device": "cpu"
             }
         ],
         [

@@ -1,0 +1,53 @@
+erDiagram
+    anonymization_document {
+        UUID id PK
+        DATETIME created_at
+        DATETIME updated_at
+        TEXT name
+    }
+
+    anonymization_paragraph {
+        UUID id PK
+        TEXT text
+        JSON prediction
+        JSON validation
+        DATETIME created_at
+        DATETIME updated_at
+    }
+
+    anonymization_document_paragraph {
+        UUID id PK
+        UUID document_id PK, FK
+        UUID paragraph_id PK, FK
+        INTEGER order
+    }
+
+    datapublic_document {
+        UUID id PK
+        JSON prediction
+        JSON validation
+        DATETIME created_at
+        DATETIME updated_at
+    }
+
+    datapublic_paragraph {
+        UUID id PK
+        TEXT text
+        JSON prediction
+        JSON validation
+        DATETIME created_at
+        DATETIME updated_at
+    }
+
+    datapublic_document_paragraph {
+        UUID id PK
+        UUID document_id PK, FK
+        UUID paragraph_id PK, FK
+        INTEGER order
+    }
+
+    anonymization_document ||--o{ anonymization_document_paragraph : links
+    anonymization_paragraph ||--o{ anonymization_document_paragraph : links
+
+    datapublic_document ||--o{ datapublic_document_paragraph : links
+    datapublic_paragraph ||--o{ datapublic_document_paragraph : links

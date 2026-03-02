@@ -3,20 +3,37 @@ export $(shell sed 's/=.*//' .env)
 include .env.common
 export $(shell sed 's/=.*//' .env.common)
 
+# Select which API service to control (override with API_SERVICE=aymurai-api-gpu)
+API_SERVICE ?= aymurai-api
+# Select which full API service to control (override with API_FULL_SERVICE=aymurai-api-full-gpu)
+API_FULL_SERVICE ?= aymurai-api-full
+
 
 api-build:
-	docker compose build aymurai-api
+	docker compose build $(API_SERVICE)
 api-run:
-	docker compose run --service-ports aymurai-api
+	docker compose run --service-ports $(API_SERVICE)
+api-up:
+	docker compose up -d $(API_SERVICE)
+api-stop:
+	docker compose stop $(API_SERVICE)
+api-logs:
+	docker compose logs -f $(API_SERVICE)
 api-pull:
-	docker compose pull aymurai-api
+	docker compose pull $(API_SERVICE)
 
 api-full-build:
-	docker compose build aymurai-api-full
+	docker compose build $(API_FULL_SERVICE)
 api-full-run:
-	docker compose run --service-ports aymurai-api-full
+	docker compose run --service-ports $(API_FULL_SERVICE)
+api-full-up:
+	docker compose up -d $(API_FULL_SERVICE)
+api-full-stop:
+	docker compose stop $(API_FULL_SERVICE)
+api-full-logs:
+	docker compose logs -f $(API_FULL_SERVICE)
 api-full-pull:
-	docker compose pull aymurai-api-full
+	docker compose pull $(API_FULL_SERVICE)
 
 stress-test:
 	locust -f locustfile.py --host http://localhost:8899

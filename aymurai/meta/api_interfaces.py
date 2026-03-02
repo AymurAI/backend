@@ -1,4 +1,5 @@
 import uuid
+from typing import Literal
 
 from pydantic import UUID5, BaseModel, Field, RootModel
 
@@ -42,10 +43,27 @@ class DocumentInformation(BaseModel):
     labels: list[DocLabel] = Field(default_factory=list)
 
 
+class LabelPolicy(BaseModel):
+    """Per-label policy for disambiguation and anonymization."""
+
+    anonymize: bool | None = None
+    disambiguation: Literal["none", "fuzzy"] | None = None
+    use_subclass_when_available: bool | None = None
+
+
+class RenderPolicy(BaseModel):
+    """Render policy for anonymized tokens."""
+
+    suffix_mode: Literal["auto", "always", "never"] | None = None
+    suffix_threshold: int | None = None
+
+
 class DocumentAnnotations(BaseModel):
     """Datatype for document annotations"""
 
     data: list[DocumentInformation]
+    label_policies: dict[str, LabelPolicy] | None = None
+    render_policy: RenderPolicy | None = None
 
 
 class DataPublicDocumentAnnotations(RootModel):
