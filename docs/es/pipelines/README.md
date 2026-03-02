@@ -14,11 +14,11 @@ Esta sección documenta los pipelines de producción del backend por flujo.
 
 ## Fuentes de configuración en producción
 - Config anonymizer: `resources/pipelines/production/flair-anonymizer/pipeline.json`
-- Config datapublic: `resources/pipelines/production/full-paragraph/pipeline.json`
+- Config datapublic: `resources/pipelines/production/datapublic/pipeline.json`
 
 ## Mapeo con API
 - `POST /anonymizer/predict` -> `flair-anonymizer`
-- `POST /datapublic/predict/{document_id}` -> `full-paragraph`
+- `POST /datapublic/predict/{document_id}` -> `datapublic`
 
 ## Documentación relacionada
 - Referencia API: [../api/README.md](../api/README.md)

@@ -62,7 +62,7 @@ async def predict_over_text(
     logger.info("Running prediction")
     item = [{"path": "empty", "data": {"doc.text": text_request.text}}]
     pipeline = load_pipeline(
-        os.path.join(RESOURCES_BASEPATH, "pipelines", "production", "full-paragraph")
+        os.path.join(RESOURCES_BASEPATH, "pipelines", "production", "datapublic")
     )
 
     with pipeline_lock:

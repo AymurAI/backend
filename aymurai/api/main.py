@@ -109,5 +109,5 @@ if __name__ == "__main__":
         os.path.join(RESOURCES_BASEPATH, "pipelines", "production", "flair-anonymizer")
     )
     AymurAIPipeline.load(
-        os.path.join(RESOURCES_BASEPATH, "pipelines", "production", "full-paragraph")
+        os.path.join(RESOURCES_BASEPATH, "pipelines", "production", "datapublic")
     )

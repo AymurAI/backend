@@ -26,7 +26,7 @@ Idioma: [English](../../models/flair-model-card.md) | **Español**
 Siguiendo las guías de Flair para entrenar un modelo de NER, este modelo se entrenó sobre [embeddings BETO](https://huggingface.co/dccuchile/bert-base-spanish-wwm-uncased), una versión en español de BERT entrenada sobre un corpus en español, con una arquitectura BiLSTM-CRF.
 
 Este modelo fue desarrollado por [{ collective.ai }](https://collectiveai.io) como parte del proyecto [AymurAI](https://aymurai.info) de [DataGenero](https://datagenero.org).
-Actualmente se usa como componente NER del pipeline de producción `full-paragraph`.
+Actualmente se usa como componente NER del pipeline de producción `datapublic`.
 
 # Usos previstos y limitaciones
 AymurAI está pensado como una herramienta para abordar la falta de transparencia en el sistema judicial en relación con casos de violencia de género (VG) en América Latina. El objetivo es aumentar los niveles de reporte, construir confianza en el sistema de justicia y mejorar el acceso a la justicia para mujeres y personas LGBTIQ+. AymurAI genera y mantiene datasets anonimizados a partir de sentencias judiciales para comprender la violencia de género y apoyar el diseño de políticas públicas, además de contribuir a campañas de colectivos feministas.
@@ -83,7 +83,7 @@ También podés ejecutar el modelo a través de un pipeline de AymurAI.
 ```python
 from aymurai.pipeline import AymurAIPipeline
 
-pipeline = AymurAIPipeline.load("/resources/pipelines/production/full-paragraph")
+pipeline = AymurAIPipeline.load("/resources/pipelines/production/datapublic")
 
 item = {
     'path': 'dummy',

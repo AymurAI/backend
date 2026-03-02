@@ -10,7 +10,7 @@ This section documents the individual models used by the backend.
 
 ## Current production usage
 - `flair-anonymizer` uses the anonymizer NER model card documented here.
-- `full-paragraph` uses the Flair NER model and the decision classifier.
+- `datapublic` uses the Flair NER model and the decision classifier.
 
 ## Related docs
 - Documentation index: [../README.md](../README.md)

@@ -84,7 +84,7 @@ make api-logs
 - URI de DB por defecto: `sqlite:////resources/cache/sqlite/database.db`
 - Configs de pipeline de producción:
   - `resources/pipelines/production/flair-anonymizer/pipeline.json`
-  - `resources/pipelines/production/full-paragraph/pipeline.json`
+  - `resources/pipelines/production/datapublic/pipeline.json`
 
 ## Endpoints públicos principales
 - `GET /server/healthcheck`

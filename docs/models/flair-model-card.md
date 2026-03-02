@@ -26,7 +26,7 @@ Language: **English** | [Español](../es/models/flair-model-card.md)
 Following the Flair guidelines for training a NER model, we trained this model on top of [BETO embeddings](https://huggingface.co/dccuchile/bert-base-spanish-wwm-uncased), a Spanish version of BERT trained on a Spanish corpus, with a BiLSTM-CRF architecture.
 
 This model was developed by [{ collective.ai }](https://collectiveai.io) as part of the [AymurAI](https://aymurai.info) project by [DataGenero](https://datagenero.org).
-It is currently used as the NER component of the production `full-paragraph` pipeline.
+It is currently used as the NER component of the production `datapublic` pipeline.
 
 # Intended uses & limitations
 AymurAI is intended to be used as a tool to address the lack of transparency in the judicial system regarding gender-based violence (GBV) cases in Latin America. The goal is to increase report levels, build trust in the justice system, and improve access to justice for women and LGBTIQ+ people. AymurAI will generate and maintain anonymized datasets from legal rulings to understand GBV and support policy making, and also contribute to feminist collectives' campaigns.
@@ -83,7 +83,7 @@ You can also run the model through an AymurAI pipeline.
 ```python
 from aymurai.pipeline import AymurAIPipeline
 
-pipeline = AymurAIPipeline.load("/resources/pipelines/production/full-paragraph")
+pipeline = AymurAIPipeline.load("/resources/pipelines/production/datapublic")
 
 item = {
     'path': 'dummy',

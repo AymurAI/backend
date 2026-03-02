@@ -4,7 +4,7 @@ Idioma: [English](../../../entities/datapublic/README.md) | **Español**
 Catálogo de entidades utilizadas por el flujo de extracción de datapublic.
 
 ## Alcance
-Estas entidades corresponden a la taxonomía extraída de resoluciones judiciales por el pipeline de producción `full-paragraph`. Se usan a lo largo del modelo Flair NER, el postprocesamiento de decisiones, la UI de validación y el tooling relacionado con el dataset.
+Estas entidades corresponden a la taxonomía extraída de resoluciones judiciales por el pipeline de producción `datapublic`. Se usan a lo largo del modelo Flair NER, el postprocesamiento de decisiones, la UI de validación y el tooling relacionado con el dataset.
 
 ## Entidades
 | Entidad | Descripción |

@@ -24,7 +24,7 @@ This flow extracts structured information from paragraphs and supports document-
 ## Technical components
 
 ### Pipeline configuration
-- Source: `resources/pipelines/production/full-paragraph/pipeline.json`
+- Source: `resources/pipelines/production/datapublic/pipeline.json`
 - Preprocess:
   - `aymurai.models.flair.utils.FlairTextNormalize`
 - Models:
@@ -58,7 +58,7 @@ Tables touched by this flow:
 - `datapublic_document_paragraph`
 
 ## Notes
-- Current production pipeline directory name is `full-paragraph`.
+- Current production pipeline directory name is `datapublic`.
 - `document_id` is the document-level grouping key used to associate paragraph predictions and validation payloads.
 - Validation persistence is document-level and intentionally accepts a free-form JSON object.
 - `GET /datapublic/validation/document/{document_id}` returns `404` when the document does not exist; `POST` upserts the validation payload.

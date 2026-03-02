@@ -8,7 +8,7 @@ This section documents the entity catalogs used by AymurAI workflows.
 - Anonymizer: [anonymizer/README.md](anonymizer/README.md)
 
 ## Notes
-- `datapublic` entities describe the public-data extraction taxonomy used by the production `full-paragraph` pipeline.
+- `datapublic` entities describe the public-data extraction taxonomy used by the production `datapublic` pipeline.
 - `anonymizer` entities describe the labels currently used by the anonymization flow for disambiguation and replacement.
 
 ## Related docs
