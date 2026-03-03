@@ -4,12 +4,17 @@ import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import openai._base_client as openai_base_client
+
 from aymurai.experiments.ner_langextract_alignment.compare import compare_entities
 from aymurai.experiments.ner_langextract_alignment.labelstudio_export import (
     sample_agreements_stratified,
 )
 from aymurai.experiments.ner_langextract_alignment.labelstudio_import import (
     consolidate_datasets,
+)
+from aymurai.experiments.ner_langextract_alignment.langextract_runner import (
+    _current_mlflow_trace_id,
 )
 from aymurai.experiments.ner_langextract_alignment.normalize import (
     parse_langextract_predictions,
@@ -19,6 +24,7 @@ from aymurai.experiments.ner_langextract_alignment.types import (
     LLMTrace,
     NormalizedEntity,
 )
+from aymurai.utils.openai_httpx_compat import apply_openai_httpx_compat
 
 
 class CompareTests(unittest.TestCase):
@@ -119,6 +125,38 @@ class NormalizeTests(unittest.TestCase):
         self.assertTrue(
             any(flag.startswith("langextract_unmapped_class") for flag in flags)
         )
+
+
+class TracingTests(unittest.TestCase):
+    def test_current_mlflow_trace_id_prefers_request_id(self):
+        span = MagicMock()
+        span.request_id = "tr-request"
+        span.trace_id = "tr-trace"
+
+        with patch(
+            "aymurai.experiments.ner_langextract_alignment.langextract_runner.mlflow.get_current_active_span",
+            return_value=span,
+        ):
+            self.assertEqual(_current_mlflow_trace_id(), "tr-request")
+
+    def test_current_mlflow_trace_id_falls_back_to_trace_id(self):
+        span = MagicMock()
+        span.request_id = None
+        span.trace_id = "tr-trace"
+
+        with patch(
+            "aymurai.experiments.ner_langextract_alignment.langextract_runner.mlflow.get_current_active_span",
+            return_value=span,
+        ):
+            self.assertEqual(_current_mlflow_trace_id(), "tr-trace")
+
+    def test_openai_httpx_compat_handles_missing_state(self):
+        apply_openai_httpx_compat()
+        sync_wrapper = object.__new__(openai_base_client.SyncHttpxClientWrapper)
+        async_wrapper = object.__new__(openai_base_client.AsyncHttpxClientWrapper)
+
+        openai_base_client.SyncHttpxClientWrapper.__del__(sync_wrapper)
+        openai_base_client.AsyncHttpxClientWrapper.__del__(async_wrapper)
 
 
 class LabelStudioTests(unittest.TestCase):
@@ -319,7 +357,8 @@ class RunnerIntegrationTests(unittest.TestCase):
                     return_value=object(),
                 ),
                 patch(
-                    "aymurai.experiments.ner_langextract_alignment.runner.configure_mlflow"
+                    "aymurai.experiments.ner_langextract_alignment.runner.configure_mlflow",
+                    return_value=(False, None),
                 ),
                 patch(
                     "aymurai.experiments.ner_langextract_alignment.runner.log_run_metadata"
@@ -480,7 +519,8 @@ class RunnerIntegrationTests(unittest.TestCase):
                 "aymurai.experiments.ner_langextract_alignment.runner.build_tracing_model",
                 return_value=object(),
             ), patch(
-                "aymurai.experiments.ner_langextract_alignment.runner.configure_mlflow"
+                "aymurai.experiments.ner_langextract_alignment.runner.configure_mlflow",
+                return_value=(False, None),
             ), patch(
                 "aymurai.experiments.ner_langextract_alignment.runner.log_run_metadata"
             ), patch(
