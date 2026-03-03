@@ -3,8 +3,8 @@ from __future__ import annotations
 import os
 import time
 import uuid
-from urllib.parse import urlsplit, urlunsplit
 from typing import Any
+from urllib.parse import urlsplit, urlunsplit
 
 import langextract as lx
 import mlflow
@@ -16,23 +16,27 @@ from mlflow.entities import SpanStatusCode
 from aymurai.experiments.ner_langextract_alignment.config import LangExtractConfig
 from aymurai.experiments.ner_langextract_alignment.types import LLMTrace
 from aymurai.logger import get_logger
+from aymurai.utils.openai_httpx_compat import apply_openai_httpx_compat
 from aymurai.utils.yaml_data import load_yaml
 
 logger = get_logger(__name__)
 
-import httpx
 
-_original_is_closed = httpx.Client.is_closed
+def _current_mlflow_trace_id() -> str | None:
+    try:
+        active_span = mlflow.get_current_active_span()
+    except Exception:
+        return None
 
+    if active_span is None:
+        return None
 
-@property
-def _fixed_is_closed(self):
-    if not hasattr(self, "_state"):
-        return True
-    return self._state == httpx._client.ClientState.CLOSED
+    for attr_name in ("request_id", "trace_id"):
+        value = getattr(active_span, attr_name, None)
+        if isinstance(value, str) and value:
+            return value
 
-
-httpx.Client.is_closed = _fixed_is_closed
+    return None
 
 
 class TracingOpenAIModel(OpenAILanguageModel):
@@ -161,7 +165,7 @@ class TracingOpenAIModel(OpenAILanguageModel):
 
     @mlflow.trace(name="langextract.openai_single_prompt", span_type="LLM")
     def _process_single_prompt(self, prompt: str, config: dict):
-        trace_id = uuid.uuid4().hex
+        trace_id = _current_mlflow_trace_id() or uuid.uuid4().hex
         started = time.perf_counter()
         temperature = config.get("temperature", self.temperature)
         max_tokens = config.get("max_tokens", self.max_tokens)
@@ -266,6 +270,7 @@ def load_examples_from_yaml(path: str) -> list[lx_data.ExampleData]:
 
 
 def build_tracing_model(config: LangExtractConfig) -> TracingOpenAIModel:
+    apply_openai_httpx_compat()
     api_key = os.getenv(config.api_key_env, config.api_key_fallback)
     return TracingOpenAIModel(
         model_id=config.model_id,
@@ -320,6 +325,7 @@ def run_langextract(
     sanitized_text = str(text or "").replace("\x00", "").strip()
     attempts_total = max(1, int(config.retries) + 1)
     retry_backoff_s = max(0.0, float(config.retry_backoff_s))
+    sample_trace_id = _current_mlflow_trace_id() or uuid.uuid4().hex
 
     if not sanitized_text:
         empty_output = {
@@ -329,7 +335,7 @@ def run_langextract(
             "error": "empty_or_invalid_input",
         }
         trace = LLMTrace(
-            trace_id=uuid.uuid4().hex,
+            trace_id=sample_trace_id,
             sample_id=sample_id,
             provider=config.provider,
             model=config.model_id,
@@ -454,7 +460,7 @@ def run_langextract(
         for raw in captured_traces:
             traces.append(
                 LLMTrace(
-                    trace_id=raw.get("trace_id", uuid.uuid4().hex),
+                    trace_id=raw.get("trace_id", sample_trace_id),
                     sample_id=sample_id,
                     provider=config.provider,
                     model=config.model_id,
@@ -474,7 +480,7 @@ def run_langextract(
         if not traces:
             traces.append(
                 LLMTrace(
-                    trace_id=uuid.uuid4().hex,
+                    trace_id=sample_trace_id,
                     sample_id=sample_id,
                     provider=config.provider,
                     model=config.model_id,
@@ -508,7 +514,7 @@ def run_langextract(
     for raw in captured_traces:
         traces.append(
             LLMTrace(
-                trace_id=raw["trace_id"],
+                trace_id=raw.get("trace_id", sample_trace_id),
                 sample_id=sample_id,
                 provider=config.provider,
                 model=config.model_id,
