@@ -14,9 +14,9 @@ Esta guía resume cómo ejecutar y usar los experimentos de NER incluidos para a
   - `llm_traces/*`
   - exports para Label Studio
 
-### B. NER/LangExtract test set evaluation
-- Runner: `aymurai.experiments.ner_testset_evaluation.runner`
-- Objetivo: evaluar un backend (`ner_api` o `langextract`) contra un test set (CoNLL, HF token classification, o spans JSONL).
+### B. NER/LangExtract holdout evaluation
+- Runner: `aymurai.experiments.ner_holdout_evaluation.runner`
+- Objetivo: evaluar un backend (`ner_api` o `langextract`) contra un holdout (CoNLL, HF token classification, o spans JSONL).
 - Salidas clave:
   - `predictions.jsonl`
   - `per_sample_scores.jsonl`
@@ -48,7 +48,7 @@ langextract:
   model_id: "qwen3:8b"
   base_url: "http://localhost:11434/v1"
   prompt_description: "Extraé entidades sensibles de textos judiciales."
-  examples_yaml_path: "resources/langextract/ner_alignment_examples.yaml"
+  examples_yaml_path: "resources/langextract/ner_alignment_examples.yml"
 
 mapping:
   labels_yaml_path: "resources/experiments/ner-langextract-alignment/label_mapping.yml"
@@ -66,11 +66,11 @@ outputs:
   base_dir: "outputs/ner-langextract-alignment"
 ```
 
-### B. Test set evaluation (modo `ner_api`)
+### B. Holdout evaluation (modo `ner_api`)
 
 ```yaml
 experiment:
-  name: "ner-testset-evaluation"
+  name: "ner-holdout-evaluation"
 
 data:
   format: "conll_bio"
@@ -90,10 +90,10 @@ logging:
     tracking_uri: "http://localhost:5000"
 
 outputs:
-  base_dir: "outputs/ner-testset-evaluation"
+  base_dir: "outputs/ner-holdout-evaluation"
 ```
 
-### C. Test set evaluation (modo `langextract`)
+### C. Holdout evaluation (modo `langextract`)
 
 ```yaml
 backend:
@@ -117,13 +117,13 @@ mapping:
 uv run --group mlops -- python -m aymurai.experiments.ner_langextract_alignment.runner \
   --config resources/experiments/ner-langextract-alignment/exp-langextract.yml
 
-# Test set evaluation (template)
-uv run --group mlops -- python -m aymurai.experiments.ner_testset_evaluation.runner \
-  --config resources/experiments/ner-testset-evaluation/exp-template.yml
+# Holdout evaluation (template)
+uv run --group mlops -- python -m aymurai.experiments.ner_holdout_evaluation.runner \
+  --config resources/experiments/ner-holdout-evaluation/exp_template.yml
 
-# Test set evaluation (LangExtract)
-uv run --group mlops -- python -m aymurai.experiments.ner_testset_evaluation.runner \
-  --config resources/experiments/ner-testset-evaluation/langextract-qwen3:8b.yml
+# Holdout evaluation (LangExtract)
+uv run --group mlops -- python -m aymurai.experiments.ner_holdout_evaluation.runner \
+  --config resources/experiments/ner-holdout-evaluation/langextract_qwen3:8b.yml
 ```
 
 ## 4) Pasos sugeridos para explorar datasets públicos (ej. PJN)
@@ -160,4 +160,4 @@ uv run --group mlops -- python -m aymurai.experiments.ner_testset_evaluation.run
 ## 5) Recomendación operativa
 
 - Para arrancar equipo: usar primero el template de `ner-langextract-alignment` con `max_documents` bajo.
-- Luego pasar a `ner-testset-evaluation` para medir impacto en un set de referencia estable.
+- Luego pasar a `ner-holdout-evaluation` para medir impacto en un holdout de referencia estable.

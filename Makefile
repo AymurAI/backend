@@ -129,14 +129,12 @@ ifndef CONFIG
 endif
 	uv run --group mlops -- python -m aymurai.experiments.entity_disambiguation.runner --config $(CONFIG)
 
-exp-run-ner-testset:
+exp-run-ner-holdout:
 ifndef CONFIG
-	$(error CONFIG variable is required, e.g. make exp-run-ner-testset CONFIG=resources/experiments/ner-testset-evaluation/exp-template.yaml)
+	$(error CONFIG variable is required, e.g. make exp-run-ner-holdout CONFIG=resources/experiments/ner-holdout-evaluation/exp_template.yml)
 endif
-	uv run --group mlops -- python -m aymurai.experiments.ner_testset_evaluation.runner --config $(CONFIG)
+	uv run --group mlops -- python -m aymurai.experiments.ner_holdout_evaluation.runner --config $(CONFIG)
 
-
-export MLFLOW_TRACKING_URI=http://localhost:8080
 exp-run-ner-langextract-alignment:
 ifndef CONFIG
 	$(error CONFIG variable is required, e.g. make exp-run-ner-langextract-alignment CONFIG=resources/experiments/ner-langextract-alignment/exp-template.yml)

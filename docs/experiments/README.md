@@ -110,16 +110,16 @@ Key outputs (under `outputs.base_dir`):
 - `labelstudio/discrepancies.json`
 - `labelstudio/agreements_qa_sample.json`
 
-## NER/LangExtract test set evaluation experiment
+## NER/LangExtract holdout evaluation experiment
 
 Config template:
-- `resources/experiments/ner-testset-evaluation/exp-template.yaml`
+- `resources/experiments/ner-holdout-evaluation/exp_template.yml`
 
 Run:
 
 ```bash
-uv run --group mlops -- python -m aymurai.experiments.ner_testset_evaluation.runner \
-  --config resources/experiments/ner-testset-evaluation/exp-template.yaml
+uv run --group mlops -- python -m aymurai.experiments.ner_holdout_evaluation.runner \
+  --config resources/experiments/ner-holdout-evaluation/exp_template.yml
 ```
 
 Notes:

@@ -12,10 +12,10 @@ from mlflow.entities import Feedback
 from mlflow.genai.judges import CategoricalRating
 
 from aymurai.experiments.ner_langextract_alignment.types import LLMTrace
-from aymurai.experiments.ner_testset_evaluation.config import (
-    NERTestsetEvaluationConfig,
+from aymurai.experiments.ner_holdout_evaluation.config import (
+    NERHoldoutEvaluationConfig,
 )
-from aymurai.experiments.ner_testset_evaluation.types import (
+from aymurai.experiments.ner_holdout_evaluation.types import (
     FeedbackRecord,
     SampleScore,
 )
@@ -25,7 +25,47 @@ from aymurai.utils.yaml_data import save_yaml
 logger = get_logger(__name__)
 
 
-def configure_mlflow(config: NERTestsetEvaluationConfig) -> tuple[bool, str | None]:
+def _append_feedback(
+    *,
+    feedback_records: list[FeedbackRecord],
+    feedback_entities: list[Feedback],
+    trace_id: str | None,
+    sample_id: str,
+    backend_mode: str,
+    name: str,
+    value: Any,
+    rationale: str,
+    perfect_span_set: bool | None = None,
+    metadata: dict[str, Any] | None = None,
+) -> None:
+    record_metadata = {
+        "sample_id": sample_id,
+        "backend_mode": backend_mode,
+        **(metadata or {}),
+    }
+    feedback_records.append(
+        FeedbackRecord(
+            name=name,
+            value=value,
+            sample_id=sample_id,
+            perfect_span_set=perfect_span_set,
+            rationale=rationale,
+            trace_id=trace_id,
+            metadata=record_metadata,
+        )
+    )
+    feedback_entities.append(
+        Feedback(
+            name=name,
+            value=value,
+            trace_id=trace_id,
+            metadata=record_metadata,
+            rationale=rationale,
+        )
+    )
+
+
+def configure_mlflow(config: NERHoldoutEvaluationConfig) -> tuple[bool, str | None]:
     if not config.logging.mlflow.enabled:
         logger.warning("MLflow disabled by config (logging.mlflow.enabled=false).")
         return False, None
@@ -135,7 +175,7 @@ def _serialize_trace(
 
 def serialize_traces_for_logging(
     traces: list[LLMTrace],
-    config: NERTestsetEvaluationConfig,
+    config: NERHoldoutEvaluationConfig,
 ) -> list[dict[str, Any]]:
     return [
         _serialize_trace(
@@ -196,33 +236,90 @@ def build_feedback_records(
             CategoricalRating.YES if score.perfect_span_set else CategoricalRating.NO
         )
         trace_id = sample_trace_ids.get(score.sample_id)
-        metadata = {
-            "sample_id": score.sample_id,
-            "backend_mode": backend_mode,
+        base_metadata = {
             "perfect_definition": "span_set_exact",
+            "tp": score.tp,
+            "fp": score.fp,
+            "fn": score.fn,
         }
-        feedback_records.append(
-            FeedbackRecord(
+        _append_feedback(
+            feedback_records=feedback_records,
+            feedback_entities=feedback_entities,
+            trace_id=trace_id,
+            sample_id=score.sample_id,
+            backend_mode=backend_mode,
+            name="perfect_prediction",
+            value=str(categorical.value),
+            rationale=(
+                "Exact span set match"
+                if score.perfect_span_set
+                else "Exact span set mismatch"
+            ),
+            perfect_span_set=score.perfect_span_set,
+            metadata=base_metadata,
+        )
+
+        _append_feedback(
+            feedback_records=feedback_records,
+            feedback_entities=feedback_entities,
+            trace_id=trace_id,
+            sample_id=score.sample_id,
+            backend_mode=backend_mode,
+            name="entity_match_rate",
+            value=float(score.entity_match_rate or 0.0),
+            rationale="Proportion of gold entities matched exactly (tp / gold_entities).",
+            perfect_span_set=score.perfect_span_set,
+            metadata=base_metadata,
+        )
+        _append_feedback(
+            feedback_records=feedback_records,
+            feedback_entities=feedback_entities,
+            trace_id=trace_id,
+            sample_id=score.sample_id,
+            backend_mode=backend_mode,
+            name="strict_precision",
+            value=float(score.precision),
+            rationale="Per-sample strict precision over exact span matches.",
+            perfect_span_set=score.perfect_span_set,
+            metadata=base_metadata,
+        )
+        _append_feedback(
+            feedback_records=feedback_records,
+            feedback_entities=feedback_entities,
+            trace_id=trace_id,
+            sample_id=score.sample_id,
+            backend_mode=backend_mode,
+            name="strict_recall",
+            value=float(score.recall),
+            rationale="Per-sample strict recall over exact span matches.",
+            perfect_span_set=score.perfect_span_set,
+            metadata=base_metadata,
+        )
+        _append_feedback(
+            feedback_records=feedback_records,
+            feedback_entities=feedback_entities,
+            trace_id=trace_id,
+            sample_id=score.sample_id,
+            backend_mode=backend_mode,
+            name="strict_f1",
+            value=float(score.f1),
+            rationale="Per-sample strict F1 over exact span matches.",
+            perfect_span_set=score.perfect_span_set,
+            metadata=base_metadata,
+        )
+        if score.token_relaxed_accuracy is not None:
+            _append_feedback(
+                feedback_records=feedback_records,
+                feedback_entities=feedback_entities,
+                trace_id=trace_id,
                 sample_id=score.sample_id,
+                backend_mode=backend_mode,
+                name="token_relaxed_accuracy",
+                value=float(score.token_relaxed_accuracy),
+                rationale="Per-sample token-level relaxed accuracy.",
                 perfect_span_set=score.perfect_span_set,
-                value=str(categorical.value),
-                trace_id=trace_id,
-                metadata=metadata,
+                metadata=base_metadata,
             )
-        )
-        feedback_entities.append(
-            Feedback(
-                name="perfect_prediction",
-                value=categorical,
-                trace_id=trace_id,
-                metadata=metadata,
-                rationale=(
-                    "Exact span set match"
-                    if score.perfect_span_set
-                    else "Exact span set mismatch"
-                ),
-            )
-        )
 
     return feedback_records, feedback_entities
 
@@ -241,26 +338,23 @@ def log_feedback_to_mlflow(
         try:
             mlflow.log_feedback(
                 trace_id=feedback.trace_id,
-                name="perfect_prediction",
+                name=feedback.name,
                 value=feedback.value,
                 metadata=feedback.metadata,
-                rationale=(
-                    "Exact span set match"
-                    if feedback.perfect_span_set
-                    else "Exact span set mismatch"
-                ),
+                rationale=feedback.rationale,
             )
         except Exception as exc:
             logger.warning(
-                "Skipping mlflow.log_feedback for sample_id=%s trace_id=%s: %s",
+                "Skipping mlflow.log_feedback for sample_id=%s assessment=%s trace_id=%s: %s",
                 feedback.sample_id,
+                feedback.name,
                 feedback.trace_id,
                 exc,
             )
 
 
 def log_run_metadata(
-    config: NERTestsetEvaluationConfig,
+    config: NERHoldoutEvaluationConfig,
     *,
     run_name: str,
     model_name: str,

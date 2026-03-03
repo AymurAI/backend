@@ -12,7 +12,7 @@ from aymurai.utils.yaml_data import load_yaml
 class ExperimentConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    name: str = "ner-testset-evaluation"
+    name: str = "ner-holdout-evaluation"
     run_name: str = "{backend}-{model}-{timestamp}"
 
 
@@ -98,7 +98,7 @@ class MLflowConfig(BaseModel):
 
     enabled: bool = True
     tracking_uri: str
-    experiment_name: str = "ner-testset-evaluation"
+    experiment_name: str = "ner-holdout-evaluation"
     enable_openai_autolog: bool = False
     request_timeout_s: float = 15
     request_max_retries: int = 2
@@ -136,7 +136,7 @@ class OutputsConfig(BaseModel):
     manifest_json: str = "manifest.json"
 
 
-class NERTestsetEvaluationConfig(BaseModel):
+class NERHoldoutEvaluationConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     experiment: ExperimentConfig = ExperimentConfig()
@@ -151,7 +151,7 @@ class NERTestsetEvaluationConfig(BaseModel):
     outputs: OutputsConfig
 
     @model_validator(mode="after")
-    def validate_backend_requirements(self) -> "NERTestsetEvaluationConfig":
+    def validate_backend_requirements(self) -> "NERHoldoutEvaluationConfig":
         if self.backend.mode == "langextract":
             if self.langextract is None:
                 raise ValueError(
@@ -164,7 +164,7 @@ class NERTestsetEvaluationConfig(BaseModel):
         return self
 
 
-def load_experiment_config(path: str) -> NERTestsetEvaluationConfig:
+def load_experiment_config(path: str) -> NERHoldoutEvaluationConfig:
     data = load_yaml(path)
     env_tracking = os.getenv("MLFLOW_TRACKING_URI")
     if env_tracking:
@@ -172,7 +172,7 @@ def load_experiment_config(path: str) -> NERTestsetEvaluationConfig:
             "tracking_uri"
         ] = env_tracking
 
-    return NERTestsetEvaluationConfig.model_validate(data)
+    return NERHoldoutEvaluationConfig.model_validate(data)
 
 
 def render_run_name(

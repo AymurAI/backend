@@ -6,11 +6,12 @@ from pathlib import Path
 from typing import Any
 
 from aymurai.database.utils import text_to_uuid
-from aymurai.experiments.ner_testset_evaluation.config import NERTestsetEvaluationConfig
-from aymurai.experiments.ner_testset_evaluation.types import (
+from aymurai.experiments.ner_holdout_evaluation.config import NERHoldoutEvaluationConfig
+from aymurai.experiments.ner_holdout_evaluation.types import (
     CanonicalSample,
     CanonicalSpan,
 )
+from aymurai.transforms.anonymization_postprocess.core import clean_entity_boundaries
 
 
 def normalize_bio_label(tag: str | None) -> tuple[str, str | None]:
@@ -82,6 +83,31 @@ def bio_to_spans(
     current_start: int | None = None
     current_end: int | None = None
 
+    def _build_span(
+        *,
+        label: str,
+        start: int,
+        end: int,
+        source: str,
+    ) -> CanonicalSpan:
+        span_text = text[start:end]
+        cleaned = clean_entity_boundaries(
+            span_text,
+            start_char=start,
+            end_char=end,
+        )
+        return CanonicalSpan(
+            label=label,
+            start=start,
+            end=end,
+            text=span_text,
+            raw_label=label,
+            source=source,
+            normalized_text=cleaned["text"] if cleaned is not None else span_text,
+            alt_start_char=cleaned["start_char"] if cleaned is not None else start,
+            alt_end_char=cleaned["end_char"] if cleaned is not None else end,
+        )
+
     def close_current() -> None:
         nonlocal current_label, current_start, current_end
         if current_label is None or current_start is None or current_end is None:
@@ -89,14 +115,11 @@ def bio_to_spans(
             current_start = None
             current_end = None
             return
-        span_text = text[current_start:current_end]
         spans.append(
-            CanonicalSpan(
+            _build_span(
                 label=current_label,
                 start=current_start,
                 end=current_end,
-                text=span_text,
-                raw_label=current_label,
                 source=source,
             )
         )
@@ -117,12 +140,10 @@ def bio_to_spans(
         if prefix == "S":
             close_current()
             spans.append(
-                CanonicalSpan(
+                _build_span(
                     label=label,
                     start=token_start,
                     end=token_end,
-                    text=text[token_start:token_end],
-                    raw_label=label,
                     source=source,
                 )
             )
@@ -147,12 +168,10 @@ def bio_to_spans(
         if prefix == "E":
             if current_label is None or current_start is None or current_label != label:
                 spans.append(
-                    CanonicalSpan(
+                    _build_span(
                         label=label,
                         start=token_start,
                         end=token_end,
-                        text=text[token_start:token_end],
-                        raw_label=label,
                         source=source,
                     )
                 )
@@ -331,6 +350,11 @@ def _parse_raw_span(
     span_text = str(
         span_row.get("text") or span_row.get("extraction_text") or text[start:end]
     )
+    cleaned = clean_entity_boundaries(
+        span_text,
+        start_char=int(start),
+        end_char=int(end),
+    )
     return CanonicalSpan(
         label=str(label).strip().upper(),
         start=int(start),
@@ -338,6 +362,9 @@ def _parse_raw_span(
         text=span_text,
         raw_label=str(label),
         source="gold",
+        normalized_text=cleaned["text"] if cleaned is not None else span_text,
+        alt_start_char=cleaned["start_char"] if cleaned is not None else int(start),
+        alt_end_char=cleaned["end_char"] if cleaned is not None else int(end),
         extra={"raw": span_row},
     )
 
@@ -422,7 +449,7 @@ def deduplicate_samples_by_text(
     return unique
 
 
-def load_samples(config: NERTestsetEvaluationConfig) -> list[CanonicalSample]:
+def load_samples(config: NERHoldoutEvaluationConfig) -> list[CanonicalSample]:
     path = Path(config.data.input_path)
 
     if config.data.format == "conll_bio":

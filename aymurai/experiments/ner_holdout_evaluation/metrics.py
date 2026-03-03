@@ -4,11 +4,11 @@ from collections import Counter, defaultdict
 from statistics import mean
 from typing import Any
 
-from aymurai.experiments.ner_testset_evaluation.loaders import (
+from aymurai.experiments.ner_holdout_evaluation.loaders import (
     spans_to_bio,
     token_offsets_from_text,
 )
-from aymurai.experiments.ner_testset_evaluation.types import (
+from aymurai.experiments.ner_holdout_evaluation.types import (
     BackendPrediction,
     CanonicalSample,
     CanonicalSpan,
@@ -26,7 +26,7 @@ def _f1(precision: float, recall: float) -> float:
 
 
 def span_key(span: CanonicalSpan) -> tuple[str, int, int, str]:
-    return (span.label, int(span.start), int(span.end), str(span.text))
+    return span.key()
 
 
 def strip_bio_sequence(seq: list[str]) -> list[str]:
@@ -64,9 +64,19 @@ def compute_sample_strict_score(
     fp = sum(pred_counter.values()) - tp
     fn = sum(gold_counter.values()) - tp
 
-    precision = _safe_div(tp, tp + fp)
-    recall = _safe_div(tp, tp + fn)
-    f1 = _f1(precision, recall)
+    gold_count = sum(gold_counter.values())
+    pred_count = sum(pred_counter.values())
+    if gold_count == 0 and pred_count == 0:
+        precision = recall = f1 = 1.0
+    else:
+        precision = _safe_div(tp, tp + fp)
+        recall = _safe_div(tp, tp + fn)
+        f1 = _f1(precision, recall)
+
+    if gold_count:
+        entity_match_rate = _safe_div(tp, gold_count)
+    else:
+        entity_match_rate = 1.0 if pred_count == 0 else 0.0
 
     label_stats: dict[str, dict[str, float | int]] = {}
     for label in labels:
@@ -104,6 +114,7 @@ def compute_sample_strict_score(
         recall=float(recall),
         f1=float(f1),
         perfect_span_set=bool(fp == 0 and fn == 0),
+        entity_match_rate=float(entity_match_rate),
         label_stats=label_stats,
     )
 

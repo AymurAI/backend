@@ -16,10 +16,17 @@ class CanonicalSpan:
     raw_label: str | None = None
     source: str = "gold"
     normalized_text: str | None = None
+    alt_start_char: int | None = None
+    alt_end_char: int | None = None
     extra: dict[str, Any] = field(default_factory=dict)
 
     def key(self) -> tuple[str, int, int, str]:
-        return (self.label, self.start, self.end, self.text)
+        return (
+            self.label,
+            self.alt_start_char if self.alt_start_char is not None else self.start,
+            self.alt_end_char if self.alt_end_char is not None else self.end,
+            self.normalized_text or self.text,
+        )
 
 
 @dataclass
@@ -54,6 +61,7 @@ class SampleScore:
     recall: float
     f1: float
     perfect_span_set: bool
+    entity_match_rate: float | None = None
     label_stats: dict[str, dict[str, float | int]] = field(default_factory=dict)
     token_relaxed_accuracy: float | None = None
 
@@ -69,11 +77,13 @@ class EvaluationSummary:
 
 @dataclass
 class FeedbackRecord:
+    name: str
+    value: Any
     sample_id: str
-    perfect_span_set: bool
-    value: str
+    perfect_span_set: bool | None = None
+    rationale: str | None = None
     trace_id: str | None = None
-    metadata: dict[str, str] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 def span_to_dict(span: CanonicalSpan) -> dict[str, Any]:
