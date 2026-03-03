@@ -2,9 +2,48 @@ import re
 from copy import deepcopy
 from string import punctuation
 
+from aymurai.meta.pipeline_interfaces import Transform
 from aymurai.meta.types import DataItem
 from aymurai.utils.misc import get_element
-from aymurai.meta.pipeline_interfaces import Transform
+
+_ENTITY_BOUNDARY_PATTERN = re.compile(r"^\W+|\W+$")
+
+
+def clean_entity_boundaries(
+    text: str,
+    *,
+    start_char: int,
+    end_char: int,
+) -> dict[str, int | str] | None:
+    """
+    Cleans the boundaries of an entity by removing leading and trailing non-alphanumeric characters.
+
+    Args:
+        text (str): The text of the entity.
+        start_char (int): The starting character index of the entity.
+        end_char (int): The ending character index of the entity.
+
+    Returns:
+        dict[str, int | str] | None: A dictionary with the cleaned text and updated character indices,
+            or None if the cleaned text is empty.
+    """
+    original_text = str(text or "")
+
+    leading_match = re.match(r"^\W+", original_text)
+    trailing_match = re.search(r"\W+$", original_text)
+
+    leading_chars_removed = len(leading_match.group()) if leading_match else 0
+    trailing_chars_removed = len(trailing_match.group()) if trailing_match else 0
+    cleaned_text = _ENTITY_BOUNDARY_PATTERN.sub("", original_text)
+
+    if not cleaned_text:
+        return None
+
+    return {
+        "text": cleaned_text,
+        "start_char": int(start_char) + leading_chars_removed,
+        "end_char": int(end_char) - trailing_chars_removed,
+    }
 
 
 class AnonymizationEntityCleaner(Transform):
@@ -26,29 +65,17 @@ class AnonymizationEntityCleaner(Transform):
         Returns:
             dict: processed entity
         """
-        # Define the regex pattern
-        pattern = re.compile(r"^\W+|\W+$")
+        cleaned = clean_entity_boundaries(
+            ent["text"],
+            start_char=ent["start_char"],
+            end_char=ent["end_char"],
+        )
+        if cleaned is None:
+            return ent
 
-        # Get the original text and start and end indices
-        original_text = ent["text"]
-        start_char = ent["start_char"]
-        end_char = ent["end_char"]
-
-        # Match leading and trailing non-alphanumeric characters
-        leading_match = re.match(r"^\W+", original_text)
-        trailing_match = re.search(r"\W+$", original_text)
-
-        # Calculate the number of characters to remove
-        leading_chars_removed = len(leading_match.group()) if leading_match else 0
-        trailing_chars_removed = len(trailing_match.group()) if trailing_match else 0
-
-        # Clean the text
-        cleaned_text = pattern.sub("", original_text)
-
-        # Update the entity's alt text and indices
-        ent["attrs"]["aymurai_alt_text"] = cleaned_text
-        ent["attrs"]["aymurai_alt_start_char"] = start_char + leading_chars_removed
-        ent["attrs"]["aymurai_alt_end_char"] = end_char - trailing_chars_removed
+        ent["attrs"]["aymurai_alt_text"] = cleaned["text"]
+        ent["attrs"]["aymurai_alt_start_char"] = cleaned["start_char"]
+        ent["attrs"]["aymurai_alt_end_char"] = cleaned["end_char"]
 
         return ent
 

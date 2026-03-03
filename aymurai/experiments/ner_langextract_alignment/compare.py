@@ -8,6 +8,10 @@ from aymurai.experiments.ner_langextract_alignment.types import (
 )
 
 
+def _comparison_text(entity: NormalizedEntity) -> str:
+    return str(entity.normalized_text or entity.text or "")
+
+
 def compare_entities(
     ner_entities: list[NormalizedEntity],
     langextract_entities: list[NormalizedEntity],
@@ -42,10 +46,9 @@ def compare_entities(
 
     for ner_ent in remaining_ner:
         for lx_ent in remaining_lx:
-            if (
-                ner_ent.label == lx_ent.label
-                and lx_ent.normalized_text in ner_ent.normalized_text
-            ):
+            ner_text = _comparison_text(ner_ent)
+            lx_text = _comparison_text(lx_ent)
+            if ner_ent.label == lx_ent.label and lx_text and lx_text in ner_text:
                 partial_match.append(ner_ent)
                 matched_in_remaining_ner.add(id(ner_ent))
                 matched_in_remaining_lx.add(id(lx_ent))

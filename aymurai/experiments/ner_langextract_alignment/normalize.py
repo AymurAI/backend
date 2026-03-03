@@ -17,13 +17,13 @@ def normalize_label(label: str) -> str:
 
 
 def normalize_text(
-    text: str,
+    text: str | None,
     *,
     normalize_case: bool,
     normalize_accents: bool,
     normalize_punctuation: bool,
 ) -> str:
-    value = text.strip()
+    value = str(text or "").strip()
     if normalize_case:
         value = value.lower()
     if normalize_accents:
@@ -82,6 +82,11 @@ def parse_ner_predictions(
             continue
 
         exact_text = text[start:end]
+        normalized_source_text = (
+            str(alt_text)
+            if isinstance(alt_text, str) and alt_text.strip()
+            else exact_text
+        )
         entities.append(
             NormalizedEntity(
                 label=normalize_label(raw_label),
@@ -91,13 +96,15 @@ def parse_ner_predictions(
                 source="ner",
                 raw_label=str(raw_label),
                 normalized_text=normalize_text(
-                    alt_text,
+                    normalized_source_text,
                     normalize_case=normalize_case,
                     normalize_accents=normalize_accents,
                     normalize_punctuation=normalize_punctuation,
                 ),
-                alt_start_char=alt_start_char,
-                alt_end_char=alt_end_char,
+                alt_start_char=alt_start_char
+                if isinstance(alt_start_char, int)
+                else None,
+                alt_end_char=alt_end_char if isinstance(alt_end_char, int) else None,
                 extra={
                     "attrs": attrs,
                     "original_text": label.get("text"),
