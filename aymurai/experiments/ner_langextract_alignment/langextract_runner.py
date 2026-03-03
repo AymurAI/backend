@@ -402,6 +402,7 @@ def run_langextract(
                     examples=examples,
                     model=model,
                     use_schema_constraints=False,
+                    fetch_urls=False,
                     extraction_passes=config.extraction_passes,
                     batch_length=config.batch_length,
                     max_workers=config.max_workers,
