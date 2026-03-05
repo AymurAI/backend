@@ -8,7 +8,7 @@ Esta sección documenta los catálogos de entidades utilizados por los distintos
 - Anonymizer: [anonymizer/README.md](anonymizer/README.md)
 
 ## Notas
-- Las entidades de `datapublic` describen la taxonomía de extracción de datos públicos usada por el pipeline de producción `full-paragraph`.
+- Las entidades de `datapublic` describen la taxonomía de extracción de datos públicos usada por el pipeline de producción `datapublic`.
 - Las entidades de `anonymizer` describen las labels usadas actualmente por el flujo de anonimización para desambiguación y reemplazo.
 
 ## Documentación relacionada

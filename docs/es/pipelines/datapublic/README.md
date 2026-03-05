@@ -24,7 +24,7 @@ Este flujo extrae información estructurada a partir de párrafos y soporta pers
 ## Componentes técnicos
 
 ### Configuración del pipeline
-- Fuente: `resources/pipelines/production/full-paragraph/pipeline.json`
+- Fuente: `resources/pipelines/production/datapublic/pipeline.json`
 - Preprocesamiento:
   - `aymurai.models.flair.utils.FlairTextNormalize`
 - Modelos:
@@ -58,7 +58,7 @@ Tablas usadas por este flujo:
 - `datapublic_document_paragraph`
 
 ## Notas
-- El directorio de pipeline en producción sigue llamándose `full-paragraph`.
+- El directorio de pipeline en producción sigue llamándose `datapublic`.
 - `document_id` es la clave de agrupamiento a nivel documento para asociar predicciones por párrafo y el payload de validación.
 - La persistencia de validación es a nivel documento y acepta intencionalmente un objeto JSON libre.
 - `GET /datapublic/validation/document/{document_id}` devuelve `404` cuando el documento no existe; `POST` crea o actualiza el payload de validación.

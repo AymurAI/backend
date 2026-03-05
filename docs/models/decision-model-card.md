@@ -21,7 +21,7 @@ Language: **English** | [Español](../es/models/decision-model-card.md)
 
 # Model Description
 
-This model is the current paragraph-level decision classifier used in the production `full-paragraph` pipeline.
+This model is the current paragraph-level decision classifier used in the production `datapublic` pipeline.
 It estimates whether a paragraph contains a judicial decision and, when used inside the AymurAI pipeline, emits a synthetic `DECISION` entity with a rule-based subclass.
 
 This model was developed by [{ collective.ai }](https://collectiveai.io) as part of the [AymurAI](https://aymurai.info) project by [DataGenero](https://datagenero.org).
@@ -114,12 +114,12 @@ The first column is the probability of the text not being a decision, and the se
 
 ## Using the model in an AymurAI pipeline
 
-The current production `full-paragraph` pipeline includes this classifier after the Flair NER stage.
+The current production `datapublic` pipeline includes this classifier after the Flair NER stage.
 
 ```python
 from aymurai.pipeline import AymurAIPipeline
 
-pipeline = AymurAIPipeline.load("/resources/pipelines/production/full-paragraph")
+pipeline = AymurAIPipeline.load("/resources/pipelines/production/datapublic")
 
 item = {
     "path": "dummy",

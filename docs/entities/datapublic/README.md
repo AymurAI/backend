@@ -4,7 +4,7 @@ Language: **English** | [Español](../../es/entities/datapublic/README.md)
 Catalog of entities used by the datapublic extraction flow.
 
 ## Scope
-These entities correspond to the taxonomy extracted from judicial rulings by the production `full-paragraph` pipeline. They are used across the Flair NER model, decision post-processing, validation UI, and related dataset tooling.
+These entities correspond to the taxonomy extracted from judicial rulings by the production `datapublic` pipeline. They are used across the Flair NER model, decision post-processing, validation UI, and related dataset tooling.
 
 ## Entities
 | Entity | Description |
