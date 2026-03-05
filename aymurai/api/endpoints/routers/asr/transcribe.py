@@ -26,6 +26,15 @@ logger = get_logger(__name__)
 
 
 def get_transcribe_ws_uri() -> str:
+    """
+    Get the WebSocket URI for the transcription service from settings.
+
+    Raises:
+        ConfigurationError: If the WebSocket URI is not configured in settings.
+
+    Returns:
+        str: The WebSocket URI for the transcription service.
+    """
     ws_uri = settings.TRANSCRIBE_WS_URI
     if not ws_uri:
         raise ConfigurationError(detail="TRANSCRIBE_WS_URI is not configured")
@@ -35,6 +44,19 @@ def get_transcribe_ws_uri() -> str:
 async def _transcribe_audio_bytes_with_error_handling(
     data: bytes,
 ) -> list[ASRParagraph]:
+    """
+    Transcribes audio bytes into a list of ASRParagraph objects.
+
+    Args:
+        data (bytes): The audio data to be transcribed.
+
+    Raises:
+        UpstreamServiceError: If there is an error with the upstream transcription service.
+        AymuraiAPIException: If there is an unexpected error during transcription.
+
+    Returns:
+        list[ASRParagraph]: A list of ASRParagraph objects representing the transcribed audio.
+    """
     try:
         status = await transcribe_audio_bytes(data)
     except RuntimeError as exc:
@@ -70,7 +92,16 @@ async def transcribe(
     session: Session = Depends(get_session),
 ) -> ASRDocument:
     """
-    Stream an uploaded audio file to an external websocket transcription service.
+    Transcribes an uploaded audio file and returns the transcribed document.
+
+    Args:
+        file (UploadFile): The audio file to be transcribed.
+        use_cache (bool, optional): Whether to use cached transcription results. Defaults to True.
+        ws_uri (str, optional): The WebSocket URI for the transcription service. Defaults to Depends(get_transcribe_ws_uri).
+        session (Session, optional): The database session. Defaults to Depends(get_session).
+
+    Returns:
+        ASRDocument: The transcribed audio document.
     """
     data = await file.read()
     document_id = data_to_uuid(data)
@@ -107,6 +138,20 @@ async def asr_read_document_validation(
     document_id: UUID5,
     session: Session = Depends(get_session),
 ) -> ASRDocument | None:
+    """
+    Retrieves the validation document for a given document ID.
+
+    Args:
+        document_id (UUID5): The ID of the document to retrieve.
+        session (Session, optional): The database session. Defaults to Depends(get_session).
+
+
+    Raises:
+        NotFoundError: If the document with the given ID is not found.
+
+    Returns:
+        ASRDocument | None: The validation document if found, otherwise None.
+    """
     record = audio_transcription_get(transcription_id=document_id, session=session)
     if not record:
         raise NotFoundError(detail=f"Document not found: {document_id}")
@@ -123,6 +168,17 @@ async def asr_save_document_validation(
     annotations: list[ASRParagraphRequest] = Body(...),
     session: Session = Depends(get_session),
 ) -> None:
+    """
+    Saves the validation annotations for a given document ID.
+
+    Args:
+        document_id (UUID5): The ID of the document to validate.
+        annotations (list[ASRParagraphRequest], optional): The list of annotations for the document. Defaults to Body(...).
+        session (Session, optional): The database session. Defaults to Depends(get_session).
+
+    Raises:
+        NotFoundError: If the document with the given ID is not found.
+    """
     record = audio_transcription_get(transcription_id=document_id, session=session)
     if not record:
         raise NotFoundError(detail=f"Document not found: {document_id}")

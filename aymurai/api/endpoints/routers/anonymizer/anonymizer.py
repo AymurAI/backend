@@ -601,16 +601,21 @@ async def anonymizer_compile_document(
     session: Session = Depends(get_session),
 ) -> FileResponse:
     """
-    Compile Anonimized document from original file and annotations
+    Anonymizes a document (text or audio) based on provided annotations and returns the anonymized file.
 
     Args:
-        file (UploadFile): Original file.
-        annotations (str, optional): JSON with document annotations.
+        file (UploadFile): The uploaded file to be anonymized.
+        annotations (str, optional): A JSON string representing the document annotations. Defaults to Form(...).
+        output_format (Literal["document", "audio"], optional): The desired output format of the anonymized file. Defaults to Form("document").
+        session (Session, optional): Database session dependency. Defaults to Depends(get_session).
+
+    Raises:
+        UnsupportedFileType: If the file type is not supported for anonymization.
+        RuntimeError: If the anonymized file cannot be found.
 
     Returns:
-        FileResponse: Anonymized document
+        FileResponse: A response containing the anonymized file for download, with appropriate media type and filename.
     """
-
     filename = Path(file.filename)
     logger.info(f"receiving => {filename.name}")
 
@@ -739,6 +744,20 @@ def anonimize_audio(
     annotations: DocumentAnnotations,
     render_context: dict | None = None,
 ) -> Path:
+    """
+    Anonymizes an audio document based on provided annotations and returns the path to the anonymized file.
+
+    Args:
+        data (bytes): The raw audio data to be anonymized.
+        annotations (DocumentAnnotations): The document annotations containing the information needed for anonymization.
+        render_context (dict | None, optional): Context for rendering the anonymized content, such as label policies and indices. Defaults to None.
+
+    Raises:
+        ValueError: If the ASR paragraph text does not match the annotation document.
+
+    Returns:
+        Path: The file path to the anonymized audio document.
+    """
     document_id = data_to_uuid(data)
     document: ASRDocument = cast(ASRDocument, cache_load(str(document_id)))
 
@@ -779,6 +798,18 @@ def anonimize_docx(
     suffix: Literal["docx"] = "docx",
     render_context: dict | None = None,
 ) -> Path:
+    """
+    Anonymizes a DOCX document based on provided annotations and returns the path to the anonymized file.
+
+    Args:
+        data (bytes): The raw DOCX data to be anonymized.
+        annotations (DocumentAnnotations): The document annotations containing the information needed for anonymization.
+        suffix (Literal["docx"], optional): The file suffix for the temporary file. Defaults to "docx".
+        render_context (dict | None, optional): Context for rendering the anonymized content, such as label policies and indices. Defaults to None.
+
+    Returns:
+        Path: The file path to the anonymized DOCX document.
+    """
     # Create a temporary file
     tmp_dir = tempfile.gettempdir()
 
@@ -818,6 +849,16 @@ def anonymize_document(
     annotations: DocumentAnnotations,
     render_context: dict | None = None,
 ) -> Path:
+    """
+    Anonymizes a text document based on provided annotations and returns the path to the anonymized file.
+
+    Args:
+        annotations (DocumentAnnotations): The document annotations containing the information needed for anonymization.
+        render_context (dict | None, optional): Context for rendering the anonymized content, such as label policies and indices. Defaults to None.
+
+    Returns:
+        Path: The file path to the anonymized document.
+    """
     # Export as raw document
     anonymized_doc = [
         replace_labels_in_text(

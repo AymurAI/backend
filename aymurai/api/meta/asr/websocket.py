@@ -12,6 +12,18 @@ ISO8601_DURATION_RE = re.compile(
 
 
 def _parse_hhmmss(value: str | int | float | timedelta) -> timedelta:
+    """
+    Parse a time value in HH:MM:SS format, ISO 8601 duration format (PT#H#M#S), or as a number of seconds.
+
+    Args:
+        value (str | int | float | timedelta): The time value to parse.
+
+    Raises:
+        ValueError: If the time value is not a valid format, or if the ISO 8601 duration format is invalid.
+
+    Returns:
+        timedelta: The parsed time value as a timedelta object.
+    """
     if isinstance(value, timedelta):
         return value
 

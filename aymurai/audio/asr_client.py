@@ -30,6 +30,16 @@ async def _stream_audio_bytes(
     payload: bytes,
     websocket: websockets.ClientConnection,
 ) -> int:
+    """
+    Streams audio bytes to a WebSocket connection in chunks.
+
+    Args:
+        payload (bytes): The audio data to be streamed.
+        websocket (websockets.ClientConnection): The WebSocket connection to stream the audio data to.
+
+    Returns:
+        int: The total number of bytes sent to the WebSocket.
+    """
     audio, _ = librosa.load(io.BytesIO(payload), sr=SAMPLE_RATE_HZ, mono=True)
     total_bytes = 0
     for i in range(0, len(audio), CHUNK_SAMPLES):
@@ -44,6 +54,15 @@ async def _stream_audio_bytes(
 
 
 def _parse_ws_message(message: str | bytes) -> WLKMessageRawResponse | None:
+    """
+    Parses a WebSocket message into a WLKMessageRawResponse object.
+
+    Args:
+        message (str | bytes): The WebSocket message to be parsed.
+
+    Returns:
+        WLKMessageRawResponse | None: The parsed WLKMessageRawResponse object, or None if parsing fails.
+    """
     if isinstance(message, bytes):
         message = message.decode("utf-8", errors="replace")
 
@@ -74,6 +93,16 @@ def _parse_ws_message(message: str | bytes) -> WLKMessageRawResponse | None:
 async def _receive_updates(
     websocket: websockets.ClientConnection,
 ) -> WLKMessageStatus | None:
+    """
+    Receives updates from the WebSocket connection and returns the last active transcription status.
+
+    Args:
+        websocket (websockets.ClientConnection): The WebSocket connection to receive updates from.
+
+    Returns:
+        WLKMessageStatus | None: The last active transcription status,
+            or None if no active transcription was received.
+    """
     last_active_transcription: WLKMessageStatus | None = None
     while True:
         try:
@@ -98,6 +127,19 @@ async def _receive_updates(
 
 
 async def transcribe_audio_bytes(payload: bytes) -> WLKMessageStatus | None:
+    """
+    Transcribes audio bytes by streaming them to a WebSocket transcription service and receiving updates.
+
+    Args:
+        payload (bytes): The audio data to be transcribed.
+
+    Raises:
+        RuntimeError: If there is an error with the transcription service.
+
+    Returns:
+        WLKMessageStatus | None: The last active transcription status received from the transcription service,
+            or None if no active transcription was received.
+    """
     ws_uri = settings.TRANSCRIBE_WS_URI
 
     if not ws_uri:
@@ -130,5 +172,15 @@ async def transcribe_audio_bytes(payload: bytes) -> WLKMessageStatus | None:
 
 
 def transcribe_audio_path(path: Path) -> WLKMessageStatus | None:
+    """
+    Transcribes an audio file at the given path by reading its bytes and sending them to the transcription service.
+
+    Args:
+        path (Path): The path to the audio file to be transcribed.
+
+    Returns:
+        WLKMessageStatus | None: The last active transcription status received from the transcription service,
+            or None if no active transcription was received.
+    """
     payload = path.read_bytes()
     return asyncio.run(transcribe_audio_bytes(payload))
