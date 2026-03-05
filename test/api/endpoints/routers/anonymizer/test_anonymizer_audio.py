@@ -1,6 +1,6 @@
 import os
 
-from aymurai.api.endpoints.routers.anonymizer.anonymizer import anonimize_audio
+from aymurai.api.endpoints.routers.anonymizer.anonymizer import anonymize_audio
 from aymurai.database.utils import data_to_uuid
 from aymurai.meta.api_interfaces import (
     ASRDocument,
@@ -57,7 +57,7 @@ def test_should_replace_entity_tokens_in_audio_output_when_annotations_match_asr
         ]
     )
 
-    output_path = anonimize_audio(audio_bytes, annotations)
+    output_path = anonymize_audio(audio_bytes, annotations)
     try:
         assert output_path.exists()
         output_text = output_path.read_text(encoding="utf-8")

@@ -672,7 +672,7 @@ async def anonymizer_compile_document(
 
     match extension:
         case "docx":
-            tmp_filename = anonimize_docx(
+            tmp_filename = anonymize_docx(
                 data,
                 filtered_annots,
                 render_context=render_context,
@@ -683,7 +683,7 @@ async def anonymizer_compile_document(
                 render_context=render_context,
             )
         case "wav" | "mp3" | "m4a" | "flac" | "aac" | "ogg" | "opus":
-            tmp_filename = anonimize_audio(
+            tmp_filename = anonymize_audio(
                 data,
                 filtered_annots,
                 render_context=render_context,
@@ -739,7 +739,7 @@ async def anonymizer_compile_document(
     )
 
 
-def anonimize_audio(
+def anonymize_audio(
     data: bytes,
     annotations: DocumentAnnotations,
     render_context: dict | None = None,
@@ -792,7 +792,7 @@ def anonimize_audio(
     return Path(tmp_filename)
 
 
-def anonimize_docx(
+def anonymize_docx(
     data: bytes,
     annotations: DocumentAnnotations,
     suffix: Literal["docx"] = "docx",

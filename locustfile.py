@@ -2,7 +2,7 @@ import os
 import uuid
 
 import lorem
-from locust import HttpUser, task, between
+from locust import HttpUser, between, task
 
 from aymurai.logger import get_logger
 
@@ -104,7 +104,7 @@ class AnonymizerUser(HttpUser):
         self.fetch_server_stats()
 
     @task
-    def predict_anonimizer(self):
+    def predict_anonymizer(self):
         payload = {"text": generate_text()}
         with self.client.post(
             "/anonymizer/predict", json=payload, catch_response=True
