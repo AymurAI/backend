@@ -19,7 +19,6 @@ from aymurai.database.utils import data_to_uuid
 from aymurai.logger import get_logger
 from aymurai.meta.api_interfaces import ASRDocument, ASRParagraph, ASRParagraphRequest
 from aymurai.settings import settings
-from aymurai.utils.cache import cache_save
 
 router = APIRouter()
 logger = get_logger(__name__)
@@ -116,7 +115,6 @@ async def transcribe(
                 document_id=document_id,
                 document=cached_record.validation or cached_record.transcription,
             )
-            cache_save(cached_document, key=str(document_id))
             return cached_document
 
     transcription_items = await _transcribe_audio_bytes_with_error_handling(data)
@@ -127,7 +125,6 @@ async def transcribe(
         transcription=document.document,
         session=session,
     )
-    cache_save(document, key=str(document_id))
     logger.debug(f"Audio transcription stored in DB for {file.filename}")
 
     return document

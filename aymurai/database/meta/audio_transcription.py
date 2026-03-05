@@ -4,6 +4,8 @@ from datetime import datetime
 from sqlalchemy import JSON, Column, DateTime, func, text
 from sqlmodel import Field, SQLModel
 
+# FIXME: Not proper resposibility of the database layer to import ASRParagraph,
+# the direction of dependency should be inverted.
 from aymurai.meta.api_interfaces import ASRParagraph
 
 

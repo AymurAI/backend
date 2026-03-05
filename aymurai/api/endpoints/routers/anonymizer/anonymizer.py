@@ -4,7 +4,7 @@ import subprocess
 import tempfile
 from pathlib import Path
 from threading import Lock
-from typing import Literal, cast
+from typing import Literal
 
 from fastapi import Body, Depends, Form, Query, UploadFile
 from fastapi.responses import FileResponse
@@ -20,6 +20,7 @@ from aymurai.database.crud.anonymization.paragraph import (
     anonymization_paragraph_create,
     anonymization_paragraph_read,
 )
+from aymurai.database.crud.audio_transcription import audio_transcription_get
 from aymurai.database.schema import AnonymizationParagraph, AnonymizationParagraphCreate
 from aymurai.database.session import get_session
 from aymurai.database.utils import data_to_uuid, text_to_uuid
@@ -43,7 +44,6 @@ from aymurai.utils.entity_disambiguation import (
     load_prompts_from_yaml,
     map_canonical_entities_ner_preds,
 )
-from aymurai.utils.cache import cache_load
 from aymurai.utils.misc import get_element
 
 logger = get_logger(__name__)
@@ -686,6 +686,7 @@ async def anonymizer_compile_document(
             tmp_filename = anonymize_audio(
                 data,
                 filtered_annots,
+                session=session,
                 render_context=render_context,
             )
         case _:
@@ -742,6 +743,7 @@ async def anonymizer_compile_document(
 def anonymize_audio(
     data: bytes,
     annotations: DocumentAnnotations,
+    session: Session,
     render_context: dict | None = None,
 ) -> Path:
     """
@@ -750,6 +752,7 @@ def anonymize_audio(
     Args:
         data (bytes): The raw audio data to be anonymized.
         annotations (DocumentAnnotations): The document annotations containing the information needed for anonymization.
+        session (Session): Database session for retrieving audio transcription.
         render_context (dict | None, optional): Context for rendering the anonymized content, such as label policies and indices. Defaults to None.
 
     Raises:
@@ -759,7 +762,14 @@ def anonymize_audio(
         Path: The file path to the anonymized audio document.
     """
     document_id = data_to_uuid(data)
-    document: ASRDocument = cast(ASRDocument, cache_load(str(document_id)))
+
+    audio_transcription = audio_transcription_get(
+        transcription_id=document_id, session=session
+    )
+    if not audio_transcription:
+        raise ValueError(f"No transcription found for document ID {document_id}")
+
+    document = ASRDocument.from_transcription(audio_transcription)
 
     for asr_paragraph, paragraph_information in zip(
         document.document, annotations.data

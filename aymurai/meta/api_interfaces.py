@@ -1,13 +1,18 @@
+from __future__ import annotations
+
 import uuid
 from datetime import timedelta
 from functools import cached_property
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 from pydantic import UUID4, UUID5, BaseModel, Field, RootModel, computed_field
 
 from aymurai.api.meta.asr.websocket import TranscriptionItem
 from aymurai.database.utils import text_to_uuid
 from aymurai.meta.entities import EntityAttributes
+
+if TYPE_CHECKING:
+    from aymurai.database.meta.audio_transcription import AudioTranscriptionRead
 
 UUID = UUID4 | UUID5
 
@@ -130,6 +135,13 @@ class ASRDocument(BaseModel):
 
     def to_txt(self) -> str:
         return "\n\n".join([paragraph.to_txt() for paragraph in self.document])
+
+    @classmethod
+    def from_transcription(cls, transcription: AudioTranscriptionRead) -> ASRDocument:
+        return cls(
+            document=transcription.validation or transcription.transcription,
+            document_id=transcription.id,
+        )
 
 
 class PromptSet(BaseModel):
