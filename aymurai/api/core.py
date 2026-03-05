@@ -23,11 +23,6 @@ router.include_router(
     prefix="/anonymizer",
     tags=["anonymization/model"],
 )
-# router.include_router(
-#     anonymizer_database.router,
-#     prefix="/anonymizer/database",
-#     tags=["anonymization/database"],
-# )
 
 # Datapublic
 router.include_router(
@@ -49,7 +44,6 @@ router.include_router(
     prefix="/asr",
     tags=["asr"],
 )
-
 
 # Misc
 router.include_router(document_extract.router, tags=["document"], deprecated=True)
