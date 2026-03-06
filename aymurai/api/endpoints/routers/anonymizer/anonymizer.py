@@ -2,15 +2,17 @@ import json
 import os
 import subprocess
 import tempfile
+from pathlib import Path
 from threading import Lock
+from typing import Literal
 
-import torch
 from fastapi import Body, Depends, Form, Query, UploadFile
 from fastapi.responses import FileResponse
 from fastapi.routing import APIRouter
 from sqlmodel import Session
 from starlette.background import BackgroundTask
 
+from aymurai.api.exceptions.base import UnsupportedFileType
 from aymurai.api.utils import load_pipeline
 from aymurai.database.crud.anonymization.document import anonymization_document_create
 from aymurai.database.crud.anonymization.paragraph import (
@@ -18,11 +20,13 @@ from aymurai.database.crud.anonymization.paragraph import (
     anonymization_paragraph_create,
     anonymization_paragraph_read,
 )
+from aymurai.database.crud.audio_transcription import audio_transcription_get
 from aymurai.database.schema import AnonymizationParagraph, AnonymizationParagraphCreate
 from aymurai.database.session import get_session
 from aymurai.database.utils import data_to_uuid, text_to_uuid
 from aymurai.logger import get_logger
 from aymurai.meta.api_interfaces import (
+    ASRDocument,
     DocLabel,
     DocumentAnnotations,
     DocumentInformation,
@@ -33,7 +37,6 @@ from aymurai.meta.api_interfaces import (
 )
 from aymurai.settings import settings
 from aymurai.text.anonymization import DocAnonymizer, replace_labels_in_text
-from aymurai.text.extraction import MIMETYPE_EXTENSION_MAPPER
 from aymurai.utils.entity_disambiguation import (
     build_canonical_entities,
     get_canonical_dates,
@@ -47,7 +50,6 @@ logger = get_logger(__name__)
 
 
 RESOURCES_BASEPATH = settings.RESOURCES_BASEPATH
-torch.set_num_threads = 100  # FIXME: polemic ?
 pipeline_lock = Lock()
 
 
@@ -354,15 +356,13 @@ async def anonymizer_disambiguate(
             "Set of prompts, user and system, for each label if it is provided."
         ),
     ),
-    label_policies: dict[str, LabelPolicy]
-    | None = Body(
+    label_policies: dict[str, LabelPolicy] | None = Body(
         None,
         description=(
             "Optional per-label policy overrides for disambiguation/anonymization."
         ),
     ),
-    target_labels: list[str]
-    | None = Query(
+    target_labels: list[str] | None = Query(
         None,
         description=(
             "Optional label filter for LLM refinement (e.g., PER,DNI). "
@@ -597,40 +597,30 @@ async def anonymizer_get_paragraph_validation(
 async def anonymizer_compile_document(
     file: UploadFile,
     annotations: str = Form(...),
+    output_format: Literal["document", "audio"] = Form("document"),
     session: Session = Depends(get_session),
 ) -> FileResponse:
     """
-    Compile Anonimized document from original file and annotations
+    Anonymizes a document (text or audio) based on provided annotations and returns the anonymized file.
 
     Args:
-        file (UploadFile): Original file.
-        annotations (str, optional): JSON with document annotations.
+        file (UploadFile): The uploaded file to be anonymized.
+        annotations (str, optional): A JSON string representing the document annotations. Defaults to Form(...).
+        output_format (Literal["document", "audio"], optional): The desired output format of the anonymized file. Defaults to Form("document").
+        session (Session, optional): Database session dependency. Defaults to Depends(get_session).
+
+    Raises:
+        UnsupportedFileType: If the file type is not supported for anonymization.
+        RuntimeError: If the anonymized file cannot be found.
 
     Returns:
-        FileResponse: Anonymized document
+        FileResponse: A response containing the anonymized file for download, with appropriate media type and filename.
     """
-    logger.info(f"receiving => {file.filename}")
-    extension = MIMETYPE_EXTENSION_MAPPER.get(file.content_type)
-    logger.info(f"detection extension: {extension} ({file.content_type})")
+    filename = Path(file.filename)
+    logger.info(f"receiving => {filename.name}")
 
-    # Create a temporary file
-    _, suffix = os.path.splitext(file.filename)
-    suffix = suffix if suffix == ".docx" else ".txt"
-    tmp_dir = tempfile.gettempdir()
-
-    # Use delete=False to avoid the file being deleted when the NamedTemporaryFile object is closed
-    # This is necessary on Windows, as the file is locked by the file object and cannot be deleted
-    with tempfile.NamedTemporaryFile(
-        suffix=suffix, delete=False, dir=tmp_dir
-    ) as tmp_file:
-        tmp_filename = tmp_file.name
-        logger.info(f"saving temp file on local storage => {tmp_filename}")
-        data = file.file.read()
-        tmp_file.write(data)
-        tmp_file.flush()
-        tmp_file.close()
-
-    logger.info(f"saved temp file on local storage => {tmp_filename}")
+    data = file.file.read()
+    extension = filename.suffix.lower().lstrip(".")
 
     annots_json = json.loads(annotations)
     annots = DocumentAnnotations.model_validate(annots_json)
@@ -653,14 +643,11 @@ async def anonymizer_compile_document(
 
     anonymization_document_create(
         id=data_to_uuid(data),
-        name=file.filename,
+        name=filename.name,
         paragraphs=paragraphs,
         session=session,
         override=False,
     )
-
-    # Anonymize the document
-    doc_anonymizer = DocAnonymizer()
 
     filtered_annotations = []
     for paragraph in annots.data:
@@ -676,43 +663,44 @@ async def anonymizer_compile_document(
             )
         )
 
+    filtered_annots = DocumentAnnotations(data=filtered_annotations)
     render_context = _build_render_context(
-        filtered_annotations, effective_render_policy, effective_label_policies
+        filtered_annotations,
+        effective_render_policy,
+        effective_label_policies,
     )
 
-    if suffix == ".docx":
-        item = {"path": tmp_filename}
-        doc_anonymizer.render_context = render_context
-        doc_anonymizer(
-            item,
-            [
-                document_information.model_dump()
-                for document_information in filtered_annotations
-            ],
-            tmp_dir,
-        )
-        logger.info(f"saved temp file on local storage => {tmp_filename}")
-
-    else:
-        # Export as raw document
-        anonymized_doc = [
-            replace_labels_in_text(
-                document_information.model_dump(),
+    match extension:
+        case "docx":
+            tmp_filename = anonymize_docx(
+                data,
+                filtered_annots,
                 render_context=render_context,
             )
-            .replace("&lt;", "<")
-            .replace("&gt;", ">")
-            for document_information in filtered_annotations
-        ]
-        with open(tmp_filename, "w") as f:
-            f.write("\n".join(anonymized_doc))
-
-            # Add watermark to the end of the document
-            f.write(
-                "\n\nDocumento anonimizado por AymurAI\n\nhttps://www.aymurai.info/"
+        case "pdf" | "odt" | "txt":
+            tmp_filename = anonymize_document(
+                filtered_annots,
+                render_context=render_context,
+            )
+        case "wav" | "mp3" | "m4a" | "flac" | "aac" | "ogg" | "opus":
+            tmp_filename = anonymize_audio(
+                data,
+                filtered_annots,
+                session=session,
+                render_context=render_context,
+            )
+        case _:
+            raise UnsupportedFileType(
+                detail=(
+                    f"Unsupported file type {extension} for output format {output_format}."
+                )
             )
 
+    if not tmp_filename.exists():
+        raise RuntimeError(f"Anonymized file not found at {tmp_filename}")
+
     # Convert to ODT
+    tmp_dir = tempfile.gettempdir()
     cmd = [
         settings.LIBREOFFICE_BIN,
         "--headless",
@@ -720,7 +708,7 @@ async def anonymizer_compile_document(
         "odt",
         "--outdir",
         tmp_dir,
-        tmp_filename,
+        str(tmp_filename),
     ]
 
     logger.info(f"Executing: {' '.join(cmd)}")
@@ -735,7 +723,7 @@ async def anonymizer_compile_document(
             f"LibreOffice conversion failed: {e.output.decode('utf-8', errors='ignore')}"
         )
 
-    odt = tmp_filename.replace(suffix, ".odt")
+    odt = str(Path(tmp_filename).with_suffix(".odt"))
     logger.info(f"Expected output file path: {odt}")
 
     if not os.path.exists(odt):
@@ -748,5 +736,158 @@ async def anonymizer_compile_document(
         odt,
         background=BackgroundTask(os.remove, odt),
         media_type="application/octet-stream",
-        filename=f"{os.path.splitext(file.filename)[0]}.odt",
+        filename=f"{os.path.splitext(filename.name)[0]}.odt",
     )
+
+
+def anonymize_audio(
+    data: bytes,
+    annotations: DocumentAnnotations,
+    session: Session,
+    render_context: dict | None = None,
+) -> Path:
+    """
+    Anonymizes an audio document based on provided annotations and returns the path to the anonymized file.
+
+    Args:
+        data (bytes): The raw audio data to be anonymized.
+        annotations (DocumentAnnotations): The document annotations containing the information needed for anonymization.
+        session (Session): Database session for retrieving audio transcription.
+        render_context (dict | None, optional): Context for rendering the anonymized content, such as label policies and indices. Defaults to None.
+
+    Raises:
+        ValueError: If the ASR paragraph text does not match the annotation document.
+
+    Returns:
+        Path: The file path to the anonymized audio document.
+    """
+    document_id = data_to_uuid(data)
+
+    audio_transcription = audio_transcription_get(
+        transcription_id=document_id, session=session
+    )
+    if not audio_transcription:
+        raise ValueError(f"No transcription found for document ID {document_id}")
+
+    document = ASRDocument.from_transcription(audio_transcription)
+
+    for asr_paragraph, paragraph_information in zip(
+        document.document, annotations.data
+    ):
+        if asr_paragraph.text != paragraph_information.document:
+            raise ValueError(
+                "ASR paragraph text does not match annotation document:"
+                f" {asr_paragraph.text} != {paragraph_information.document}"
+            )
+        asr_paragraph.text = (
+            replace_labels_in_text(
+                paragraph_information.model_dump(),
+                render_context=render_context,
+            )
+            .replace("&lt;", "<")
+            .replace("&gt;", ">")
+        )
+
+    tmp_dir = tempfile.gettempdir()
+    with tempfile.NamedTemporaryFile(suffix=".txt", delete=False, dir=tmp_dir) as f:
+        tmp_filename = f.name
+        logger.info(f"saving temp file on local storage => {tmp_filename}")
+        f.write(document.to_txt().encode())
+
+        # Add watermark to the end of the document
+        f.write(
+            "\n\nDocumento anonimizado por AymurAI\n\nhttps://www.aymurai.info/".encode()
+        )
+
+    return Path(tmp_filename)
+
+
+def anonymize_docx(
+    data: bytes,
+    annotations: DocumentAnnotations,
+    suffix: Literal["docx"] = "docx",
+    render_context: dict | None = None,
+) -> Path:
+    """
+    Anonymizes a DOCX document based on provided annotations and returns the path to the anonymized file.
+
+    Args:
+        data (bytes): The raw DOCX data to be anonymized.
+        annotations (DocumentAnnotations): The document annotations containing the information needed for anonymization.
+        suffix (Literal["docx"], optional): The file suffix for the temporary file. Defaults to "docx".
+        render_context (dict | None, optional): Context for rendering the anonymized content, such as label policies and indices. Defaults to None.
+
+    Returns:
+        Path: The file path to the anonymized DOCX document.
+    """
+    # Create a temporary file
+    tmp_dir = tempfile.gettempdir()
+
+    # Use delete=False to avoid the file being deleted when the NamedTemporaryFile object is closed
+    # This is necessary on Windows, as the file is locked by the file object and cannot be deleted
+    with tempfile.NamedTemporaryFile(
+        suffix=f".{suffix}", delete=False, dir=tmp_dir
+    ) as tmp_file:
+        tmp_filename = tmp_file.name
+        logger.info(f"saving temp file on local storage => {tmp_filename}")
+        tmp_file.write(data)
+        tmp_file.flush()
+        tmp_file.close()
+
+    logger.info(f"saved temp file on local storage => {tmp_filename}")
+
+    # Anonymize the document
+    doc_anonymizer = DocAnonymizer()
+    if render_context is not None:
+        doc_anonymizer.render_context = render_context
+
+    item = {"path": tmp_filename}
+    doc_anonymizer(
+        item,
+        [
+            document_information.model_dump()
+            for document_information in annotations.data
+        ],
+        tmp_dir,
+    )
+    logger.info(f"saved temp file on local storage => {tmp_filename}")
+
+    return Path(tmp_filename)
+
+
+def anonymize_document(
+    annotations: DocumentAnnotations,
+    render_context: dict | None = None,
+) -> Path:
+    """
+    Anonymizes a text document based on provided annotations and returns the path to the anonymized file.
+
+    Args:
+        annotations (DocumentAnnotations): The document annotations containing the information needed for anonymization.
+        render_context (dict | None, optional): Context for rendering the anonymized content, such as label policies and indices. Defaults to None.
+
+    Returns:
+        Path: The file path to the anonymized document.
+    """
+    # Export as raw document
+    anonymized_doc = [
+        replace_labels_in_text(
+            document_information.model_dump(),
+            render_context=render_context,
+        )
+        .replace("&lt;", "<")
+        .replace("&gt;", ">")
+        for document_information in annotations.data
+    ]
+
+    tmp_dir = tempfile.gettempdir()
+    with tempfile.NamedTemporaryFile(suffix=".txt", delete=False, dir=tmp_dir) as f:
+        tmp_filename = f.name
+        f.write("\n".join(anonymized_doc).encode())
+
+        # Add watermark to the end of the document
+        f.write(
+            "\n\nDocumento anonimizado por AymurAI\n\nhttps://www.aymurai.info/".encode()
+        )
+
+    return Path(tmp_filename)

@@ -1,0 +1,152 @@
+from datetime import timedelta
+from typing import Any, cast
+from unittest.mock import AsyncMock, patch
+
+from sqlmodel import Session
+
+from aymurai.api.meta.asr.websocket import (
+    WLKMessageStatus,
+    WLKMessageTranscriptionLine,
+)
+from aymurai.database.meta.audio_transcription import AudioTranscription
+from aymurai.database.utils import data_to_uuid
+from aymurai.meta.api_interfaces import ASRDocument, ASRParagraph
+
+
+# MARK: POST Transcribe
+def test_should_transcribe_and_persist_document_when_service_returns_paragraphs(
+    asr_test_client,
+    make_wav_bytes,
+):
+    client, engine = asr_test_client
+    audio_bytes = make_wav_bytes()
+    document_id = data_to_uuid(audio_bytes)
+
+    fake_status = WLKMessageStatus(
+        status="active_transcription",
+        lines=[
+            WLKMessageTranscriptionLine(
+                speaker=1,
+                text="Hola mundo",
+                start=timedelta(seconds=0),
+                end=timedelta(seconds=1),
+            )
+        ],
+        buffer_transcription="",
+        buffer_diarization="",
+        buffer_translation="",
+        remaining_time_transcription=0.0,
+        remaining_time_diarization=0.0,
+        speaker_ids={},
+    )
+
+    with patch(
+        "aymurai.api.endpoints.routers.asr.transcribe.transcribe_audio_bytes",
+        new=AsyncMock(return_value=fake_status),
+    ):
+        response = client.post(
+            "/asr/transcribe?use_cache=false",
+            files={"file": ("sample.wav", audio_bytes, "audio/wav")},
+        )
+
+    assert response.status_code == 200
+    payload = ASRDocument.model_validate(response.json())
+    assert str(payload.document_id) == str(document_id)
+    assert len(payload.document) == 1
+    assert payload.document[0].text == "Hola mundo"
+
+    with Session(engine) as session:
+        record = session.get(AudioTranscription, document_id)
+        assert record is not None
+        assert record.name == "sample.wav"
+        first_item = cast(dict[str, Any], record.transcription[0])
+        assert first_item["text"] == "Hola mundo"
+
+
+# MARK: GET Validation
+def test_should_return_validation_document_when_document_exists_in_database(
+    asr_test_client,
+    make_wav_bytes,
+):
+    client, engine = asr_test_client
+    audio_bytes = make_wav_bytes(freq_hz=220)
+    document_id = data_to_uuid(audio_bytes)
+
+    with Session(engine) as session:
+        session.add(
+            AudioTranscription(
+                id=document_id,
+                name="existing.wav",
+                transcription=cast(
+                    Any,
+                    [
+                        ASRParagraph(
+                            speaker_no=1,
+                            start=timedelta(seconds=0),
+                            end=timedelta(seconds=1),
+                            text="Texto original",
+                        ).model_dump(mode="json")
+                    ],
+                ),
+                validation=cast(
+                    Any,
+                    [
+                        ASRParagraph(
+                            speaker_no=1,
+                            start=timedelta(seconds=0),
+                            end=timedelta(seconds=1),
+                            text="Texto validado",
+                        ).model_dump(mode="json")
+                    ],
+                ),
+            )
+        )
+        session.commit()
+
+    response = client.get(f"/asr/validation/document/{document_id}")
+
+    assert response.status_code == 200
+    payload = ASRDocument.model_validate(response.json())
+    assert str(payload.document_id) == str(document_id)
+    assert payload.document[0].text == "Texto validado"
+
+
+# MARK: POST Validation
+def test_should_persist_validation_annotations_when_posting_validation_for_existing_document(
+    asr_test_client,
+    make_wav_bytes,
+):
+    client, engine = asr_test_client
+    audio_bytes = make_wav_bytes(freq_hz=330)
+    document_id = data_to_uuid(audio_bytes)
+
+    with Session(engine) as session:
+        session.add(
+            AudioTranscription(
+                id=document_id,
+                name="validation.wav",
+                transcription=cast(
+                    Any,
+                    [
+                        ASRParagraph(
+                            speaker_no=1,
+                            start=timedelta(seconds=0),
+                            end=timedelta(seconds=1),
+                            text="Linea base",
+                        ).model_dump(mode="json")
+                    ],
+                ),
+                validation=[],
+            )
+        )
+        session.commit()
+
+    annotations = [{"speaker_no": 1, "start": 0, "end": 1, "text": "Linea validada"}]
+    response = client.post(f"/asr/validation/document/{document_id}", json=annotations)
+
+    assert response.status_code == 200
+    with Session(engine) as session:
+        record = session.get(AudioTranscription, document_id)
+        assert record is not None
+        first_item = cast(dict[str, Any], record.validation[0])
+        assert first_item["text"] == "Linea validada"

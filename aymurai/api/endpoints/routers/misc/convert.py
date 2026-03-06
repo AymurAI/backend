@@ -1,17 +1,17 @@
 import os
-import tempfile
 import subprocess
+import tempfile
 from threading import Lock
 from typing import Literal
 
-import pypandoc
 import pymupdf4llm
+import pypandoc
 from fastapi import UploadFile
 from fastapi.responses import FileResponse
 from fastapi.routing import APIRouter
 from starlette.background import BackgroundTask
 
-from aymurai.api.exceptions import UnsupportedFileType
+from aymurai.api.exceptions.base import UnsupportedFileType
 from aymurai.logger import get_logger
 from aymurai.settings import settings
 

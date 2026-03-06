@@ -1,11 +1,20 @@
+from __future__ import annotations
+
 import uuid
+from datetime import timedelta
+from functools import cached_property
+from typing import TYPE_CHECKING, Literal
 
-from pydantic import UUID5, BaseModel, Field, RootModel
-from typing import Literal
+from pydantic import UUID4, UUID5, BaseModel, Field, RootModel, computed_field
 
+from aymurai.api.meta.asr.websocket import TranscriptionItem
+from aymurai.database.utils import text_to_uuid
 from aymurai.meta.entities import EntityAttributes
 
-from functools import cached_property
+if TYPE_CHECKING:
+    from aymurai.database.meta.audio_transcription import AudioTranscriptionRead
+
+UUID = UUID4 | UUID5
 
 
 class SuccessResponse(BaseModel):
@@ -79,6 +88,60 @@ class Document(BaseModel):
     document_id: UUID5
     header: list[str] | None = None
     footer: list[str] | None = None
+
+
+class ASRParagraph(TranscriptionItem):
+    @computed_field
+    @property
+    def paragraph_id(self) -> UUID:
+        return text_to_uuid(self.text)
+
+    @staticmethod
+    def _format_hh_mm_ss(value: timedelta | float | int | str) -> str:
+        if isinstance(value, timedelta):
+            total_seconds = value.total_seconds()
+        elif isinstance(value, str):
+            return value
+        else:
+            total_seconds = float(value)
+
+        seconds = max(0, int(total_seconds))
+        hours, remainder = divmod(seconds, 3600)
+        minutes, secs = divmod(remainder, 60)
+        return f"{hours:02d}:{minutes:02d}:{secs:02d}"
+
+    def to_txt(self) -> str:
+        start = self._format_hh_mm_ss(self.start)
+        end = self._format_hh_mm_ss(self.end)
+        return "\n".join(
+            [
+                f"{start} - {end}",
+                f"speaker {self.speaker_no}",
+                self.text,
+            ]
+        )
+
+
+class ASRParagraphRequest(BaseModel):
+    speaker_no: int
+    start: str | float | int
+    end: str | float | int
+    text: str
+
+
+class ASRDocument(BaseModel):
+    document: list[ASRParagraph]
+    document_id: UUID
+
+    def to_txt(self) -> str:
+        return "\n\n".join([paragraph.to_txt() for paragraph in self.document])
+
+    @classmethod
+    def from_transcription(cls, transcription: AudioTranscriptionRead) -> ASRDocument:
+        return cls(
+            document=transcription.validation or transcription.transcription,
+            document_id=transcription.id,
+        )
 
 
 class PromptSet(BaseModel):

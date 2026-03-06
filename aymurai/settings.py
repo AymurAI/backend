@@ -1,10 +1,11 @@
 import json
 import os
 from pathlib import Path
+from typing import ClassVar
 
 from dotenv import load_dotenv
-from pydantic import ConfigDict, FilePath, field_validator
-from pydantic_settings import BaseSettings
+from pydantic import FilePath, field_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 import aymurai
 
@@ -23,7 +24,7 @@ def load_env():
 
 
 class Settings(BaseSettings):
-    model_config = ConfigDict(case_sensitive=True)
+    model_config: ClassVar[SettingsConfigDict] = SettingsConfigDict(case_sensitive=True)
 
     CORS_ORIGINS: list[str] | str = ",".join(
         [
@@ -47,27 +48,34 @@ class Settings(BaseSettings):
 
         return [i.strip() for i in v.split(",")]
 
-    SQLALCHEMY_DATABASE_URI: str = "sqlite:////resources/cache/sqlite/database.db"
-
+    ENV: str | None = None
     RESOURCES_BASEPATH: str = "/resources"
 
-    # Alembic Config for running migrations
-    ALEMBIC_INI_PATH: FilePath = PARENT / "alembic.ini"
-
-    ENV: str | None = None
-
-    # Cachetools settings
+    # --- Memory cache settings ----------------------------------------------
     MEMORY_CACHE_MAXSIZE: int = 1
     MEMORY_CACHE_TTL: int = 60
 
+    # --- LibreOffice settings -----------------------------------------------
     LIBREOFFICE_BIN: str = "libreoffice"
 
-    # Disambiguation Config
+    ##########################################################################
+    # Database
+    ##########################################################################
+    ALEMBIC_INI_PATH: FilePath = PARENT / "alembic.ini"
+    SQLALCHEMY_DATABASE_URI: str = "sqlite:////resources/cache/sqlite/database.db"
 
-    # Fuzzy Matching
+    ##########################################################################
+    # ASR Config
+    ##########################################################################
+    TRANSCRIBE_WS_URI: str | None = None
+
+    ##########################################################################
+    # Disambiguation Config
+    ##########################################################################
+    # --- Fuzzy Matching -----------------------------------------------------
     THRESHOLD: int = 70
 
-    # LLM
+    # --- LLM ----------------------------------------------------------------
     MODEL: str = "phi4:14b"
     MODEL_CONTEXT: int = 9500
     TEMPERATURE: float = 0.0
@@ -76,24 +84,15 @@ class Settings(BaseSettings):
     TOKENIZER_MODEL: str = "microsoft/phi-4"
     DECOMPOSE_BY: int | None = None
 
-    # Label policies (JSON dict: label -> {disambiguation, anonymize})
+    # --- Label policies (JSON dict: label -> {disambiguation, anonymize}) ---
     DISAMBIGUATION_LABEL_POLICIES: dict | None = None
 
-    @field_validator("DISAMBIGUATION_LABEL_POLICIES", mode="before")
-    @classmethod
-    def parse_label_policies(cls, v):
-        if v is None or v == "":
-            return None
-        if isinstance(v, str):
-            return json.loads(v)
-        return v
-
-    # Render policy (JSON dict)
+    # --- Render policy (JSON dict) ------------------------------------------
     RENDER_POLICY: dict | None = None
 
-    @field_validator("RENDER_POLICY", mode="before")
+    @field_validator("DISAMBIGUATION_LABEL_POLICIES", "RENDER_POLICY", mode="before")
     @classmethod
-    def parse_render_policy(cls, v):
+    def parse_policies(cls, v):
         if v is None or v == "":
             return None
         if isinstance(v, str):

@@ -1,94 +1,91 @@
-import tempfile
-import unittest
 from pathlib import Path
 from unittest.mock import patch
+
+import pytest
 
 from aymurai.text.extraction import ERRORS, InvalidFile, extract_document, get_extension
 
 
-class ExtractionTestCase(unittest.TestCase):
-    def setUp(self) -> None:
-        self.tempdir = tempfile.TemporaryDirectory()
-        self.addCleanup(self.tempdir.cleanup)
-        self.tmp_path = Path(self.tempdir.name)
+class DummyExtractor:
+    def __init__(self) -> None:
+        self.called = False
+        self.called_path: Path | None = None
 
-    def test_extract_document_dispatches(self):
-        source = self.tmp_path / "document.docx"
-        source.write_text("dummy")
-
-        class DummyExtractor:
-            def __init__(self) -> None:
-                self.called = False
-                self.called_path: Path | None = None
-
-            def extract(self, path: Path, **_: object) -> str:
-                self.called = True
-                self.called_path = path
-                return "ok"
-
-        dummy = DummyExtractor()
-
-        with patch(
-            "aymurai.text.extraction.get_extractor",
-            return_value=dummy,
-        ):
-            result = extract_document(source)
-
-        self.assertEqual(result, "ok")
-        self.assertTrue(dummy.called)
-        self.assertEqual(dummy.called_path, source)
-
-    def test_extract_document_missing_file_raises(self):
-        missing = Path("/no/such/file.pdf")
-        with self.assertRaises(InvalidFile):
-            extract_document(missing, errors="raise")
-
-    def test_extract_document_handles_invalid_file(self):
-        source = self.tmp_path / "document.pdf"
-        source.write_text("dummy")
-
-        class BoomExtractor:
-            def extract(self, _path: Path, **_: object) -> str:
-                raise InvalidFile("boom")
-
-        with patch(
-            "aymurai.text.extraction.get_extractor",
-            return_value=BoomExtractor(),
-        ):
-            result = extract_document(source, errors="ignore")
-
-        self.assertIsNone(result)
-
-    def test_extract_document_raises_unexpected(self):
-        source = self.tmp_path / "document.odt"
-        source.write_text("dummy")
-
-        class BoomExtractor:
-            def extract(self, _path: Path, **_: object) -> str:
-                raise RuntimeError("boom")
-
-        with patch(
-            "aymurai.text.extraction.get_extractor",
-            return_value=BoomExtractor(),
-        ):
-            with self.assertRaises(RuntimeError):
-                extract_document(source, errors="raise")
-
-    def test_get_extension_basic(self):
-        cases = [
-            ("file.pdf", "pdf"),
-            ("file.docx", "docx"),
-            ("file.odt", "odt"),
-            ("file.unknown", "unknown"),
-        ]
-
-        for filename, expected in cases:
-            with self.subTest(filename=filename):
-                self.assertEqual(get_extension(filename), expected)
-
-    def test_errors_configured(self):
-        self.assertEqual(set(ERRORS), {"ignore", "coerce", "raise"})
+    def extract(self, path: Path, **_: object) -> str:
+        self.called = True
+        self.called_path = path
+        return "ok"
 
 
-if __name__ == "__main__":
-    unittest.main()
+class BoomInvalidExtractor:
+    def extract(self, _path: Path, **_: object) -> str:
+        raise InvalidFile("boom")
+
+
+class BoomRuntimeExtractor:
+    def extract(self, _path: Path, **_: object) -> str:
+        raise RuntimeError("boom")
+
+
+def test_extract_document_dispatches(tmp_path: Path) -> None:
+    source = tmp_path / "document.docx"
+    source.write_text("dummy")
+    dummy = DummyExtractor()
+
+    with patch(
+        "aymurai.text.extraction.get_extractor",
+        return_value=dummy,
+    ):
+        result = extract_document(source)
+
+    assert result == "ok"
+    assert dummy.called is True
+    assert dummy.called_path == source
+
+
+def test_extract_document_missing_file_raises() -> None:
+    missing = Path("/no/such/file.pdf")
+    with pytest.raises(InvalidFile):
+        extract_document(missing, errors="raise")
+
+
+def test_extract_document_handles_invalid_file(tmp_path: Path) -> None:
+    source = tmp_path / "document.pdf"
+    source.write_text("dummy")
+
+    with patch(
+        "aymurai.text.extraction.get_extractor",
+        return_value=BoomInvalidExtractor(),
+    ):
+        result = extract_document(source, errors="ignore")
+
+    assert result is None
+
+
+def test_extract_document_raises_unexpected(tmp_path: Path) -> None:
+    source = tmp_path / "document.odt"
+    source.write_text("dummy")
+
+    with patch(
+        "aymurai.text.extraction.get_extractor",
+        return_value=BoomRuntimeExtractor(),
+    ):
+        with pytest.raises(RuntimeError):
+            extract_document(source, errors="raise")
+
+
+@pytest.mark.parametrize(
+    ("filename", "expected"),
+    [
+        ("file.pdf", "pdf"),
+        ("file.docx", "docx"),
+        ("file.odt", "odt"),
+        ("file.unknown", "unknown"),
+    ],
+)
+def test_get_extension_basic(filename: str, expected: str) -> None:
+    assert get_extension(filename) == expected
+
+
+def test_errors_configured() -> None:
+    assert set(ERRORS) == {"ignore", "coerce", "raise"}
