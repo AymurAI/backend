@@ -1,6 +1,23 @@
+import tempfile
+from pathlib import Path
+
 import diskcache
 import pytest
 from sqlmodel import SQLModel, create_engine
+
+_DISKCACHE_DEFAULT_ROOT = "/resources/cache/diskcache"
+_DISKCACHE_TEST_ROOT = Path(tempfile.mkdtemp(prefix="aymurai-diskcache-"))
+_ORIGINAL_DISKCACHE_CACHE = diskcache.Cache
+
+
+class PatchedDiskCache(_ORIGINAL_DISKCACHE_CACHE):
+    def __init__(self, directory=None, *args, **kwargs):
+        if str(directory) == _DISKCACHE_DEFAULT_ROOT:
+            directory = _DISKCACHE_TEST_ROOT
+        super().__init__(directory, *args, **kwargs)
+
+
+diskcache.Cache = PatchedDiskCache
 
 
 @pytest.fixture
