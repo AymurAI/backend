@@ -1,6 +1,11 @@
 import os
 
+from sqlmodel import Session
+
 from aymurai.api.endpoints.routers.anonymizer.anonymizer import anonymize_audio
+from aymurai.database.crud.audio_transcription import (
+    audio_transcription_create_or_update,
+)
 from aymurai.database.utils import data_to_uuid
 from aymurai.meta.api_interfaces import (
     ASRDocument,
@@ -10,11 +15,10 @@ from aymurai.meta.api_interfaces import (
     DocumentInformation,
 )
 from aymurai.meta.entities import EntityAttributes
-from aymurai.utils.cache import cache_save
 
 
 def test_should_replace_entity_tokens_in_audio_output_when_annotations_match_asr_text(
-    isolated_diskcache,
+    sqlite_engine,
     make_wav_bytes,
 ):
     audio_bytes = make_wav_bytes(freq_hz=330)
@@ -31,8 +35,6 @@ def test_should_replace_entity_tokens_in_audio_output_when_annotations_match_asr
             )
         ],
     )
-    cache_save(asr_doc, key=str(document_id))
-
     annotations = DocumentAnnotations(
         data=[
             DocumentInformation(
@@ -57,7 +59,15 @@ def test_should_replace_entity_tokens_in_audio_output_when_annotations_match_asr
         ]
     )
 
-    output_path = anonymize_audio(audio_bytes, annotations)
+    with Session(sqlite_engine) as session:
+        audio_transcription_create_or_update(
+            transcription_id=document_id,
+            name="test.wav",
+            transcription=asr_doc.document,
+            session=session,
+        )
+        output_path = anonymize_audio(audio_bytes, annotations, session=session)
+
     try:
         assert output_path.exists()
         output_text = output_path.read_text(encoding="utf-8")
