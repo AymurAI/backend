@@ -13,7 +13,6 @@ authors = [
 maintainers = [
     { name = "jedzill4", email = "r@collectiveai.io" },
     { name = "jansaldo", email = "juli@collectiveai.io" },
-
 ]
 description = "The backend API and machine learning models of AymurAI."
 readme = "README.md"
@@ -55,8 +54,6 @@ dependencies = [
     "more-itertools>=10.5.0",
     "odfpy>=1.4.1",
     "joblib>=1.4.2",
-    "textract==1.6.5; sys_platform != 'win32'",
-    "textract @ git+https://github.com/MaxEtMoritz/textract.git@91c8df8 ; sys_platform == 'win32'",
     "datetime_matcher @ git+https://github.com/jedzill4/datetime_matcher",
     "jiwer==3.0.5",
     "datasets>=3.2.0",

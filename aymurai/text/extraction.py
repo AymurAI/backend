@@ -97,7 +97,7 @@ def extract_document(
         - If :const:`'ignore'`, then invalid parsing will be set as :const:`NaN`
             but not warn.
         use_cache (bool, optional): Toggle extractor-level caching. Defaults to True.
-        **kwargs: keyword arguments for textract.
+        **kwargs: keyword arguments for text extractors.
 
     Raises:
         ValueError: Invalid argument.
