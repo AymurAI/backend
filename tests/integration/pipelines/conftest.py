@@ -13,7 +13,7 @@ os.environ.setdefault("AYMURAI_CACHE_BASEPATH", "resources/cache/aymurai")
 
 PIPELINE_CONFIGS = {
     "anonymizer": "resources/pipelines/production/flair-anonymizer",
-    "datapublic": "resources/pipelines/production/full-paragraph",
+    "datapublic": "resources/pipelines/production/datapublic",
 }
 
 
