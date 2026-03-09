@@ -50,7 +50,9 @@ class Settings(BaseSettings):
     SQLALCHEMY_DATABASE_URI: str = "sqlite:////resources/cache/sqlite/database.db"
 
     RESOURCES_BASEPATH: str = "/resources"
-    CACHE_BASEPATH: str = Field(default="resources/cache", env="AYMURAI_CACHE_BASEPATH")
+    CACHE_BASEPATH: str = Field(
+        default="/resources/cache", env="AYMURAI_CACHE_BASEPATH"
+    )
 
     # Alembic Config for running migrations
     ALEMBIC_INI_PATH: FilePath = PARENT / "alembic.ini"
