@@ -5,7 +5,7 @@ x-template: &template
     - ..:/workspace:cached
     - ../notebooks/:/notebooks
     - ../resources/:/resources
-    - ../test/:/test
+    - ../tests/:/tests
     - $HOME/.ssh/:/home/ubuntu/.ssh
     - /var/run/docker.sock:/var/run/docker.sock
   env_file:

@@ -90,7 +90,7 @@ def client(app, db_engine):
 
 @pytest.fixture(scope="session")
 def sample_docx():
-    return Path("test/api/test_file.docx")
+    return Path("/resources/data/sample/document-01.docx")
 
 
 def build_data_item(text: str = "sample text") -> dict:
