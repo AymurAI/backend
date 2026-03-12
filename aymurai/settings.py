@@ -3,7 +3,7 @@ import os
 from pathlib import Path
 
 from dotenv import load_dotenv
-from pydantic import ConfigDict, Field, FilePath, field_validator
+from pydantic import AliasChoices, ConfigDict, Field, FilePath, field_validator
 from pydantic_settings import BaseSettings
 
 import aymurai
@@ -51,7 +51,8 @@ class Settings(BaseSettings):
 
     RESOURCES_BASEPATH: str = "/resources"
     CACHE_BASEPATH: str = Field(
-        default="/resources/cache", env="AYMURAI_CACHE_BASEPATH"
+        default="/resources/cache",
+        validation_alias=AliasChoices("AYMURAI_CACHE_BASEPATH", "CACHE_BASEPATH"),
     )
 
     # Alembic Config for running migrations
