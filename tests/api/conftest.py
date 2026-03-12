@@ -1,10 +1,19 @@
+import os
 from pathlib import Path
 
+import diskcache
 import pytest
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlmodel import Session, SQLModel, StaticPool, create_engine
 
-from aymurai.api.main import api
+os.environ.setdefault("DISKCACHE_ROOT", "/tmp/aymurai-test-diskcache")
+os.environ.setdefault("AYMURAI_CACHE_BASEPATH", "/tmp/aymurai-test-cache")
+os.environ.setdefault("RESOURCES_BASEPATH", "resources")
+
+from aymurai.api.endpoints.routers.anonymizer import anonymizer
+from aymurai.api.endpoints.routers.datapublic import datapublic
+from aymurai.api.endpoints.routers.misc import document_extract
 from aymurai.database.meta.anonymization.paragraph import AnonymizationParagraphCreate
 from aymurai.database.meta.datapublic.paragraph import DataPublicParagraphCreate
 from aymurai.database.session import get_session
@@ -13,7 +22,39 @@ from aymurai.meta.api_interfaces import DocLabel
 from aymurai.meta.entities import EntityAttributes
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="function")
+def app() -> FastAPI:
+    test_app = FastAPI()
+    test_app.include_router(
+        anonymizer.router,
+        prefix="/anonymizer",
+        tags=["anonymization/model"],
+    )
+    test_app.include_router(
+        datapublic.router,
+        prefix="/datapublic",
+        tags=["datapublic/model"],
+    )
+    test_app.include_router(document_extract.router, tags=["document"], deprecated=True)
+    test_app.include_router(document_extract.router, prefix="/misc", tags=["document"])
+    return test_app
+
+
+@pytest.fixture(scope="function", autouse=True)
+def isolated_diskcache(tmp_path):
+    from aymurai.utils import cache as cache_module
+
+    original_cache = cache_module.cache
+    test_cache = diskcache.Cache(str(tmp_path / "diskcache"))
+    cache_module.cache = test_cache
+    try:
+        yield test_cache
+    finally:
+        cache_module.cache = original_cache
+        test_cache.close()
+
+
+@pytest.fixture(scope="function")
 def db_engine():
     test_engine = create_engine(
         "sqlite://",
@@ -29,24 +70,22 @@ def db_engine():
 def db_session(db_engine):
     session = Session(db_engine)
     yield session
-    session.rollback()
     session.close()
 
 
 @pytest.fixture(scope="function")
-def client(db_session):
+def client(app, db_engine):
     def override_get_session():
-        return db_session
+        with Session(db_engine) as session:
+            yield session
 
-    api.dependency_overrides[get_session] = override_get_session
-
-    # Avoid using the context manager to skip app lifespan startup in tests.
-    c = TestClient(api, raise_server_exceptions=False)
+    app.dependency_overrides[get_session] = override_get_session
+    c = TestClient(app, raise_server_exceptions=False)
     try:
         yield c
     finally:
         c.close()
-        api.dependency_overrides.clear()
+        app.dependency_overrides.clear()
 
 
 @pytest.fixture(scope="session")

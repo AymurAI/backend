@@ -1,3 +1,5 @@
+import json
+import subprocess
 from unittest.mock import patch
 
 import pytest
@@ -211,3 +213,141 @@ def test_should_isolate_cache_when_different_texts(
     assert data1["labels"] == labels1
     assert data2["labels"] == labels2
     assert data1["labels"] != data2["labels"]
+
+
+@pytest.mark.integration
+@patch(
+    "aymurai.api.endpoints.routers.anonymizer.anonymizer.map_canonical_entities_ner_preds"
+)
+@patch("aymurai.api.endpoints.routers.anonymizer.anonymizer.get_canonical_dates")
+@patch("aymurai.api.endpoints.routers.anonymizer.anonymizer.build_canonical_entities")
+def test_should_disambiguate_and_persist_paragraphs(
+    mock_build_canonical_entities,
+    mock_get_canonical_dates,
+    mock_map_canonical_entities,
+    client,
+    db_session,
+):
+    mock_build_canonical_entities.return_value = []
+    mock_get_canonical_dates.return_value = []
+    mock_map_canonical_entities.side_effect = (
+        lambda predictions, canonical_entities: predictions
+    )
+
+    text = "Ana Pérez denunció en el juzgado."
+    body = {
+        "paragraphs": [
+            {
+                "document": text,
+                "labels": [build_label("PER", "Ana Pérez").model_dump(mode="json")],
+            }
+        ],
+        "label_policies": {
+            "PER": {"anonymize": True, "disambiguation": "none"},
+        },
+    }
+
+    response = client.post("/anonymizer/disambiguate", json=body)
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["label_policies"]["PER"]["disambiguation"] == "none"
+    assert payload["data"][0]["labels"][0]["attrs"]["aymurai_disambiguation"] == "none"
+    assert payload["data"][0]["labels"][0]["attrs"]["aymurai_anonymize"] is True
+
+    paragraph_id = text_to_uuid(text)
+    stored = db_session.get(AnonymizationParagraph, paragraph_id)
+    assert stored is not None
+    assert stored.prediction is not None
+    assert stored.prediction[0]["text"] == "Ana Pérez"
+
+
+@pytest.mark.integration
+def test_should_return_null_validation_when_paragraph_not_found(client):
+    response = client.post(
+        "/anonymizer/validation",
+        json={"text": "Paragraph without validation"},
+    )
+
+    assert response.status_code == 200
+    assert response.json() is None
+
+
+@pytest.mark.integration
+def test_should_return_validation_when_paragraph_exists(client, db_session):
+    text = "Validated paragraph"
+    labels = [build_label("PER", "María Soto").model_dump(mode="json")]
+    db_session.add(
+        AnonymizationParagraph(
+            id=text_to_uuid(text),
+            text=text,
+            validation=labels,
+        )
+    )
+    db_session.commit()
+
+    response = client.post("/anonymizer/validation", json={"text": text})
+
+    assert response.status_code == 200
+    assert response.json() == labels
+
+
+@pytest.mark.integration
+@patch("aymurai.api.endpoints.routers.anonymizer.anonymizer.subprocess.check_output")
+def test_should_anonymize_document_when_annotations_are_valid(
+    mock_check_output, client
+):
+    def fake_convert(*args, **kwargs):
+        cmd = args[0]
+        source_path = cmd[-1]
+        output_path = source_path.rsplit(".", 1)[0] + ".odt"
+        with open(output_path, "wb") as output_file:
+            output_file.write(b"odt-content")
+        return "ok"
+
+    mock_check_output.side_effect = fake_convert
+    annotations = {
+        "data": [
+            {
+                "document": "Ana Pérez denunció en el juzgado.",
+                "labels": [build_label("PER", "Ana Pérez").model_dump(mode="json")],
+            }
+        ],
+        "label_policies": {"PER": {"anonymize": True, "disambiguation": "fuzzy"}},
+        "render_policy": {"suffix_mode": "auto", "suffix_threshold": 1},
+    }
+
+    response = client.post(
+        "/anonymizer/anonymize-document",
+        data={"annotations": json.dumps(annotations)},
+        files={"file": ("sample.txt", b"input-document", "text/plain")},
+    )
+
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "application/octet-stream"
+    assert len(response.content) > 0
+
+
+@pytest.mark.integration
+@patch("aymurai.api.endpoints.routers.anonymizer.anonymizer.subprocess.check_output")
+def test_should_return_500_when_anonymize_document_conversion_fails(
+    mock_check_output, client
+):
+    mock_check_output.side_effect = subprocess.CalledProcessError(
+        1,
+        ["libreoffice"],
+        output=b"conversion failed",
+    )
+    annotations = {
+        "data": [{"document": "text", "labels": []}],
+        "label_policies": None,
+        "render_policy": {"suffix_mode": "auto", "suffix_threshold": 1},
+    }
+
+    response = client.post(
+        "/anonymizer/anonymize-document",
+        data={"annotations": json.dumps(annotations)},
+        files={"file": ("sample.txt", b"input-document", "text/plain")},
+    )
+
+    assert response.status_code == 500

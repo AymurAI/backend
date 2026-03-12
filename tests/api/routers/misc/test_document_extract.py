@@ -140,11 +140,32 @@ def test_should_return_document_via_misc_prefix_when_uploading(mock_extraction, 
             "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         )
     }
-    response = client.post("/document-extract", files=files)
+    response = client.post("/misc/document-extract", files=files)
 
     assert response.status_code == 200
     data = response.json()
     assert data["document"] == ["Sample text"]
+
+
+@pytest.mark.integration
+@patch("aymurai.api.endpoints.routers.misc.document_extract.run_safe_text_extraction")
+def test_should_return_document_via_deprecated_alias_when_uploading(
+    mock_extraction, client
+):
+    """Test that deprecated /document-extract alias is still available."""
+    mock_extraction.return_value = "Alias text"
+
+    files = {
+        "file": (
+            "test.docx",
+            b"content",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        )
+    }
+    response = client.post("/document-extract", files=files)
+
+    assert response.status_code == 200
+    assert response.json()["document"] == ["Alias text"]
 
 
 @pytest.mark.integration

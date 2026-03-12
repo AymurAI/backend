@@ -186,3 +186,48 @@ def test_should_associate_multiple_paragraphs_with_same_document(
     link_para_ids = {link.paragraph_id for link in links}
     assert para1_id in link_para_ids
     assert para2_id in link_para_ids
+
+
+@pytest.mark.integration
+def test_should_return_404_when_validation_document_not_found(client):
+    document_id = uuid.uuid5(uuid.NAMESPACE_URL, "datapublic-validation-missing")
+
+    response = client.get(f"/datapublic/validation/document/{document_id}")
+
+    assert response.status_code == 404
+
+
+@pytest.mark.integration
+def test_should_return_none_when_validation_not_set(client, db_session):
+    document_id = uuid.uuid5(uuid.NAMESPACE_URL, "datapublic-validation-empty")
+    db_session.add(DataPublicDocument(id=document_id))
+    db_session.commit()
+
+    response = client.get(f"/datapublic/validation/document/{document_id}")
+
+    assert response.status_code == 200
+    assert response.json() is None
+
+
+@pytest.mark.integration
+def test_should_upsert_and_read_document_validation(client, db_session):
+    document_id = uuid.uuid5(uuid.NAMESPACE_URL, "datapublic-validation-upsert")
+    payload = {
+        "materia": "penal",
+        "violencia_de_genero": "si",
+        "resolucion": {"tipo": "sentencia"},
+    }
+
+    post_response = client.post(
+        f"/datapublic/validation/document/{document_id}",
+        json=payload,
+    )
+    assert post_response.status_code == 200
+
+    stored_doc = db_session.get(DataPublicDocument, document_id)
+    assert stored_doc is not None
+    assert stored_doc.validation == payload
+
+    get_response = client.get(f"/datapublic/validation/document/{document_id}")
+    assert get_response.status_code == 200
+    assert get_response.json() == payload

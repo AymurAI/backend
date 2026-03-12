@@ -134,4 +134,5 @@ addopts = ["-v", "--tb=short", "--strict-markers", "--disable-warnings"]
 markers = [
     "integration: marks tests as integration tests",
     "slow: marks tests as slow (model loading, >30s)",
+    "external: marks tests that depend on optional external binaries/services",
 ]
