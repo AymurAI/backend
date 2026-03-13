@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1.3
-ARG UV_VERSION=0.5.10
+ARG UV_VERSION=latest
 ARG CORE_IMAGE=ubuntu:noble
 
 FROM ghcr.io/astral-sh/uv:${UV_VERSION} AS astral-uv-source

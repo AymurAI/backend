@@ -345,8 +345,7 @@ async def anonymizer_disambiguate(
             "List of per-paragraph predictions returned by /anonymizer/predict."
         ),
     ),
-    label_policies: dict[str, LabelPolicy]
-    | None = Body(
+    label_policies: dict[str, LabelPolicy] | None = Body(
         None,
         description=(
             "Optional per-label policy overrides for disambiguation/anonymization."

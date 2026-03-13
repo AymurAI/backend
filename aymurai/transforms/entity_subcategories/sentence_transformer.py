@@ -1,4 +1,3 @@
-import os
 from copy import deepcopy
 from pathlib import Path
 from typing import Iterable
@@ -10,6 +9,7 @@ from aymurai.meta.pipeline_interfaces import Transform
 from aymurai.meta.types import DataItem
 from aymurai.models.sentence_encoder.base import BaseSentenceEncoder
 from aymurai.models.sentence_encoder.factory import create_encoder
+from aymurai.settings import settings
 from aymurai.transforms.entity_subcategories.bm25 import BM25Scorer
 from aymurai.transforms.entity_subcategories.subcategories import SUBCATEGORIES
 from aymurai.transforms.entity_subcategories.utils import filter_by_category
@@ -55,9 +55,7 @@ class SentenceTransformerSubcategorizer(Transform):
         self.bm25_weight = float(bm25_weight)
         self.batch_size = batch_size
 
-        cache_root = Path(
-            os.getenv("AYMURAI_CACHE_BASEPATH", "/resources/cache/aymurai")
-        )
+        cache_root = Path(settings.CACHE_BASEPATH)
         self.cache_path = cache_root / self.__class__.__name__
         self.cache_path.mkdir(parents=True, exist_ok=True)
 

@@ -47,7 +47,8 @@ pre-commit install
 ```
 
 Configured hooks currently include:
-- `black`
+- `ruff`
+- `ruff-format`
 - `nbstripout`
 
 This helps keep code formatting consistent and prevents notebook output from leaking into commits.
@@ -56,7 +57,7 @@ This helps keep code formatting consistent and prevents notebook output from lea
 If needed, you can run the formatter manually before committing:
 
 ```bash
-black aymurai/
+ruff format aymurai/
 ```
 
 ## Documentation policy

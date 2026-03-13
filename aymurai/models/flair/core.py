@@ -1,20 +1,21 @@
+import logging
 import os
 import re
-import logging
 from copy import deepcopy
 
 import flair
 import numpy as np
 from flair.data import Sentence
-from more_itertools import collapse
 from flair.models import SequenceTagger
+from more_itertools import collapse
 
 from aymurai.logger import get_logger
-from aymurai.utils.misc import is_url
-from aymurai.utils.download import download
-from aymurai.meta.types import DataItem, DataBlock
-from aymurai.meta.pipeline_interfaces import TrainModule
 from aymurai.meta.entities import Entity, EntityAttributes
+from aymurai.meta.pipeline_interfaces import TrainModule
+from aymurai.meta.types import DataBlock, DataItem
+from aymurai.settings import settings
+from aymurai.utils.download import download
+from aymurai.utils.misc import is_url
 
 flair.logger.setLevel(logging.ERROR)
 
@@ -46,7 +47,7 @@ class FlairModel(TrainModule):
 
         # load model
         if is_url(url := basepath):
-            basepath = os.getenv("AYMURAI_CACHE_BASEPATH", "/resources/cache/aymurai")
+            basepath = settings.CACHE_BASEPATH
             model_path = f"{basepath}/{self.__name__}/model.pt"
             logger.info(f"downloading model on {model_path}")
             os.makedirs(os.path.dirname(model_path), exist_ok=True)

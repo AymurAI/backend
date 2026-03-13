@@ -173,7 +173,7 @@ curl -s http://localhost:8899/server/stats/summary
 
 ```bash
 curl -s -X POST \
-  -F "file=@test/api/test_file.docx" \
+  -F "file=@/resources/data/sample/document-01.docx" \
   http://localhost:8899/misc/document-extract
 ```
 
@@ -241,7 +241,7 @@ curl -s -X POST http://localhost:8899/anonymizer/validation \
 
 ```bash
 curl -X POST http://localhost:8899/anonymizer/anonymize-document \
-  -F "file=@test/api/test_file.docx" \
+  -F "file=@/resources/data/sample/document-01.docx" \
   -F 'annotations={"data":[{"document":"Acusado: Ramiro Marrón DNI 34.555.666.","labels":[]}],"label_policies":{"PER":{"anonymize":true,"disambiguation":"fuzzy"}},"render_policy":{"suffix_mode":"auto","suffix_threshold":1}}'
 ```
 
