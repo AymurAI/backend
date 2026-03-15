@@ -78,7 +78,7 @@ labelstudio:
 
 logging:
   mlflow:
-    tracking_uri: http://localhost:8080
+    tracking_uri: http://localhost:5005
     experiment_name: ner-langextract-alignment
     enable_openai_autolog: false
   privacy:

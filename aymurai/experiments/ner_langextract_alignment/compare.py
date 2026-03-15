@@ -61,7 +61,7 @@ def compare_entities(
         e for e in remaining_lx if id(e) not in matched_in_remaining_lx
     ]
 
-    if exact_match and not remaining_ner and not remaining_lx:
+    if not remaining_ner and not remaining_lx:
         status = "exact_match"
     elif (
         partial_match
