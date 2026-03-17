@@ -74,20 +74,16 @@ def pdf_to_paragraphs(
     logger.debug("Extracting layout paragraphs from PDF: %s", file_path)
 
     with pymupdf.open(str(file_path)) as doc:
-        parsed_doc = pymupdf4llm.parse_document(
+        chunks = pymupdf4llm.to_text(
             doc,
             filename=str(file_path),
-            show_progress=False,
-            force_text=True,
-            use_ocr=False,
-            force_ocr=False,
-        )
-
-        chunks = parsed_doc.to_text(
             page_chunks=True,
             header=include_headers,
             footer=include_footers,
             show_progress=False,
+            force_text=True,
+            use_ocr=False,
+            force_ocr=False,
         )
 
     paragraphs: list[str] = []
