@@ -9,27 +9,11 @@ from aymurai.text.extractors.utils import pdf_to_text
 class PdfExtractor(BaseExtractor):
     extension = "pdf"
 
-    def extract(self, path: Path, y_tolerance: float | None = None, **_: Any) -> str:
-        """
-        Extract normalized text from a PDF document.
-
-        Args:
-            path (Path): Input document path.
-            y_tolerance (float | None, optional): Maximum vertical gap used to
-                merge nearby text blocks. If None, it is estimated from the
-                document. Defaults to None.
-            **_ (Any):  Ignored extra keyword arguments for backward compatibility.
-
-        Returns:
-            str: Cleaned textual content.
-
-        Raises:
-            InvalidFile: If the file is unreadable or extraction fails.
-        """
+    def extract(self, path: Path, **_: Any) -> str:
         file_path = self.ensure_file(path)
 
         try:
-            return pdf_to_text(file_path, y_tolerance=y_tolerance)
+            return pdf_to_text(file_path)
         except (OSError, ValueError) as exc:
             raise InvalidFile(str(exc)) from exc
         except Exception as exc:
