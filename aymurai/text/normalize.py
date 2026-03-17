@@ -54,7 +54,7 @@ def document_normalize(text: str, *, preserve_paragraphs: bool = False) -> str:
 
     Args:
         text (str): Document text.
-        preserve_paragraphs (bool): Preserve blank-line paragraph boundaries.
+        preserve_paragraphs (bool): Preserve blank-line paragraph boundaries. Defaults to False.
 
     Returns:
         str: Normalized document text.

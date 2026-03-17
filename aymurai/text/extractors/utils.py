@@ -64,9 +64,9 @@ def pdf_to_paragraphs(
 
     Args:
         file_path (Path | str): Path to the PDF document.
-        include_headers (bool): Whether to keep header boxes.
-        include_footers (bool): Whether to keep footer boxes.
-        skip_box_classes (AbstractSet[str]): Layout box classes to ignore.
+        include_headers (bool): Whether to keep header boxes. Defaults to True.
+        include_footers (bool): Whether to keep footer boxes. Defaults to True.
+        skip_box_classes (AbstractSet[str]): Layout box classes to ignore. Defaults to PDF_SKIP_BOX_CLASSES.
 
     Returns:
         list[str]: Normalized paragraph strings extracted from the PDF.
