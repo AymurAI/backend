@@ -1,0 +1,84 @@
+experiment:
+  name: ner-baseline-evaluation-dev
+  run_name: "{model}-{timestamp}"
+
+data:
+  format: "conll_bio"
+  input_path: "resources/data/restricted/ner-review/labeled-dataset/dev-review-ja.txt"
+  sample_id_field: "sample_id"
+  text_field: "text"
+  tokens_field: "tokens"
+  tags_field: "tags"
+  spans_field: "spans"
+  label_field: "label"
+  start_field: "start"
+  end_field: "end"
+  id2label: {}
+  max_samples: null
+  deduplicate_by_text: True
+
+backend:
+  mode: "ner_api"
+
+api:
+  base_url: "http://localhost:8000"
+  anonymizer_predict_path: "/anonymizer/predict"
+  timeout_s: 120
+  retries: 2
+  retry_backoff_s: 1.0
+  use_cache: false
+
+langextract:
+  provider: "ollama"
+  model_id: "qwen2.5:7b"
+  base_url: "http://localhost:11434/v1"
+  api_key_env: "OLLAMA_API_KEY"
+  api_key_fallback: "ollama"
+  prompt_description: |
+    Extrae entidades nombradas de textos judiciales en español usando las clases definidas en los ejemplos.
+    Devuelve solo entidades explícitas del texto.
+  examples_yaml_path: "resources/langextract/ner_alignment_examples.yaml"
+  temperature: 0.0
+  think: false
+  max_workers: 4
+  extraction_passes: 1
+  batch_length: 1
+
+mapping:
+  labels_yaml_path: "resources/experiments/ner-holdout-evaluation/label_mapping.yml"
+
+comparison:
+  normalize_case: true
+  normalize_accents: true
+  normalize_punctuation: true
+
+metrics:
+  include_token_relaxed: True
+  perfect_definition: "span_set_exact"
+
+logging:
+  mlflow:
+    enabled: True
+    tracking_uri: "http://localhost:5000"
+    experiment_name: "ner-holdout-evaluation-dev"
+    enable_openai_autolog: False
+    request_timeout_s: 15
+    request_max_retries: 2
+  privacy:
+    log_prompt_text: true
+    log_llm_outputs: true
+    log_raw_predictions: true
+    redact_sensitive_fields: false
+
+outputs:
+  base_dir: "resources/outputs/ner-holdout-evaluation-dev"
+  samples_gold_jsonl: "samples_gold.jsonl"
+  predictions_jsonl: "predictions.jsonl"
+  per_sample_scores_jsonl: "per_sample_scores.jsonl"
+  metrics_summary_json: "metrics_summary.json"
+  strict_label_metrics_csv: "reports/label_metrics.csv"
+  token_relaxed_confusion_csv: "reports/token_relaxed_confusion.csv"
+  feedback_jsonl: "feedback/perfect_prediction.jsonl"
+  traces_jsonl: "llm_traces/traces.jsonl"
+  traces_summary_csv: "llm_traces/traces_summary.csv"
+  manifest_json: "manifest.json"

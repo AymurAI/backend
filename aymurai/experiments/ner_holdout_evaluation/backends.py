@@ -116,6 +116,7 @@ def _canonical_sample_inputs(sample: CanonicalSample) -> dict[str, str]:
     return {
         "sample_id": sample.sample_id,
         "text": str(sample.text or ""),
+        "gold_spans": sample.gold_spans,
     }
 
 
