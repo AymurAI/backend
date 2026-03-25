@@ -98,6 +98,7 @@ workspace.xml
 
 #MLflow
 mlartifacts
+mlruns/
 
 resources
 *.mp4
