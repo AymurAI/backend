@@ -1,6 +1,6 @@
 import json
 import subprocess
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -294,9 +294,18 @@ def test_should_return_validation_when_paragraph_exists(client, db_session):
 
 @pytest.mark.integration
 @patch("aymurai.api.endpoints.routers.anonymizer.anonymizer.subprocess.check_output")
+@patch("aymurai.api.endpoints.routers.anonymizer.anonymizer.get_anonymizer")
 def test_should_anonymize_document_when_annotations_are_valid(
-    mock_check_output, client
+    mock_get_anonymizer, mock_check_output, client, tmp_path
 ):
+    # Fake anonymizer that writes a dummy docx output
+    anonymized_path = str(tmp_path / "output.docx")
+    with open(anonymized_path, "wb") as f:
+        f.write(b"fake-docx-content")
+
+    mock_anonymizer = MagicMock(return_value=anonymized_path)
+    mock_get_anonymizer.return_value = mock_anonymizer
+
     def fake_convert(*args, **kwargs):
         cmd = args[0]
         source_path = cmd[-1]
@@ -320,7 +329,13 @@ def test_should_anonymize_document_when_annotations_are_valid(
     response = client.post(
         "/anonymizer/anonymize-document",
         data={"annotations": json.dumps(annotations)},
-        files={"file": ("sample.txt", b"input-document", "text/plain")},
+        files={
+            "file": (
+                "sample.docx",
+                b"input-document",
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            )
+        },
     )
 
     assert response.status_code == 200
@@ -330,9 +345,18 @@ def test_should_anonymize_document_when_annotations_are_valid(
 
 @pytest.mark.integration
 @patch("aymurai.api.endpoints.routers.anonymizer.anonymizer.subprocess.check_output")
+@patch("aymurai.api.endpoints.routers.anonymizer.anonymizer.get_anonymizer")
 def test_should_return_500_when_anonymize_document_conversion_fails(
-    mock_check_output, client
+    mock_get_anonymizer, mock_check_output, client, tmp_path
 ):
+    # Fake anonymizer that writes a dummy output
+    anonymized_path = str(tmp_path / "output.docx")
+    with open(anonymized_path, "wb") as f:
+        f.write(b"fake-docx-content")
+
+    mock_anonymizer = MagicMock(return_value=anonymized_path)
+    mock_get_anonymizer.return_value = mock_anonymizer
+
     mock_check_output.side_effect = subprocess.CalledProcessError(
         1,
         ["libreoffice"],
@@ -347,7 +371,13 @@ def test_should_return_500_when_anonymize_document_conversion_fails(
     response = client.post(
         "/anonymizer/anonymize-document",
         data={"annotations": json.dumps(annotations)},
-        files={"file": ("sample.txt", b"input-document", "text/plain")},
+        files={
+            "file": (
+                "sample.docx",
+                b"input-document",
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            )
+        },
     )
 
     assert response.status_code == 500
