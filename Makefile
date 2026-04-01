@@ -143,6 +143,14 @@ ifndef CONFIG
 endif
 	uv run --group mlops -- python -m aymurai.experiments.ner_langextract_alignment.runner --config $(CONFIG)
 
+export MLFLOW_TRACKING_URI=http://localhost:5005
+exp-ner-flair-finetunning:
+ifndef CONFIG
+	$(error CONFIG variable is required, e.g. make exp-ner-flair-finetunning CONFIG=resources/experiments/ner-flair-finetunning/ner_flair_finetunning.yml)
+endif
+	uv run --group mlops -- python -m aymurai.experiments.ner_flair_finetunning.runner --config $(CONFIG)
+
+
 stress-test:
 	locust -f locustfile.py --host http://localhost:8899
 
