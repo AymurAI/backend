@@ -79,6 +79,7 @@ dependencies = [
     "sentence-transformers>=2.2.0",
     "pymupdf>=1.25.2",
     "pymupdf4llm>=0.0.17",
+    "opencv-python-headless>=4.5.0",
     "pypandoc>=1.15",
     "python-docx>=1.2.0",
     "docx2txt>=0.9",
