@@ -53,7 +53,7 @@ class GenerationConfig(BaseModel):
 class NormalizationConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    fuzzy_threshold: float = 0.72
+    fuzzy_threshold: float = 0.75
     strict_require_all_raw_labels_mapped: bool = True
     exact_map: dict[str, str] = Field(default_factory=dict)
 
