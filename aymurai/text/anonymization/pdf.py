@@ -3,12 +3,11 @@ from __future__ import annotations
 import os
 import re
 from copy import deepcopy
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 from unicodedata import normalize
 
-import cv2
-import numpy as np
 import pymupdf
 import pymupdf.layout  # noqa: F401  # activates layout support
 from jiwer import cer
@@ -24,7 +23,16 @@ from aymurai.text.anonymization.base import (
 
 logger = get_logger(__name__)
 
-WATERMARK_TEXT = "Documento anonimizado por AymurAI | https://www.aymurai.info/"
+WATERMARK_PREFIX_TEXT = "Documento anonimizado por "
+WATERMARK_LINK_TEXT = "AymurAI"
+WATERMARK_TEXT = f"{WATERMARK_PREFIX_TEXT}{WATERMARK_LINK_TEXT}"
+WATERMARK_URL = "https://www.aymurai.info/"
+WATERMARK_FONT_FAMILY = "Archivo"
+WATERMARK_FONT_SIZE = 10.0
+WATERMARK_MARGIN_X = 24.0
+WATERMARK_BASELINE_MARGIN = 12.0
+WATERMARK_TEXT_COLOR = tuple(channel / 255 for channel in (192, 192, 192))
+WATERMARK_LINK_COLOR = tuple(channel / 255 for channel in (115, 190, 250))
 
 TEXT_FLAG_ITALIC = 2
 TEXT_FLAG_SERIF = 4
@@ -33,6 +41,23 @@ TEXT_FLAG_BOLD = 16
 PDF_TAG_MIN_FONT_SIZE = 7.0
 PDF_TAG_FONT_STEP = 0.5
 PDF_TAG_MAX_ABBREVIATION = 3
+PDF_TOKEN_ALIAS_MAP: dict[str, tuple[str, str]] = {
+    "CORREO_ELECTRONICO": ("CORREO", "MAIL"),
+    "CUIT_CUIL": ("CUIT", "CUIL"),
+    "DIRECCION": ("DIREC", "DIR"),
+    "ESTUDIOS": ("ESTUD", "EDU"),
+    "MARCA_AUTOMOVIL": ("MARCA_AUTO", "AUTO"),
+    "NACIONALIDAD": ("NACIONAL", "NAC"),
+    "NOMBRE_ARCHIVO": ("NOM_ARCH", "ARCH"),
+    "NUM_ACTUACION": ("NUM_ACT", "ACT"),
+    "NUM_CAJA_AHORRO": ("NUM_CAJA", "CAJA"),
+    "NUM_EXPEDIENTE": ("NUM_EXP", "EXPTE"),
+    "NUM_MATRICULA": ("NUM_MAT", "MAT"),
+    "PATENTE_DOMINIO": ("PAT_DOM", "PAT"),
+    "TELEFONO": ("TELEF", "TEL"),
+    "TEXTO_ANONIMIZAR": ("TEXTO_ANON", "ANON"),
+    "USUARIX": ("USUAR", "USR"),
+}
 PDF_TAG_RECT_X_PADDING = 0.5
 PDF_TAG_RECT_Y_PADDING = 0.0
 PDF_TAG_RECT_INSET = 0.5
@@ -42,11 +67,6 @@ PDF_TAG_RECT_GAP_MAX = 8.0
 
 # Vertical overlap ratio required to consider two image rects as matching
 _IMAGE_OVERLAP_THRESHOLD = 0.3
-
-# DPI used to rasterise PDF image regions for OpenCV editing.
-_IMAGE_EDIT_DPI = 200
-_IMAGE_EDIT_MASK_DILATE = 1
-_IMAGE_EDIT_INPAINT_RADIUS = 3
 
 
 def _line_text(line: dict) -> str:
@@ -258,9 +278,9 @@ def _label_end(label: dict) -> int:
 def _label_surface_text(label: dict, document: str) -> str:
     attrs = label.get("attrs") or {}
 
-    # Prefer explicit alt text when the key is present
-    if "aymurai_alt_text" in attrs:
-        alt_text = attrs["aymurai_alt_text"]
+    # Prefer explicit alt text when it has an actual value.
+    alt_text = attrs.get("aymurai_alt_text")
+    if alt_text is not None:
         return str(alt_text) if alt_text else ""
 
     # Use alt char offsets when available
@@ -271,11 +291,6 @@ def _label_surface_text(label: dict, document: str) -> str:
         start, end = int(alt_start), int(alt_end)
         if 0 <= start < end <= len(document):
             return document[start:end]
-        # Alt range is empty/invalid — alt processing cleared this label
-        return ""
-
-    # If alt keys exist but values are None, alt processing cleared this label
-    if "aymurai_alt_start_char" in attrs and alt_start is None:
         return ""
 
     # No alt info available; use raw char offsets
@@ -332,6 +347,22 @@ def _abbreviate_token(base: str, length: int) -> str:
     return normalized[:length] or normalized[:1] or "E"
 
 
+def _token_aliases(base: str) -> tuple[str, ...]:
+    aliases = PDF_TOKEN_ALIAS_MAP.get(base.upper(), ())
+    normalized_aliases: list[str] = []
+
+    for alias in aliases:
+        normalized = re.sub(r"[^A-Z0-9_]", "", str(alias).upper())
+        if (
+            normalized
+            and normalized != base.upper()
+            and normalized not in normalized_aliases
+        ):
+            normalized_aliases.append(normalized)
+
+    return tuple(normalized_aliases)
+
+
 def _build_display_token_candidates(token: str) -> list[str]:
     base, suffix = _token_parts(token.upper())
     candidates: list[str] = []
@@ -340,15 +371,18 @@ def _build_display_token_candidates(token: str) -> list[str]:
         if value and value not in candidates:
             candidates.append(value)
 
-    if suffix:
-        add(f"<{base}_{suffix}>")
-    add(f"<{base}>")
-
-    for length in (PDF_TAG_MAX_ABBREVIATION, 1):
-        abbreviated = _abbreviate_token(base, length)
+    def add_base_variants(label: str) -> None:
         if suffix:
-            add(f"<{abbreviated}_{suffix}>")
-        add(f"<{abbreviated}>")
+            add(f"<{label}_{suffix}>")
+        add(f"<{label}>")
+
+    add_base_variants(base)
+
+    for alias in _token_aliases(base):
+        add_base_variants(alias)
+
+    abbreviated = _abbreviate_token(base, PDF_TAG_MAX_ABBREVIATION)
+    add_base_variants(abbreviated)
 
     return candidates
 
@@ -748,6 +782,51 @@ def _line_chars_from_page(page: pymupdf.Page, line: dict) -> list[dict[str, Any]
     return best_chars
 
 
+def _line_chars_text(chars: list[dict[str, Any]]) -> str:
+    return "".join(str(entry.get("char") or "") for entry in chars)
+
+
+def _find_line_char_span(
+    chars: list[dict[str, Any]],
+    text: str,
+    *,
+    start: int = 0,
+    raw_text: str | None = None,
+) -> tuple[int, int] | None:
+    """
+    Match *text* against the raw character stream for a line.
+
+    ``line["text"]`` comes from PyMuPDF layout text and can differ from the
+    raw character stream returned by ``rawdict``. Searching the raw stream
+    keeps the redaction rectangle aligned with the actual glyph boxes.
+    """
+    if not chars or not text:
+        return None
+
+    haystack = raw_text if raw_text is not None else _line_chars_text(chars)
+    pattern = _build_flexible_pattern(text)
+
+    def _search(offset: int) -> tuple[int, int] | None:
+        exact_idx = haystack.find(text, offset)
+        flexible_span = None
+        if pattern:
+            match = re.search(pattern, haystack[offset:])
+            if match is not None:
+                flexible_span = (offset + match.start(), offset + match.end())
+
+        if exact_idx < 0:
+            return flexible_span
+        exact_span = (exact_idx, exact_idx + len(text))
+        if flexible_span is None:
+            return exact_span
+        return min(exact_span, flexible_span, key=lambda span: span[0])
+
+    span = _search(start)
+    if span is None and start > 0:
+        span = _search(0)
+    return span
+
+
 def _rect_from_char_slice(
     chars: list[dict[str, Any]],
     start: int,
@@ -813,6 +892,7 @@ def _build_page_op(
 
     return {
         "redact_rect": _text_redact_rect(rect),
+        "background_rect": canvas_rect,
         "canvas_rect": canvas_rect,
         "render_rect": render_rect,
         "line_rect": line_clip,
@@ -822,10 +902,30 @@ def _build_page_op(
         "fontsize": fitted_size,
         "text_align": pymupdf.TEXT_ALIGN_LEFT,
         "text_color": style.get("color") or (0.0, 0.0, 0.0),
-        "is_image": is_image,
-        "skip_background_fill": is_image,
         "style": style,
     }
+
+
+def _signature_background_rect(
+    op: dict[str, Any],
+    widget_rect: pymupdf.Rect,
+) -> pymupdf.Rect:
+    background = pymupdf.Rect(
+        op.get("line_rect") or op.get("canvas_rect") or widget_rect
+    )
+    canvas_rect = op.get("canvas_rect")
+    if canvas_rect is not None:
+        background.include_rect(pymupdf.Rect(canvas_rect))
+
+    pad_x = max(background.height * 0.75, 2.0)
+    pad_y = max(background.height * 0.25, 0.75)
+    widget_clip = pymupdf.Rect(widget_rect)
+
+    background.x0 = max(widget_clip.x0, background.x0 - pad_x)
+    background.y0 = max(widget_clip.y0, background.y0 - pad_y)
+    background.x1 = min(widget_clip.x1, background.x1 + pad_x)
+    background.y1 = min(widget_clip.y1, background.y1 + pad_y)
+    return background
 
 
 def _image_rects_for_clip(
@@ -1040,27 +1140,30 @@ def _apply_signature_widget_ops(
             grouped.setdefault(int(op["widget_xref"]), []).append(op)
 
         for widget_xref, widget_group_ops in grouped.items():
-            widget_rect = pymupdf.Rect(widget_group_ops[0]["widget_rect"])
-
-            try:
-                pix = page.get_pixmap(
-                    clip=widget_rect,
-                    matrix=pymupdf.Matrix(
-                        _IMAGE_EDIT_DPI / 72.0, _IMAGE_EDIT_DPI / 72.0
-                    ),
-                    alpha=False,
-                )
-            except Exception as exc:
-                logger.warning(
-                    "Could not rasterise signature widget xref=%s on page=%s: %s",
-                    widget_xref,
-                    page_idx,
-                    exc,
-                )
-                pix = None
-
             widget = widgets.get(widget_xref)
+            widget_rect = pymupdf.Rect(
+                widget_group_ops[0].get("widget_rect") or (0, 0, 0, 0)
+            )
+            appearance_png: bytes | None = None
+
             if widget is not None:
+                widget_rect = pymupdf.Rect(widget.rect)
+                try:
+                    scale = 200 / 72.0
+                    pix = page.get_pixmap(
+                        clip=widget_rect,
+                        matrix=pymupdf.Matrix(scale, scale),
+                        alpha=False,
+                    )
+                    appearance_png = pix.tobytes("png")
+                except Exception as exc:
+                    logger.warning(
+                        "Could not snapshot signature widget xref=%s on page=%s: %s",
+                        widget_xref,
+                        page_idx,
+                        exc,
+                    )
+
                 try:
                     page.delete_widget(widget)
                 except Exception as exc:
@@ -1070,88 +1173,27 @@ def _apply_signature_widget_ops(
                         page_idx,
                         exc,
                     )
-
-            if pix is None:
-                page.draw_rect(
-                    widget_rect,
-                    color=(1, 1, 1),
-                    fill=(1, 1, 1),
-                    width=0,
-                    overlay=True,
-                )
+                    appearance_png = None
             else:
-                img = (
-                    np.frombuffer(pix.samples, dtype=np.uint8)
-                    .reshape(pix.height, pix.width, pix.n)
-                    .copy()
+                logger.warning(
+                    "Could not resolve PDF signature widget xref=%s on page=%s",
+                    widget_xref,
+                    page_idx,
                 )
-                if pix.n >= 3:
-                    img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
 
-                scale = _IMAGE_EDIT_DPI / 72.0
-                mask = np.zeros(img.shape[:2], dtype=np.uint8)
-                for op in widget_group_ops:
-                    canvas = op["canvas_rect"]
-                    x0 = max(int((canvas.x0 - widget_rect.x0) * scale), 0)
-                    y0 = max(int((canvas.y0 - widget_rect.y0) * scale), 0)
-                    x1 = min(int((canvas.x1 - widget_rect.x0) * scale), img.shape[1])
-                    y1 = min(int((canvas.y1 - widget_rect.y0) * scale), img.shape[0])
-                    if x1 <= x0 or y1 <= y0:
-                        continue
-                    mask[y0:y1, x0:x1] = 255
-
-                if np.any(mask):
-                    if _IMAGE_EDIT_MASK_DILATE > 0:
-                        kernel = np.ones((3, 3), dtype=np.uint8)
-                        mask = cv2.dilate(
-                            mask, kernel, iterations=_IMAGE_EDIT_MASK_DILATE
-                        )
-                    try:
-                        img = cv2.inpaint(
-                            img,
-                            mask,
-                            _IMAGE_EDIT_INPAINT_RADIUS,
-                            cv2.INPAINT_TELEA,
-                        )
-                    except Exception as exc:
-                        logger.warning(
-                            "OpenCV inpaint failed for signature widget xref=%s on page=%s: %s",
-                            widget_xref,
-                            page_idx,
-                            exc,
-                        )
-                        img[mask > 0] = 255
-
-                success, png_buf = cv2.imencode(".png", img)
-                if success:
-                    try:
-                        page.insert_image(
-                            widget_rect, stream=png_buf.tobytes(), overlay=True
-                        )
-                    except Exception as exc:
-                        logger.warning(
-                            "Failed to insert edited signature widget image xref=%s on page=%s: %s",
-                            widget_xref,
-                            page_idx,
-                            exc,
-                        )
-                        page.draw_rect(
-                            widget_rect,
-                            color=(1, 1, 1),
-                            fill=(1, 1, 1),
-                            width=0,
-                            overlay=True,
-                        )
-                else:
-                    page.draw_rect(
-                        widget_rect,
-                        color=(1, 1, 1),
-                        fill=(1, 1, 1),
-                        width=0,
-                        overlay=True,
+            if appearance_png and widget_rect.get_area() > 0:
+                try:
+                    page.insert_image(widget_rect, stream=appearance_png, overlay=True)
+                except Exception as exc:
+                    logger.warning(
+                        "Failed to restore signature widget appearance xref=%s on page=%s: %s",
+                        widget_xref,
+                        page_idx,
+                        exc,
                     )
 
             for op in widget_group_ops:
+                op["background_rect"] = _signature_background_rect(op, widget_rect)
                 _render_text_op(page, op)
 
 
@@ -1165,6 +1207,8 @@ def _collect_page_redactions(
     signature_widget_ops: dict[int, list[dict]] = {}
     line_x_cursor: dict[tuple[int, int, int], float] = {}
     line_char_cache: dict[tuple[int, int, int], list[dict[str, Any]]] = {}
+    line_char_text_cache: dict[tuple[int, int, int], str] = {}
+    line_char_cursor: dict[tuple[int, int, int], int] = {}
 
     # Pre-compute image rects and widgets per page
     page_image_rects: dict[int, list[pymupdf.Rect]] = {}
@@ -1253,7 +1297,6 @@ def _collect_page_redactions(
                                 token,
                                 entity_style=fallback_widget.get("style") or None,
                             )
-                            op["skip_background_fill"] = True
                             op["widget_xref"] = fallback_widget["xref"]
                             op["widget_rect"] = fallback_widget["rect"]
                             signature_widget_ops.setdefault(page_index, []).append(op)
@@ -1343,11 +1386,30 @@ def _collect_page_redactions(
                     line_chars = _line_chars_from_page(page, line)
                     line_char_cache[line_key] = line_chars
 
-                raw_start = (
-                    overlap_start - line["start"] + int(line.get("strip_offset", 0))
+                line_char_text = line_char_text_cache.get(line_key)
+                if line_char_text is None:
+                    line_char_text = _line_chars_text(line_chars)
+                    line_char_text_cache[line_key] = line_char_text
+
+                raw_span = _find_line_char_span(
+                    line_chars,
+                    segment_text,
+                    start=line_char_cursor.get(line_key, 0),
+                    raw_text=line_char_text,
                 )
-                raw_end = overlap_end - line["start"] + int(line.get("strip_offset", 0))
-                rect = _rect_from_char_slice(line_chars, raw_start, raw_end)
+                rect = None
+                if raw_span is not None:
+                    line_char_cursor[line_key] = raw_span[1]
+                    rect = _rect_from_char_slice(line_chars, raw_span[0], raw_span[1])
+
+                if rect is None:
+                    raw_start = (
+                        overlap_start - line["start"] + int(line.get("strip_offset", 0))
+                    )
+                    raw_end = (
+                        overlap_end - line["start"] + int(line.get("strip_offset", 0))
+                    )
+                    rect = _rect_from_char_slice(line_chars, raw_start, raw_end)
                 if rect is None:
                     rect = _pick_rect_group_for_segment(
                         page,
@@ -1402,7 +1464,6 @@ def _collect_page_redactions(
                             token,
                             entity_style=ent_style,
                         )
-                        op["skip_background_fill"] = True
                         op["widget_xref"] = widget_info["xref"]
                         op["widget_rect"] = widget_info["rect"]
                         signature_widget_ops.setdefault(page_index, []).append(op)
@@ -1469,7 +1530,6 @@ def _collect_page_redactions(
                             op["image_rect"] = seg_img
 
                     if signature_widget is not None:
-                        op["skip_background_fill"] = True
                         op["widget_xref"] = signature_widget["xref"]
                         op["widget_rect"] = signature_widget["rect"]
                         signature_widget_ops.setdefault(page_index, []).append(op)
@@ -1533,31 +1593,7 @@ def _apply_redactions(
     for page_idx, ops in page_ops.items():
         page = doc[page_idx]
 
-        # Separate image ops from text ops
-        text_ops: list[dict] = []
-        image_ops: list[dict] = []
         for op in ops:
-            if op.get("is_image") and op.get("image_rect") is not None:
-                image_ops.append(op)
-            else:
-                text_ops.append(op)
-
-        # ── Image entities: edit via OpenCV ──────────────────────────
-        # Group image ops by their image_rect so we render/edit each
-        # image only once even when multiple entities overlap it.
-        if image_ops:
-            img_groups: dict[tuple, list[dict]] = {}
-            for op in image_ops:
-                key = _rect_tuple(op["image_rect"])
-                img_groups.setdefault(key, []).append(op)
-
-            for rect_key, group_ops in img_groups.items():
-                img_rect = pymupdf.Rect(rect_key)
-                _edit_image_with_opencv(page, img_rect, group_ops)
-
-        # ── Text entities: standard redact flow ──────────────────────
-        # 1) Add text redaction annotations
-        for op in text_ops:
             page.add_redact_annot(
                 op["redact_rect"],
                 text=None,
@@ -1565,113 +1601,19 @@ def _apply_redactions(
                 cross_out=False,
             )
 
-        # 2) Apply text redactions (images are never touched here)
         page.apply_redactions(
             images=pymupdf.PDF_REDACT_IMAGE_NONE,
             graphics=pymupdf.PDF_REDACT_LINE_ART_NONE,
             text=pymupdf.PDF_REDACT_TEXT_REMOVE,
         )
 
-        # 3) Draw replacement text after the redactions and image edits are in place.
-        for op in text_ops:
+        for op in ops:
             _render_text_op(page, op)
-        for op in image_ops:
-            _render_text_op(page, op)
-
-
-def _edit_image_with_opencv(
-    page: pymupdf.Page,
-    img_rect: pymupdf.Rect,
-    ops: list[dict],
-) -> None:
-    """Rasterise *img_rect* from *page*, remove the original entity pixels,
-    and overlay the edited image back onto the page.
-
-    Tags are rendered afterwards with the normal PDF text path so they stay
-    sharp and aligned with the surrounding text instead of being rasterised by
-    OpenCV.
-    """
-    scale = _IMAGE_EDIT_DPI / 72.0
-    mat = pymupdf.Matrix(scale, scale)
-
-    try:
-        pix = page.get_pixmap(clip=img_rect, matrix=mat, alpha=False)
-    except Exception as exc:
-        logger.warning("Could not rasterise image region %s: %s", img_rect, exc)
-        page.draw_rect(
-            img_rect,
-            color=(1, 1, 1),
-            fill=(1, 1, 1),
-            width=0,
-            overlay=True,
-        )
-        return
-
-    img = (
-        np.frombuffer(pix.samples, dtype=np.uint8)
-        .reshape(
-            pix.height,
-            pix.width,
-            pix.n,
-        )
-        .copy()
-    )
-    if pix.n >= 3:
-        img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
-
-    mask = np.zeros(img.shape[:2], dtype=np.uint8)
-    for op in ops:
-        canvas = op["canvas_rect"]
-        x0 = max(int((canvas.x0 - img_rect.x0) * scale), 0)
-        y0 = max(int((canvas.y0 - img_rect.y0) * scale), 0)
-        x1 = min(int((canvas.x1 - img_rect.x0) * scale), img.shape[1])
-        y1 = min(int((canvas.y1 - img_rect.y0) * scale), img.shape[0])
-
-        if x1 <= x0 or y1 <= y0:
-            continue
-
-        mask[y0:y1, x0:x1] = 255
-
-    if np.any(mask):
-        if _IMAGE_EDIT_MASK_DILATE > 0:
-            kernel = np.ones((3, 3), dtype=np.uint8)
-            mask = cv2.dilate(mask, kernel, iterations=_IMAGE_EDIT_MASK_DILATE)
-        try:
-            img = cv2.inpaint(img, mask, _IMAGE_EDIT_INPAINT_RADIUS, cv2.INPAINT_TELEA)
-        except Exception as exc:
-            logger.warning("OpenCV inpaint failed for rect %s: %s", img_rect, exc)
-            img[mask > 0] = 255
-
-    success, png_buf = cv2.imencode(".png", img)
-    if not success:
-        logger.warning("Failed to encode edited image for rect %s", img_rect)
-        page.draw_rect(
-            img_rect,
-            color=(1, 1, 1),
-            fill=(1, 1, 1),
-            width=0,
-            overlay=True,
-        )
-        return
-
-    try:
-        page.insert_image(img_rect, stream=png_buf.tobytes(), overlay=True)
-    except Exception as exc:
-        logger.warning(
-            "Failed to re-insert edited image for rect %s: %s", img_rect, exc
-        )
-        page.draw_rect(
-            img_rect,
-            color=(1, 1, 1),
-            fill=(1, 1, 1),
-            width=0,
-            overlay=True,
-        )
 
 
 def _render_text_op(page: pymupdf.Page, op: dict) -> None:
     """Render a single anonymisation tag onto *page*."""
-    canvas = op["canvas_rect"]
+    canvas = pymupdf.Rect(op.get("background_rect") or op["canvas_rect"])
     if not op.get("skip_background_fill"):
         page.draw_rect(
             canvas,
@@ -1746,21 +1688,187 @@ def _render_text_op(page: pymupdf.Page, op: dict) -> None:
         )
 
 
-def _add_footer_watermark(doc: pymupdf.Document) -> None:
-    for page in doc:
-        text_width = pymupdf.get_text_length(
-            WATERMARK_TEXT,
-            fontname="helv",
-            fontsize=8,
+@lru_cache(maxsize=1)
+def _watermark_font_paths() -> tuple[str | None, str | None]:
+    search_roots = [
+        Path("/workspace"),
+        Path("/usr/share/fonts"),
+        Path("/usr/local/share/fonts"),
+        Path.home() / ".local/share/fonts",
+    ]
+    candidates: list[Path] = []
+    seen: set[str] = set()
+
+    for root in search_roots:
+        if not root.exists():
+            continue
+        try:
+            iterator = root.rglob("*")
+        except Exception:
+            continue
+        for path in iterator:
+            if not path.is_file() or path.suffix.lower() not in {
+                ".ttf",
+                ".otf",
+                ".ttc",
+            }:
+                continue
+            if "archivo" not in path.name.lower():
+                continue
+            resolved = str(path.resolve())
+            if resolved not in seen:
+                seen.add(resolved)
+                candidates.append(path)
+
+    candidates = sorted(candidates, key=lambda item: item.name.lower())
+    regular_path: str | None = None
+    bold_path: str | None = None
+
+    for path in candidates:
+        name = path.name.lower()
+        if regular_path is None and "bold" not in name and "italic" not in name:
+            regular_path = str(path)
+        if bold_path is None and "bold" in name:
+            bold_path = str(path)
+
+    if regular_path is None and candidates:
+        regular_path = str(candidates[0])
+    if bold_path is None:
+        bold_path = regular_path
+
+    return regular_path, bold_path
+
+
+@lru_cache(maxsize=1)
+def _watermark_font_config() -> dict[str, Any]:
+    regular_path, bold_path = _watermark_font_paths()
+    if regular_path:
+        try:
+            return {
+                "text_fontname": "archivo-watermark",
+                "text_fontfile": regular_path,
+                "text_font": pymupdf.Font(fontfile=regular_path),
+                "link_fontname": "archivo-watermark-bold",
+                "link_fontfile": bold_path or regular_path,
+                "link_font": pymupdf.Font(fontfile=bold_path or regular_path),
+            }
+        except Exception as exc:
+            logger.warning(
+                "Could not load Archivo font for PDF watermark, falling back to Helvetica: %s",
+                exc,
+            )
+
+    return {
+        "text_fontname": "Helvetica",
+        "text_fontfile": None,
+        "text_font": pymupdf.Font("Helvetica"),
+        "link_fontname": "Helvetica-Bold",
+        "link_fontfile": None,
+        "link_font": pymupdf.Font("Helvetica-Bold"),
+    }
+
+
+def _watermark_text_length(
+    text: str,
+    *,
+    font_obj: pymupdf.Font,
+    fontname: str,
+    fontsize: float,
+) -> float:
+    try:
+        return float(font_obj.text_length(text, fontsize=fontsize))
+    except Exception:
+        return float(
+            pymupdf.get_text_length(text, fontname=fontname, fontsize=fontsize)
         )
-        x_pos = max(24.0, page.rect.width - text_width - 24.0)
-        y_pos = page.rect.height - 12.0
-        page.insert_text(
-            (x_pos, y_pos),
-            WATERMARK_TEXT,
-            fontsize=8,
-            fontname="helv",
-            color=(0.72, 0.72, 0.72),
+
+
+def _insert_watermark_text(
+    page: pymupdf.Page,
+    point: tuple[float, float],
+    text: str,
+    *,
+    fontname: str,
+    fontsize: float,
+    color: tuple[float, float, float],
+    fontfile: str | None = None,
+) -> None:
+    kwargs: dict[str, Any] = {
+        "fontsize": fontsize,
+        "fontname": fontname,
+        "color": color,
+        "overlay": True,
+    }
+    if fontfile:
+        kwargs["fontfile"] = fontfile
+    page.insert_text(point, text, **kwargs)
+
+
+def _add_footer_watermark(doc: pymupdf.Document) -> None:
+    font_config = _watermark_font_config()
+    prefix_width = _watermark_text_length(
+        WATERMARK_PREFIX_TEXT,
+        font_obj=font_config["text_font"],
+        fontname=font_config["text_fontname"],
+        fontsize=WATERMARK_FONT_SIZE,
+    )
+    link_width = _watermark_text_length(
+        WATERMARK_LINK_TEXT,
+        font_obj=font_config["link_font"],
+        fontname=font_config["link_fontname"],
+        fontsize=WATERMARK_FONT_SIZE,
+    )
+    total_width = prefix_width + link_width
+
+    for page_index, page in enumerate(doc):
+        if page_index % 2 == 0:
+            x_start = max(
+                WATERMARK_MARGIN_X, page.rect.width - total_width - WATERMARK_MARGIN_X
+            )
+        else:
+            x_start = WATERMARK_MARGIN_X
+
+        baseline_y = page.rect.height - WATERMARK_BASELINE_MARGIN
+        link_x = x_start + prefix_width
+
+        _insert_watermark_text(
+            page,
+            (x_start, baseline_y),
+            WATERMARK_PREFIX_TEXT,
+            fontname=font_config["text_fontname"],
+            fontsize=WATERMARK_FONT_SIZE,
+            color=WATERMARK_TEXT_COLOR,
+            fontfile=font_config["text_fontfile"],
+        )
+        _insert_watermark_text(
+            page,
+            (link_x, baseline_y),
+            WATERMARK_LINK_TEXT,
+            fontname=font_config["link_fontname"],
+            fontsize=WATERMARK_FONT_SIZE,
+            color=WATERMARK_LINK_COLOR,
+            fontfile=font_config["link_fontfile"],
+        )
+
+        underline_y = min(page.rect.height - 1.0, baseline_y + 1.0)
+        page.draw_line(
+            (link_x, underline_y),
+            (link_x + link_width, underline_y),
+            color=WATERMARK_LINK_COLOR,
+            width=0.8,
+            overlay=True,
+        )
+        page.insert_link(
+            {
+                "kind": pymupdf.LINK_URI,
+                "from": pymupdf.Rect(
+                    link_x,
+                    baseline_y - WATERMARK_FONT_SIZE,
+                    link_x + link_width,
+                    min(page.rect.height, baseline_y + 2.0),
+                ),
+                "uri": WATERMARK_URL,
+            }
         )
 
 
