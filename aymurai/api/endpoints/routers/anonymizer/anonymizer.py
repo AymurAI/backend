@@ -594,7 +594,7 @@ async def anonymizer_compile_document(
     )
 
     preds = [
-        document_information.model_dump()
+        document_information.model_dump(mode="json", exclude_none=True)
         for document_information in filtered_annotations
     ]
 
