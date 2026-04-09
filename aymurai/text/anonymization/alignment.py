@@ -62,6 +62,15 @@ def resolve_render_token(label: dict, render_context: dict | None = None) -> str
 
 
 def _label_replacement_start(label: dict) -> int:
+    """
+    Determines the start character index for a label, considering possible alternative attributes.
+
+    Args:
+        label (dict): Label dictionary which may contain alternative start character attributes.
+
+    Returns:
+        int: The start character index for the label.
+    """
     attrs = label.get("attrs") or {}
     alt_start = attrs.get("aymurai_alt_start_char")
     start_char = label.get("start_char")
@@ -69,6 +78,15 @@ def _label_replacement_start(label: dict) -> int:
 
 
 def _label_replacement_end(label: dict) -> int:
+    """
+    Determines the end character index for a label, considering possible alternative attributes.
+
+    Args:
+        label (dict): Label dictionary which may contain alternative end character attributes.
+
+    Returns:
+        int: The end character index for the label.
+    """
     attrs = label.get("attrs") or {}
     alt_end = attrs.get("aymurai_alt_end_char")
     end_char = label.get("end_char")
@@ -76,10 +94,20 @@ def _label_replacement_end(label: dict) -> int:
 
 
 def _label_replacement_text(label: dict, document: str) -> str:
+    """
+    Determines the replacement text for a label, considering possible alternative attributes.
+
+    Args:
+        label (dict): Label dictionary which may contain alternative text attributes.
+        document (str): The document text from which to extract the label text.
+
+    Returns:
+        str: The text for the label, considering possible alternative attributes.
+    """
     attrs = label.get("attrs") or {}
 
-    if "aymurai_alt_text" in attrs:
-        alt_text = attrs["aymurai_alt_text"]
+    alt_text = attrs.get("aymurai_alt_text")
+    if alt_text is not None:
         return str(alt_text) if alt_text else ""
 
     alt_start = attrs.get("aymurai_alt_start_char")
@@ -88,9 +116,6 @@ def _label_replacement_text(label: dict, document: str) -> str:
         start_char, end_char = int(alt_start), int(alt_end)
         if 0 <= start_char < end_char <= len(document):
             return document[start_char:end_char]
-        return ""
-
-    if "aymurai_alt_start_char" in attrs and alt_start is None:
         return ""
 
     start_char = int(label.get("start_char") or 0)
