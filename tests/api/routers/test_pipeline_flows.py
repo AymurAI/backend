@@ -1,9 +1,11 @@
+import io
 import json
 import shutil
 import uuid
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
+from docx import Document as DocxDocument
 
 from aymurai.database.schema import DataPublicDocumentParagraph
 from tests.api.routers.conftest import build_mock_pipeline
@@ -20,6 +22,7 @@ def _fake_libreoffice_convert(*args, **kwargs):
 
 @pytest.mark.integration
 @patch("aymurai.api.endpoints.routers.anonymizer.anonymizer.subprocess.check_output")
+@patch("aymurai.api.endpoints.routers.anonymizer.anonymizer.get_anonymizer")
 @patch(
     "aymurai.api.endpoints.routers.anonymizer.anonymizer.map_canonical_entities_ner_preds"
 )
@@ -33,8 +36,10 @@ def test_should_run_anonymizer_flow_end_to_end(
     mock_build_canonical_entities,
     mock_get_canonical_dates,
     mock_map_canonical_entities,
+    mock_get_anonymizer,
     mock_check_output,
     client,
+    tmp_path,
 ):
     mock_extract.return_value = "Ana Pérez denunció.\nJuan Soto declaró."
     mock_load_pipeline.return_value = build_mock_pipeline()
@@ -43,6 +48,12 @@ def test_should_run_anonymizer_flow_end_to_end(
     mock_map_canonical_entities.side_effect = lambda predictions, canonical_entities: (
         predictions
     )
+
+    anonymized_path = str(tmp_path / "output.docx")
+    with open(anonymized_path, "wb") as f:
+        f.write(b"fake-docx-content")
+    mock_anonymizer = MagicMock(return_value=anonymized_path)
+    mock_get_anonymizer.return_value = mock_anonymizer
     mock_check_output.side_effect = _fake_libreoffice_convert
 
     extract_response = client.post(
@@ -81,7 +92,13 @@ def test_should_run_anonymizer_flow_end_to_end(
     compile_response = client.post(
         "/anonymizer/anonymize-document",
         data={"annotations": json.dumps(annotations)},
-        files={"file": ("sample.txt", b"doc-bytes", "text/plain")},
+        files={
+            "file": (
+                "sample.docx",
+                b"doc-bytes",
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            )
+        },
     )
     assert compile_response.status_code == 200
     assert compile_response.headers["content-type"] == "application/octet-stream"
@@ -162,10 +179,22 @@ def test_should_compile_anonymized_document_with_real_libreoffice_when_available
         "render_policy": {"suffix_mode": "auto", "suffix_threshold": 1},
     }
 
+    doc = DocxDocument()
+    doc.add_paragraph("Texto base para anonimizar.")
+    buf = io.BytesIO()
+    doc.save(buf)
+    docx_bytes = buf.getvalue()
+
     response = client.post(
         "/anonymizer/anonymize-document",
         data={"annotations": json.dumps(annotations)},
-        files={"file": ("sample.txt", b"input-document", "text/plain")},
+        files={
+            "file": (
+                "sample.docx",
+                docx_bytes,
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            )
+        },
     )
 
     assert response.status_code == 200
