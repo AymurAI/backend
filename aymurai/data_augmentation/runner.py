@@ -1,0 +1,1268 @@
+from __future__ import annotations
+
+import argparse
+import importlib
+import json
+import mimetypes
+import os
+import random
+import re
+import time
+import uuid
+from dataclasses import dataclass
+from difflib import SequenceMatcher
+from pathlib import Path
+from typing import Any, Iterable
+
+import pandas as pd
+import requests
+from pydantic import BaseModel
+from tqdm.auto import tqdm
+
+from aymurai.data_augmentation.config import (
+    DataAugmentationRunConfig,
+    load_data_augmentation_config,
+    render_run_dir_name,
+)
+
+LABEL_PATTERN = re.compile(r"<([^<>\s]+)>")
+
+DEFAULT_LABEL_NORMALIZATION_MAP: dict[str, str] = {
+    "CUIJ": "CUIJ",
+    "CUIT": "CUIT_CUIL",
+    "CUIL": "CUIT_CUIL",
+    "CVU": "CBU",
+    "EMAIL": "CORREO_ELECTRONICO",
+    "MAIL": "CORREO_ELECTRONICO",
+    "FECHA_HECHO": "FECHA",
+    "NUM": "TELEFONO",
+    "NUM_TEL": "TELEFONO",
+    "CAUSA": "CUIJ",
+    "NUM_CUIT": "CUIT_CUIL",
+    "NUMERO_TELEFONO": "TELEFONO",
+    "PERIODO": "FECHA",
+    "PERÍODO": "FECHA",
+    "ACSUADO/A": "PER",
+    "ACSUSDO/A": "PER",
+    "EMPRESA": "TEXTO_ANONIMIZAR",
+    "FECHA_DEL_HECHO": "FECHA",
+    "CTA": "NUM_CAJA_AHORRO",
+    "NUM_CAUSA": "CUIJ",
+    "NUM:CAUSA": "CUIJ",
+    "NUM_IPP": "IP",
+    "NUM_IP": "IP",
+    "INTITUCION": "LOC",
+    "INSTITUCIÓN": "LOC",
+    "IMEI": "TEXTO_ANONIMIZAR",
+    "ALIAS": "TEXTO_ANONIMIZAR",
+    "DIR": "DIRECCION",
+    "DOMINIO": "PATENTE_DOMINIO",
+    "DOMINIO_PATENTE": "PATENTE_DOMINIO",
+    "NUM_ANONIMIZAR": "TEXTO_ANONIMIZAR",
+    "FECHA_NUMERICA": "FECHA",
+    "FECHA_NUMÉRICA": "FECHA",
+    "NOM": "PER",
+    "LUGAR_DE_DETENCIÓN": "LOC",
+    "LUGAR_DE_DETENCION": "LOC",
+    "PASPORTE": "DNI",
+    "PASAPORTE": "DNI",
+}
+
+LABEL_RULES: list[tuple[re.Pattern[str], str]] = [
+    (re.compile(r"^TEL(?:EFONO)?(?:_|$)|NUM_TEL|NUMERO_TELEFONO|^NUM$"), "TELEFONO"),
+    (re.compile(r"EDAD"), "EDAD"),
+    (re.compile(r"A+C?S?U?S?AD(?:O|A|X|O_A|A_O)?"), "PER"),
+    (re.compile(r"DENUNCIANTE"), "PER"),
+    (re.compile(r"DEFENSOR(?:A|X)?"), "PER"),
+    (re.compile(r"TESTIG[OA]"), "PER"),
+    (re.compile(r"^NOM(?:_|$)"), "PER"),
+    (re.compile(r"CLUB"), "LOC"),
+    (re.compile(r"INSTITUCION|INTITUCION"), "LOC"),
+    (re.compile(r"LOCALIDAD"), "LOC"),
+    (re.compile(r"LUGAR_DE_DETENCION"), "LOC"),
+    (re.compile(r"LUGAR_HECHO"), "LOC"),
+    (re.compile(r"OCUPACION"), "ESTUDIOS"),
+    (re.compile(r"PROFESION"), "ESTUDIOS"),
+    (re.compile(r"FECHA_NUMERICA|FECHA_HECHO|FECHA_DEL_HECHO|PERIODO"), "FECHA"),
+    (re.compile(r"NUM_CAUSA|^CAUSA$"), "CUIJ"),
+    (re.compile(r"NUM_CUIT"), "CUIT_CUIL"),
+    (re.compile(r"NUM_IPP|NUM_IP"), "IP"),
+    (re.compile(r"^CTA(?:_|$)"), "NUM_CAJA_AHORRO"),
+    (re.compile(r"^DIR(?:_|$)"), "DIRECCION"),
+    (re.compile(r"DOMINIO(?:_PATENTE)?"), "PATENTE_DOMINIO"),
+    (re.compile(r"MAIL"), "CORREO_ELECTRONICO"),
+    (re.compile(r"NUM_ANONIMIZAR|ANONIMIZAR"), "TEXTO_ANONIMIZAR"),
+    (re.compile(r"ALIAS|IMEI|EMPRESA"), "TEXTO_ANONIMIZAR"),
+    (re.compile(r"PASPORTE|PASAPORTE"), "DNI"),
+]
+
+LLM_ONLY_LABELS = {"TEXTO_ANONIMIZAR"}
+
+
+@dataclass(frozen=True)
+class TagOccurrence:
+    occurrence_id: int
+    label: str
+    start: int
+    end: int
+    placeholder: str
+
+
+class ReplacementSelection(BaseModel):
+    occurrence_id: int
+    label: str
+    chosen_value: str
+
+
+class ReplacementSelectionBatch(BaseModel):
+    resolved_paragraph: str
+    replacements: list[ReplacementSelection]
+
+
+OLLAMA_SYSTEM_PROMPT = """You are helping build a Spanish legal NER training set.
+Choose exactly one candidate value for each anonymization tag occurrence.
+Resolve the full paragraph by replacing the anonymization tags with the chosen values.
+Do not paraphrase the paragraph.
+Do not invent new values unless the label is explicitly listed as missing and handled by the LLM.
+Return only the JSON object required by the schema.
+"""
+
+OLLAMA_USER_PROMPT_TEMPLATE = """
+Analyze the anonymized paragraph, choose exactly one candidate value for each tag occurrence, and return the final resolved paragraph.
+
+Paragraph:
+{paragraph}
+
+Occurrences:
+{occurrences_json}
+
+Candidate values by label:
+{candidate_values_json}
+
+Missing labels without Faker candidates:
+{missing_labels_json}
+
+Rules:
+- Use exactly one replacement per occurrence_id.
+- If a label exists in candidate_values_by_label, the chosen_value should come from that candidate list.
+- If a label is listed in missing_labels, you are allowed to generate a coherent replacement directly.
+- The field resolved_paragraph must contain the full paragraph with the chosen values inserted in place of the anonymization tags.
+- Keep grammatical and legal coherence whenever possible.
+- Do not add explanations.
+""".strip()
+
+
+def log_step(message: str) -> None:
+    print(f"[data-augmentation] {message}")
+
+
+def find_project_root(start: Path | None = None) -> Path:
+    current = (start or Path.cwd()).resolve()
+    for candidate in [current, *current.parents]:
+        if (candidate / "pyproject.toml").exists() and (candidate / "aymurai").exists():
+            return candidate
+    raise RuntimeError(
+        "Could not locate the project root from the current working directory."
+    )
+
+
+def load_less_frequent_labels(path: Path) -> pd.DataFrame:
+    df = pd.read_csv(path, sep="\t")
+    df.columns = [str(col).strip() for col in df.columns]
+    if "label" not in df.columns:
+        raise ValueError(
+            f"Expected a 'label' column in {path}, found columns={df.columns.tolist()}"
+        )
+    df["label"] = df["label"].astype(str).str.strip()
+    if "relative_frequency_pct" in df.columns:
+        df["relative_frequency_pct"] = pd.to_numeric(
+            df["relative_frequency_pct"], errors="coerce"
+        )
+    return df[df["label"].astype(bool)].reset_index(drop=True)
+
+
+def select_target_label_rows(
+    less_frequent_labels_df: pd.DataFrame,
+    *,
+    target_label_count: int | None,
+) -> pd.DataFrame:
+    if target_label_count is None:
+        return less_frequent_labels_df.copy().reset_index(drop=True)
+    if target_label_count <= 0:
+        raise ValueError("generation.target_label_count must be positive or null.")
+    return (
+        less_frequent_labels_df.head(target_label_count).copy().reset_index(drop=True)
+    )
+
+
+def load_unique_labels(path: Path) -> pd.DataFrame:
+    labels = [
+        line.strip()
+        for line in path.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    if not labels:
+        raise ValueError(f"No labels found in {path}")
+    return pd.DataFrame({"label": labels})
+
+
+def canonicalize_label_for_matching(label: str) -> str:
+    label = str(label).strip().upper()
+    label = (
+        label.replace("Á", "A")
+        .replace("É", "E")
+        .replace("Í", "I")
+        .replace("Ó", "O")
+        .replace("Ú", "U")
+    )
+    label = re.sub(r"[^A-Z0-9]+", "_", label)
+    return re.sub(r"_+", "_", label).strip("_")
+
+
+def normalize_label_name(label: str, label_map: dict[str, str] | None = None) -> str:
+    label = str(label).strip()
+    label_map = label_map or {}
+    if label in label_map:
+        return label_map[label]
+
+    canonical_label = canonicalize_label_for_matching(label)
+    if canonical_label.startswith("NUM_"):
+        suffix_label = canonical_label[4:]
+        if suffix_label in {"CAJA_AHORRO", "MATRICULA", "EXPEDIENTE", "ACTUACION"}:
+            return f"NUM_{suffix_label}"
+        if suffix_label in {
+            "PER",
+            "BANCO",
+            "FECHA",
+            "DIRECCION",
+            "LOC",
+            "DNI",
+            "TELEFONO",
+            "CBU",
+            "CUIJ",
+            "CUIT_CUIL",
+            "IP",
+            "LINK",
+            "USUARIX",
+            "NOMBRE_ARCHIVO",
+            "ESTUDIOS",
+            "NACIONALIDAD",
+            "MARCA_AUTOMOVIL",
+            "PATENTE_DOMINIO",
+            "TEXTO_ANONIMIZAR",
+            "EDAD",
+        }:
+            return suffix_label
+
+    for pattern, target_label in LABEL_RULES:
+        if pattern.search(canonical_label):
+            return target_label
+    return label
+
+
+def standardize_paragraph_labels(
+    text: str, label_map: dict[str, str] | None = None
+) -> str:
+    label_map = label_map or {}
+
+    def _replace(match: re.Match[str]) -> str:
+        original_label = match.group(1)
+        normalized_label = normalize_label_name(original_label, label_map)
+        return f"<{normalized_label}>"
+
+    return LABEL_PATTERN.sub(_replace, text)
+
+
+def find_labels_in_text(text: str, allowed_labels: set[str] | None = None) -> list[str]:
+    labels = [match.group(1) for match in LABEL_PATTERN.finditer(text)]
+    if allowed_labels is None:
+        return sorted(set(labels))
+    return sorted({label for label in labels if label in allowed_labels})
+
+
+def extract_tag_occurrences(text: str) -> list[TagOccurrence]:
+    return [
+        TagOccurrence(
+            occurrence_id=idx,
+            label=match.group(1),
+            start=match.start(),
+            end=match.end(),
+            placeholder=match.group(0),
+        )
+        for idx, match in enumerate(LABEL_PATTERN.finditer(text))
+    ]
+
+
+def build_unique_label_inventory(
+    paragraphs_df: pd.DataFrame, label_column: str
+) -> pd.DataFrame:
+    return (
+        paragraphs_df[label_column]
+        .explode()
+        .dropna()
+        .astype(str)
+        .value_counts()
+        .rename_axis("label")
+        .reset_index(name="paragraph_count")
+        .sort_values(["paragraph_count", "label"], ascending=[False, True])
+        .reset_index(drop=True)
+    )
+
+
+def build_fuzzy_label_groups(
+    train_labels: Iterable[str],
+    odt_labels: Iterable[str],
+    *,
+    min_similarity: float = 0.72,
+) -> tuple[dict[str, list[dict[str, Any]]], dict[str, str], pd.DataFrame]:
+    train_labels = sorted(
+        {str(label).strip() for label in train_labels if str(label).strip()}
+    )
+    odt_labels = sorted(
+        {str(label).strip() for label in odt_labels if str(label).strip()}
+    )
+    canonical_train_lookup = {
+        canonicalize_label_for_matching(train_label): train_label
+        for train_label in train_labels
+    }
+
+    grouped_matches: dict[str, list[dict[str, Any]]] = {
+        label: [] for label in train_labels
+    }
+    odt_to_train_map: dict[str, str] = {}
+    review_rows: list[dict[str, Any]] = []
+
+    for odt_label in odt_labels:
+        odt_key = canonicalize_label_for_matching(odt_label)
+        if odt_key in canonical_train_lookup:
+            exact_train_label = canonical_train_lookup[odt_key]
+            grouped_matches[exact_train_label].append(
+                {"odt_label": odt_label, "score": 1.0}
+            )
+            odt_to_train_map[odt_label] = exact_train_label
+            review_rows.append(
+                {
+                    "odt_label": odt_label,
+                    "best_train_label": exact_train_label,
+                    "best_score": 1.0,
+                    "accepted": True,
+                    "top_3_candidates": [
+                        f"{exact_train_label} (1.000)",
+                        "exact_canonical_match",
+                    ],
+                }
+            )
+            continue
+
+        scored_candidates = []
+        for train_label in train_labels:
+            train_key = canonicalize_label_for_matching(train_label)
+            score = SequenceMatcher(None, odt_key, train_key).ratio()
+            scored_candidates.append(
+                {"odt_label": odt_label, "train_label": train_label, "score": score}
+            )
+
+        scored_candidates = sorted(
+            scored_candidates, key=lambda item: (-item["score"], item["train_label"])
+        )
+        best_match = scored_candidates[0]
+        accepted = best_match["score"] >= min_similarity
+        review_rows.append(
+            {
+                "odt_label": odt_label,
+                "best_train_label": best_match["train_label"],
+                "best_score": best_match["score"],
+                "accepted": accepted,
+                "top_3_candidates": [
+                    f"{item['train_label']} ({item['score']:.3f})"
+                    for item in scored_candidates[:3]
+                ],
+            }
+        )
+        if accepted:
+            grouped_matches[best_match["train_label"]].append(
+                {"odt_label": odt_label, "score": best_match["score"]}
+            )
+            odt_to_train_map[odt_label] = best_match["train_label"]
+
+    grouped_matches = {
+        train_label: sorted(
+            matches, key=lambda item: (-item["score"], item["odt_label"])
+        )
+        for train_label, matches in grouped_matches.items()
+    }
+    review_df = (
+        pd.DataFrame(review_rows)
+        .sort_values(
+            ["accepted", "best_score", "odt_label"], ascending=[False, False, True]
+        )
+        .reset_index(drop=True)
+    )
+    return grouped_matches, odt_to_train_map, review_df
+
+
+def build_rule_based_label_map(
+    odt_labels: Iterable[str],
+) -> tuple[dict[str, str], pd.DataFrame]:
+    rule_map: dict[str, str] = {}
+    rows: list[dict[str, str]] = []
+    for odt_label in sorted(
+        {str(label).strip() for label in odt_labels if str(label).strip()}
+    ):
+        normalized = normalize_label_name(odt_label, DEFAULT_LABEL_NORMALIZATION_MAP)
+        if normalized != odt_label:
+            rule_map[odt_label] = normalized
+            rows.append(
+                {
+                    "odt_label": odt_label,
+                    "normalized_label": normalized,
+                    "match_type": "manual_or_rule",
+                }
+            )
+    return rule_map, pd.DataFrame(rows)
+
+
+def build_label_mapping_coverage(
+    raw_label_inventory_df: pd.DataFrame,
+    effective_label_normalization_map: dict[str, str],
+    known_train_labels: set[str],
+) -> pd.DataFrame:
+    coverage_df = raw_label_inventory_df.copy()
+    coverage_df["mapped_label"] = coverage_df["label"].map(
+        lambda value: normalize_label_name(value, effective_label_normalization_map)
+    )
+    coverage_df["is_mapped"] = coverage_df["mapped_label"].isin(known_train_labels)
+    coverage_df["mapping_changed"] = coverage_df["mapped_label"] != coverage_df["label"]
+    return coverage_df.sort_values(
+        ["is_mapped", "paragraph_count", "label"], ascending=[True, False, True]
+    ).reset_index(drop=True)
+
+
+def sort_label_mapping_by_normalized_label(label_map: dict[str, str]) -> dict[str, str]:
+    return dict(sorted(label_map.items(), key=lambda item: (item[1], item[0])))
+
+
+def group_raw_labels_by_normalized_label(
+    label_map: dict[str, str]
+) -> dict[str, list[str]]:
+    grouped: dict[str, list[str]] = {}
+    for raw_label, normalized_label in sorted(
+        label_map.items(), key=lambda item: (item[1], item[0])
+    ):
+        grouped.setdefault(normalized_label, []).append(raw_label)
+    return grouped
+
+
+def write_unmapped_label_report(
+    output_dir: Path,
+    coverage_df: pd.DataFrame,
+) -> Path:
+    output_dir.mkdir(parents=True, exist_ok=True)
+    report_path = output_dir / "unmapped_raw_labels.txt"
+    unmapped_df = coverage_df.loc[
+        ~coverage_df["is_mapped"], ["label", "mapped_label", "paragraph_count"]
+    ]
+
+    lines = [
+        "# Raw labels without a valid mapping to a canonical train label",
+        "# Add an exact mapping or rule, then run the pipeline again.",
+        "# Format: raw_label -> current_mapped_label (paragraph_count)",
+        "",
+    ]
+    for row in unmapped_df.to_dict("records"):
+        lines.append(
+            f"{row['label']} -> {row['mapped_label']} ({row['paragraph_count']})"
+        )
+
+    report_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return report_path
+
+
+def api_extract_document(
+    document_path: Path,
+    *,
+    endpoint: str,
+    timeout_s: float,
+    session: requests.Session | None = None,
+) -> dict[str, Any]:
+    session = session or requests.Session()
+    response = call_extraction_api(
+        session=session,
+        endpoint=endpoint,
+        file_path=document_path,
+        timeout_s=timeout_s,
+    )
+    if response.get("status") != "success":
+        raise RuntimeError(
+            f"Failed to extract {document_path}: {response.get('detail')}"
+        )
+    detail = response.get("detail") or {}
+    return {
+        "document_id": detail.get("document_id"),
+        "paragraphs": detail.get("document") or [],
+    }
+
+
+def call_extraction_api(
+    session: requests.Session, endpoint: str, file_path: Path, timeout_s: float
+) -> dict[str, object]:
+    payload: dict[str, object] = {
+        "path": str(file_path),
+        "status": "failure",
+        "status_code": None,
+        "elapsed_s": None,
+        "detail": None,
+    }
+
+    if not file_path.exists():
+        payload["detail"] = "File does not exist"
+        return payload
+
+    mime_type = mimetypes.guess_type(file_path.name)[0] or "application/octet-stream"
+    files = {
+        "file": (file_path.name, file_path.open("rb"), mime_type),
+    }
+
+    try:
+        start = time.perf_counter()
+        response = session.post(
+            endpoint,
+            files=files,
+            timeout=timeout_s,
+        )
+        elapsed = time.perf_counter() - start
+    except requests.RequestException as exc:
+        payload["detail"] = f"Request failed: {exc}"
+        return payload
+    finally:
+        files["file"][1].close()
+
+    payload["status_code"] = response.status_code
+    payload["elapsed_s"] = elapsed
+
+    try:
+        response_body = response.json()
+    except ValueError:
+        response_body = {"raw": response.text[:500]}
+
+    if response.ok:
+        payload["status"] = "success"
+        payload["detail"] = {
+            "document_id": response_body.get("document_id"),
+            "document": response_body.get("document", []),
+        }
+    else:
+        payload["detail"] = response_body
+
+    return payload
+
+
+def collect_paragraphs(
+    document_paths: Iterable[Path],
+    *,
+    endpoint: str,
+    timeout_s: float,
+    label_map: dict[str, str] | None = None,
+) -> pd.DataFrame:
+    label_map = label_map or {}
+    records: list[dict[str, Any]] = []
+    with requests.Session() as session:
+        for document_path in document_paths:
+            extracted = api_extract_document(
+                document_path, endpoint=endpoint, timeout_s=timeout_s, session=session
+            )
+            for paragraph_id, text in enumerate(extracted["paragraphs"]):
+                raw_labels = find_labels_in_text(text)
+                standardized_text = standardize_paragraph_labels(text, label_map)
+                labels = find_labels_in_text(standardized_text)
+                records.append(
+                    {
+                        "source_path": str(document_path),
+                        "document_id": extracted["document_id"],
+                        "paragraph_id": paragraph_id,
+                        "raw_text": text,
+                        "text": standardized_text,
+                        "raw_labels": raw_labels,
+                        "labels": labels,
+                    }
+                )
+    return pd.DataFrame(records)
+
+
+def load_augmentation_registry(project_root: Path) -> tuple[dict[str, Any], Any]:
+    notebook_like_cwd = project_root / "notebooks" / "experiments" / "data-augmentation"
+    original_cwd = Path.cwd()
+    try:
+        os.chdir(notebook_like_cwd)
+        module = importlib.import_module(
+            "aymurai.data_augmentation.anonymizer_entities"
+        )
+    finally:
+        os.chdir(original_cwd)
+    return module.augmentation_functions, module.faker
+
+
+def generate_label_candidates(
+    distinct_labels: Iterable[str],
+    *,
+    augmentation_functions: dict[str, Any],
+    augmentation_faker: Any,
+    n_options: int,
+    max_attempts_per_label: int,
+    seed: int | None = None,
+) -> tuple[dict[str, list[str]], list[str]]:
+    if seed is not None:
+        augmentation_faker.seed_instance(seed)
+    else:
+        augmentation_faker.seed_instance(random.randint(1, 1_000_000))
+
+    candidate_map: dict[str, list[str]] = {}
+    missing_labels: list[str] = []
+    for label in sorted(set(distinct_labels)):
+        generator = augmentation_functions.get(label)
+        if generator is None:
+            missing_labels.append(label)
+            continue
+
+        values: list[str] = []
+        seen: set[str] = set()
+        attempts = 0
+        while len(values) < n_options and attempts < max_attempts_per_label:
+            attempts += 1
+            candidate = str(generator()).strip()
+            if not candidate or candidate in seen:
+                continue
+            values.append(candidate)
+            seen.add(candidate)
+
+        if len(values) < n_options:
+            raise RuntimeError(
+                f"Could not generate {n_options} unique values for label '{label}'. Generated only {len(values)} values."
+            )
+
+        candidate_map[label] = values
+
+    unsupported_missing = [
+        label for label in missing_labels if label not in LLM_ONLY_LABELS
+    ]
+    if unsupported_missing:
+        raise ValueError(
+            "Unsupported labels without Faker generators: "
+            + ", ".join(sorted(unsupported_missing))
+        )
+    return candidate_map, sorted(missing_labels)
+
+
+def build_ollama_user_prompt(
+    paragraph: str,
+    occurrences: list[TagOccurrence],
+    candidate_map: dict[str, list[str]],
+    missing_labels: list[str],
+) -> str:
+    occurrences_payload = [
+        {
+            "occurrence_id": occurrence.occurrence_id,
+            "label": occurrence.label,
+            "placeholder": occurrence.placeholder,
+        }
+        for occurrence in occurrences
+    ]
+    return OLLAMA_USER_PROMPT_TEMPLATE.format(
+        paragraph=paragraph,
+        occurrences_json=json.dumps(occurrences_payload, ensure_ascii=False, indent=2),
+        candidate_values_json=json.dumps(candidate_map, ensure_ascii=False, indent=2),
+        missing_labels_json=json.dumps(missing_labels, ensure_ascii=False, indent=2),
+    )
+
+
+def normalize_candidate_text(value: str) -> str:
+    value = str(value).strip().lower()
+    value = re.sub(r"[\s_\-\.]+", "", value)
+    return re.sub(r"[^0-9a-záéíóúüñ]", "", value)
+
+
+def resolve_candidate_choice(
+    label: str,
+    chosen_value: str,
+    candidate_map: dict[str, list[str]],
+    *,
+    allow_non_faker_values: bool = False,
+) -> tuple[str, bool]:
+    candidates = candidate_map.get(label, [])
+    if chosen_value in candidates:
+        return chosen_value, False
+
+    normalized_choice = normalize_candidate_text(chosen_value)
+    normalized_candidates: dict[str, list[str]] = {}
+    for candidate in candidates:
+        normalized_candidates.setdefault(
+            normalize_candidate_text(candidate), []
+        ).append(candidate)
+
+    matches = normalized_candidates.get(normalized_choice, [])
+    if len(matches) == 1:
+        return matches[0], False
+    if allow_non_faker_values and str(chosen_value).strip():
+        return str(chosen_value).strip(), True
+    raise ValueError(
+        f"Chosen value '{chosen_value}' is not part of the candidates for label '{label}'"
+    )
+
+
+def apply_replacements(
+    paragraph: str,
+    occurrences: list[TagOccurrence],
+    replacements: list[dict[str, Any]],
+) -> tuple[str, list[dict[str, Any]]]:
+    replacement_by_id = {item["occurrence_id"]: item for item in replacements}
+    resolved_parts: list[str] = []
+    entities: list[dict[str, Any]] = []
+    cursor = 0
+    resolved_cursor = 0
+
+    for occurrence in occurrences:
+        replacement = replacement_by_id[occurrence.occurrence_id]
+        chosen_value = replacement["chosen_value"]
+
+        prefix = paragraph[cursor : occurrence.start]
+        resolved_parts.append(prefix)
+        resolved_cursor += len(prefix)
+
+        entity_start = resolved_cursor
+        resolved_parts.append(chosen_value)
+        resolved_cursor += len(chosen_value)
+        entity_end = resolved_cursor
+
+        entities.append(
+            {
+                "label": occurrence.label,
+                "start_char": entity_start,
+                "end_char": entity_end,
+                "text": chosen_value,
+                "occurrence_id": occurrence.occurrence_id,
+                "source_placeholder": occurrence.placeholder,
+            }
+        )
+        cursor = occurrence.end
+
+    suffix = paragraph[cursor:]
+    resolved_parts.append(suffix)
+    return "".join(resolved_parts), entities
+
+
+def build_token_offsets(text: str, tokens: list[str]) -> list[tuple[int, int]]:
+    offsets: list[tuple[int, int]] = []
+    cursor = 0
+    for token in tokens:
+        start = text.find(token, cursor)
+        if start == -1:
+            raise ValueError(
+                f"Could not align token '{token}' around '{text[cursor: cursor + 80]}'"
+            )
+        end = start + len(token)
+        offsets.append((start, end))
+        cursor = end
+    return offsets
+
+
+def entities_to_bio_lines(text: str, entities: list[dict[str, Any]]) -> list[str]:
+    tokens = text.split()
+    offsets = build_token_offsets(text, tokens)
+    bio_tags = ["O"] * len(tokens)
+    for entity in sorted(
+        entities, key=lambda item: (item["start_char"], item["end_char"])
+    ):
+        first = True
+        for idx, (tok_start, tok_end) in enumerate(offsets):
+            if entity["end_char"] <= tok_start or entity["start_char"] >= tok_end:
+                continue
+            bio_tags[idx] = f"{'B' if first else 'I'}-{entity['label']}"
+            first = False
+    return [f"{token} {label}" for token, label in zip(tokens, bio_tags)]
+
+
+def alignment_to_bio_lines(mapping: pd.DataFrame) -> list[str]:
+    lines: list[str] = []
+    for row in mapping.fillna("").to_dict("records"):
+        source_chunk = str(row["source"]).strip()
+        target_tokens = [token for token in str(row["target"]).split() if token]
+        if not target_tokens:
+            continue
+        match = LABEL_PATTERN.search(source_chunk)
+        if not match:
+            lines.extend([f"{token} O" for token in target_tokens])
+            continue
+        label = match.group(1)
+        for idx, token in enumerate(target_tokens):
+            lines.append(f"{token} {'B' if idx == 0 else 'I'}-{label}")
+    return lines
+
+
+def build_alignment_records(
+    source_text: str, target_text: str
+) -> tuple[pd.DataFrame, list[dict[str, str]]]:
+    from aymurai.utils.alignment.core import align_text
+
+    alignment_df = align_text(source_text, target_text, columns=("source", "target"))
+    alignment_records = alignment_df.fillna("").astype(str).to_dict("records")
+    return alignment_df, alignment_records
+
+
+def choose_replacements_with_ollama(
+    paragraph: str,
+    occurrences: list[TagOccurrence],
+    candidate_map: dict[str, list[str]],
+    missing_labels: list[str],
+    *,
+    config: DataAugmentationRunConfig,
+) -> dict[str, Any]:
+    if not config.generation.run_with_ollama:
+        replacements = [
+            {
+                "occurrence_id": occurrence.occurrence_id,
+                "label": occurrence.label,
+                "chosen_value": candidate_map[occurrence.label][0],
+                "selection_mode": "fallback_first_candidate",
+                "used_non_faker_value": False,
+            }
+            for occurrence in occurrences
+            if occurrence.label in candidate_map
+        ]
+        resolved_paragraph, _ = apply_replacements(paragraph, occurrences, replacements)
+        return {
+            "resolved_paragraph": resolved_paragraph,
+            "replacements": replacements,
+            "selection_mode": "fallback_first_candidate",
+            "contains_non_faker_values": False,
+            "user_prompt": None,
+            "raw_response_text": None,
+        }
+
+    user_prompt = build_ollama_user_prompt(
+        paragraph=paragraph,
+        occurrences=occurrences,
+        candidate_map=candidate_map,
+        missing_labels=missing_labels if config.ollama.allow_missing_labels else [],
+    )
+    from aymurai.llm_providers import OllamaLLMProvider
+
+    provider = OllamaLLMProvider(
+        model=config.ollama.model,
+        keep_alive=config.ollama.keep_alive,
+    )
+    response = provider.generate(
+        messages=[
+            {"role": "system", "content": OLLAMA_SYSTEM_PROMPT},
+            {"role": "user", "content": user_prompt},
+        ],
+        options={
+            "temperature": config.ollama.temperature,
+            "num_ctx": config.ollama.num_ctx,
+        },
+        format=ReplacementSelectionBatch.model_json_schema(),
+    )
+    payload = json.loads(response.text)
+    replacements = payload.get("replacements")
+    resolved_paragraph = str(payload.get("resolved_paragraph", "")).strip()
+    if not isinstance(replacements, list):
+        raise ValueError(f"Invalid Ollama response payload: {payload}")
+    if not resolved_paragraph:
+        raise ValueError(f"Missing resolved_paragraph in Ollama response: {payload}")
+
+    validated: list[dict[str, Any]] = []
+    expected_ids = {occurrence.occurrence_id for occurrence in occurrences}
+    seen_ids: set[int] = set()
+    for item in replacements:
+        occurrence_id = int(item["occurrence_id"])
+        label = str(item["label"])
+        chosen_value = str(item["chosen_value"])
+        used_non_faker_value = False
+
+        if occurrence_id not in expected_ids:
+            raise ValueError(f"Unexpected occurrence_id={occurrence_id}")
+        if occurrence_id in seen_ids:
+            raise ValueError(f"Duplicate occurrence_id={occurrence_id}")
+
+        if label in candidate_map:
+            chosen_value, used_non_faker_value = resolve_candidate_choice(
+                label,
+                chosen_value,
+                candidate_map,
+                allow_non_faker_values=config.ollama.allow_non_faker_values,
+            )
+        elif not (
+            config.ollama.allow_missing_labels
+            and label in missing_labels
+            and chosen_value.strip()
+        ):
+            raise ValueError(
+                f"Label '{label}' has no Faker candidates and Ollama-generated replacements are disabled or empty."
+            )
+        else:
+            used_non_faker_value = True
+
+        seen_ids.add(occurrence_id)
+        validated.append(
+            {
+                "occurrence_id": occurrence_id,
+                "label": label,
+                "chosen_value": chosen_value,
+                "used_non_faker_value": used_non_faker_value,
+                "selection_mode": "ollama",
+                "model": provider.model_name,
+            }
+        )
+
+    if seen_ids != expected_ids:
+        missing = sorted(expected_ids - seen_ids)
+        raise ValueError(f"Missing replacements for occurrence_id values: {missing}")
+
+    return {
+        "resolved_paragraph": resolved_paragraph,
+        "replacements": sorted(validated, key=lambda item: item["occurrence_id"]),
+        "selection_mode": "ollama",
+        "contains_non_faker_values": any(
+            item["used_non_faker_value"] for item in validated
+        ),
+        "user_prompt": user_prompt,
+        "raw_response_text": response.text,
+    }
+
+
+def write_jsonl(path: Path, records: list[dict[str, Any]]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8") as handle:
+        for record in records:
+            handle.write(json.dumps(record, ensure_ascii=False) + "\n")
+
+
+def write_bio_txt(
+    path: Path, records: list[dict[str, Any]], *, bio_key: str = "bio_lines"
+) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8") as handle:
+        for record in records:
+            if record.get("status") != "ok":
+                continue
+            for line in record[bio_key]:
+                handle.write(line + "\n")
+            handle.write("\n")
+
+
+def augment_paragraph(
+    row: pd.Series,
+    *,
+    config: DataAugmentationRunConfig,
+    augmentation_functions: dict[str, Any],
+    augmentation_faker: Any,
+    alignments_dir: Path,
+) -> dict[str, Any]:
+    source_text = str(row["text"])
+    occurrences = extract_tag_occurrences(source_text)
+    if not occurrences:
+        raise ValueError("The paragraph does not contain anonymization tags.")
+
+    distinct_labels = sorted({occurrence.label for occurrence in occurrences})
+    candidate_map, missing_labels = generate_label_candidates(
+        distinct_labels,
+        augmentation_functions=augmentation_functions,
+        augmentation_faker=augmentation_faker,
+        n_options=config.generation.candidates_per_label,
+        max_attempts_per_label=config.generation.max_attempts_per_label,
+    )
+
+    if missing_labels and not (
+        config.generation.run_with_ollama and config.ollama.allow_missing_labels
+    ):
+        return {
+            "sample_id": uuid.uuid4().hex,
+            "document_id": row["document_id"],
+            "paragraph_id": int(row["paragraph_id"]),
+            "source_path": row["source_path"],
+            "source_text": source_text,
+            "resolved_text": None,
+            "labels": distinct_labels,
+            "target_labels": list(row["target_labels"]),
+            "candidate_values": candidate_map,
+            "missing_labels": missing_labels,
+            "status": "skipped_missing_candidate_generators",
+            "replacements": [],
+            "entities": [],
+            "bio_lines": [],
+            "alignment_bio_lines": [],
+            "alignment_path": None,
+            "alignment_records": [],
+        }
+
+    llm_resolution = choose_replacements_with_ollama(
+        paragraph=source_text,
+        occurrences=occurrences,
+        candidate_map=candidate_map,
+        missing_labels=missing_labels,
+        config=config,
+    )
+    local_resolved_text, entities = apply_replacements(
+        paragraph=source_text,
+        occurrences=occurrences,
+        replacements=llm_resolution["replacements"],
+    )
+    resolved_text = llm_resolution["resolved_paragraph"]
+    alignment_df, alignment_records = build_alignment_records(
+        source_text=source_text, target_text=resolved_text
+    )
+    bio_lines = entities_to_bio_lines(resolved_text, entities)
+    alignment_bio_lines = alignment_to_bio_lines(alignment_df)
+
+    sample_id = uuid.uuid4().hex
+    alignments_dir.mkdir(parents=True, exist_ok=True)
+    alignment_path = alignments_dir / f"{sample_id}.csv"
+    alignment_df.to_csv(alignment_path, index=False)
+
+    return {
+        "sample_id": sample_id,
+        "document_id": row["document_id"],
+        "paragraph_id": int(row["paragraph_id"]),
+        "source_path": row["source_path"],
+        "source_text": source_text,
+        "resolved_text": resolved_text,
+        "labels": distinct_labels,
+        "target_labels": list(row["target_labels"]),
+        "candidate_values": candidate_map,
+        "missing_labels": missing_labels,
+        "status": "ok",
+        "replacements": llm_resolution["replacements"],
+        "llm_selection_mode": llm_resolution["selection_mode"],
+        "contains_non_faker_values": llm_resolution.get(
+            "contains_non_faker_values", False
+        ),
+        "ollama_user_prompt": llm_resolution.get("user_prompt"),
+        "ollama_raw_response_text": llm_resolution.get("raw_response_text"),
+        "local_resolved_text": local_resolved_text,
+        "resolved_text_matches_local": resolved_text == local_resolved_text,
+        "entities": entities,
+        "bio_lines": bio_lines,
+        "alignment_bio_lines": alignment_bio_lines,
+        "alignment_path": str(alignment_path),
+        "alignment_records": alignment_records,
+    }
+
+
+def run_pipeline(
+    config: DataAugmentationRunConfig, *, run_dir_name: str | None = None
+) -> list[dict[str, Any]]:
+    run_dir_name = run_dir_name or render_run_dir_name(
+        config.paths.run_dir_name_template
+    )
+    output_dir = Path(config.paths.output_dir) / run_dir_name
+    alignments_dir = output_dir / config.paths.alignments_dirname
+    endpoint = f"{config.api.base_url}{config.api.document_extract_path}"
+
+    log_step(f"Starting run in {output_dir}")
+    log_step(f"Using document extract endpoint: {endpoint}")
+
+    log_step("Loading canonical train labels and least-frequent label list")
+    original_train_unique_labels_df = load_unique_labels(
+        Path(config.paths.original_train_unique_labels_path)
+    )
+    original_train_unique_labels = set(original_train_unique_labels_df["label"])
+    less_frequent_labels_df = load_less_frequent_labels(
+        Path(config.paths.less_frequent_labels_path)
+    )
+    target_labels_df = select_target_label_rows(
+        less_frequent_labels_df,
+        target_label_count=config.generation.target_label_count,
+    )
+    log_step(
+        f"Loaded {len(original_train_unique_labels)} canonical labels and selected "
+        f"{len(target_labels_df)} target labels"
+    )
+
+    log_step(f"Extracting raw paragraphs from {len(config.paths.odt_paths)} ODT files")
+    raw_paragraphs_df = collect_paragraphs(
+        [Path(path) for path in config.paths.odt_paths],
+        endpoint=endpoint,
+        timeout_s=config.api.timeout_s,
+        label_map={},
+    )
+    raw_label_inventory_df = build_unique_label_inventory(
+        raw_paragraphs_df, "raw_labels"
+    )
+    log_step(
+        f"Collected {len(raw_paragraphs_df)} paragraphs and found "
+        f"{len(raw_label_inventory_df)} unique raw labels"
+    )
+
+    log_step("Building normalization map from manual rules and fuzzy matching")
+    rule_based_label_map, _ = build_rule_based_label_map(
+        raw_label_inventory_df["label"]
+    )
+    unresolved_odt_labels = [
+        label
+        for label in raw_label_inventory_df["label"]
+        if label not in rule_based_label_map
+    ]
+    (
+        fuzzy_label_groups,
+        fuzzy_label_map,
+        fuzzy_label_review_df,
+    ) = build_fuzzy_label_groups(
+        train_labels=original_train_unique_labels,
+        odt_labels=unresolved_odt_labels,
+        min_similarity=config.normalization.fuzzy_threshold,
+    )
+
+    effective_label_normalization_map = {
+        **fuzzy_label_map,
+        **rule_based_label_map,
+        **DEFAULT_LABEL_NORMALIZATION_MAP,
+        **config.normalization.exact_map,
+    }
+    effective_label_normalization_map = sort_label_mapping_by_normalized_label(
+        effective_label_normalization_map
+    )
+    label_mapping_coverage_df = build_label_mapping_coverage(
+        raw_label_inventory_df=raw_label_inventory_df,
+        effective_label_normalization_map=effective_label_normalization_map,
+        known_train_labels=original_train_unique_labels,
+    )
+    output_dir.mkdir(parents=True, exist_ok=True)
+    raw_label_inventory_df.to_csv(output_dir / "raw_label_inventory.csv", index=False)
+    label_mapping_coverage_df.to_csv(
+        output_dir / "label_mapping_coverage.csv", index=False
+    )
+
+    unmapped_raw_labels = label_mapping_coverage_df.loc[
+        ~label_mapping_coverage_df["is_mapped"], "label"
+    ].tolist()
+    if (
+        config.normalization.strict_require_all_raw_labels_mapped
+        and unmapped_raw_labels
+    ):
+        log_step(
+            f"Found {len(unmapped_raw_labels)} unmapped raw labels; stopping before augmentation"
+        )
+        report_path = write_unmapped_label_report(output_dir, label_mapping_coverage_df)
+        unmapped_preview = label_mapping_coverage_df.loc[
+            ~label_mapping_coverage_df["is_mapped"],
+            ["label", "mapped_label", "paragraph_count"],
+        ].to_dict("records")
+        raise ValueError(
+            "Some raw ODT labels are still unresolved before replacement.\n"
+            f"Review {report_path} and add exact mappings or rules, then run the pipeline again.\n"
+            f"Unmapped labels: {json.dumps(unmapped_preview, ensure_ascii=False)}"
+        )
+    log_step("All raw labels are mapped to canonical train labels")
+
+    log_step("Normalizing target labels and recollecting standardized paragraphs")
+    target_labels_df["normalized_label"] = target_labels_df["label"].map(
+        lambda value: normalize_label_name(value, effective_label_normalization_map)
+    )
+    target_labels = set(target_labels_df["normalized_label"])
+
+    paragraphs_df = collect_paragraphs(
+        [Path(path) for path in config.paths.odt_paths],
+        endpoint=endpoint,
+        timeout_s=config.api.timeout_s,
+        label_map=effective_label_normalization_map,
+    )
+    normalized_label_inventory_df = build_unique_label_inventory(
+        paragraphs_df, "labels"
+    )
+    paragraphs_df["target_labels"] = paragraphs_df["labels"].map(
+        lambda labels: [label for label in labels if label in target_labels]
+    )
+    paragraphs_df["has_target_label"] = paragraphs_df["target_labels"].map(bool)
+    candidate_paragraphs_df = (
+        paragraphs_df[paragraphs_df["has_target_label"]]
+        .copy()
+        .sort_values(["source_path", "paragraph_id"])
+        .reset_index(drop=True)
+    )
+    if config.generation.max_paragraphs is not None:
+        candidate_paragraphs_df = candidate_paragraphs_df.head(
+            config.generation.max_paragraphs
+        ).copy()
+    log_step(
+        f"Selected {len(candidate_paragraphs_df)} candidate paragraphs matching "
+        f"{len(target_labels)} normalized target labels"
+    )
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    normalized_label_inventory_df.to_csv(
+        output_dir / "normalized_label_inventory.csv", index=False
+    )
+    target_labels_df.to_csv(output_dir / "target_labels.csv", index=False)
+    fuzzy_label_review_df.to_csv(output_dir / "fuzzy_label_review.csv", index=False)
+    (output_dir / "effective_label_normalization_map.json").write_text(
+        json.dumps(effective_label_normalization_map, ensure_ascii=False, indent=2)
+        + "\n",
+        encoding="utf-8",
+    )
+    (output_dir / "grouped_raw_labels_by_normalized_label.json").write_text(
+        json.dumps(
+            group_raw_labels_by_normalized_label(effective_label_normalization_map),
+            ensure_ascii=False,
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    project_root = find_project_root()
+    log_step("Loading Faker augmentation registry")
+    augmentation_functions, augmentation_faker = load_augmentation_registry(
+        project_root
+    )
+
+    records: list[dict[str, Any]] = []
+    log_step(
+        f"Generating {len(candidate_paragraphs_df)} augmented paragraphs "
+        f"with {config.generation.candidates_per_label} Faker candidates per label"
+    )
+    progress = tqdm(total=len(candidate_paragraphs_df), desc="Augmenting paragraphs")
+    for _, row in candidate_paragraphs_df.iterrows():
+        record = augment_paragraph(
+            row=row,
+            config=config,
+            augmentation_functions=augmentation_functions,
+            augmentation_faker=augmentation_faker,
+            alignments_dir=alignments_dir,
+        )
+        records.append(record)
+        progress.update(1)
+    progress.close()
+
+    log_step("Writing JSONL, BIO, and alignment outputs")
+    write_jsonl(output_dir / config.paths.jsonl_filename, records)
+    write_bio_txt(output_dir / config.paths.bio_filename, records, bio_key="bio_lines")
+    ok_count = sum(record.get("status") == "ok" for record in records)
+    skipped_count = len(records) - ok_count
+    log_step(f"Run finished: {ok_count} ok, {skipped_count} skipped")
+    return records
+
+
+def build_arg_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        description="Run the data augmentation pipeline from a YAML config."
+    )
+    parser.add_argument(
+        "--config", required=True, help="Path to the YAML configuration file."
+    )
+    return parser
+
+
+def main() -> None:
+    parser = build_arg_parser()
+    args = parser.parse_args()
+    config = load_data_augmentation_config(args.config)
+    run_dir_name = render_run_dir_name(config.paths.run_dir_name_template)
+    records = run_pipeline(config, run_dir_name=run_dir_name)
+    output_dir = Path(config.paths.output_dir) / run_dir_name
+    print(
+        f"Saved {len(records)} augmented samples to {output_dir / config.paths.jsonl_filename}"
+    )
+    print(f"Saved BIO output to {output_dir / config.paths.bio_filename}")
+
+
+if __name__ == "__main__":
+    main()
