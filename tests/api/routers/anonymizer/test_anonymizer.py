@@ -230,8 +230,8 @@ def test_should_disambiguate_and_persist_paragraphs(
 ):
     mock_build_canonical_entities.return_value = []
     mock_get_canonical_dates.return_value = []
-    mock_map_canonical_entities.side_effect = (
-        lambda predictions, canonical_entities: predictions
+    mock_map_canonical_entities.side_effect = lambda predictions, canonical_entities: (
+        predictions
     )
 
     text = "Ana Pérez denunció en el juzgado."
@@ -341,6 +341,165 @@ def test_should_anonymize_document_when_annotations_are_valid(
     assert response.status_code == 200
     assert response.headers["content-type"] == "application/octet-stream"
     assert len(response.content) > 0
+
+
+@pytest.mark.integration
+@patch("aymurai.api.endpoints.routers.anonymizer.anonymizer.load_pipeline")
+def test_should_merge_fragmented_numeric_labels_in_predict_response(
+    mock_load_pipeline, client
+):
+    mock_pipeline = MagicMock()
+    mock_pipeline.preprocess.return_value = [
+        {"path": "empty", "data": {"doc.text": "REGISTRO NRO. 1 / 2025"}}
+    ]
+    mock_pipeline.predict_single.return_value = {
+        "data": {"doc.text": "REGISTRO NRO. 1 / 2025"},
+        "predictions": {
+            "entities": [
+                {
+                    "text": "1",
+                    "start_char": 14,
+                    "end_char": 15,
+                    "attrs": {"aymurai_label": "NUM_ACTUACION"},
+                },
+                {
+                    "text": "2025",
+                    "start_char": 18,
+                    "end_char": 22,
+                    "attrs": {"aymurai_label": "NUM_ACTUACION"},
+                },
+            ]
+        },
+    }
+    mock_pipeline.postprocess.return_value = [mock_pipeline.predict_single.return_value]
+    mock_load_pipeline.return_value = mock_pipeline
+
+    response = client.post(
+        "/anonymizer/predict",
+        json={"text": "REGISTRO NRO. 1 / 2025"},
+        params={"use_cache": False},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data["labels"]) == 1
+    assert data["labels"][0]["text"] == "1 / 2025"
+    assert data["labels"][0]["start_char"] == 14
+    assert data["labels"][0]["end_char"] == 22
+
+
+@pytest.mark.integration
+@patch("aymurai.api.endpoints.routers.anonymizer.anonymizer.get_anonymizer")
+def test_should_merge_fragmented_labels_before_pdf_anonymization(
+    mock_get_anonymizer, client, tmp_path
+):
+    anonymized_path = str(tmp_path / "output.pdf")
+    with open(anonymized_path, "wb") as f:
+        f.write(b"%PDF-1.4\n")
+
+    mock_anonymizer = MagicMock(return_value=anonymized_path)
+    mock_get_anonymizer.return_value = mock_anonymizer
+
+    first = build_label("NUM_ACTUACION", "1").model_dump(mode="json")
+    first["start_char"] = 14
+    first["end_char"] = 15
+    second = build_label("NUM_ACTUACION", "2025").model_dump(mode="json")
+    second["start_char"] = 16
+    second["end_char"] = 20
+
+    annotations = {
+        "data": [
+            {
+                "document": "REGISTRO NRO. 1/2025",
+                "labels": [first, second],
+            }
+        ],
+        "label_policies": {"NUM_ACTUACION": {"anonymize": True}},
+        "render_policy": {"suffix_mode": "always", "suffix_threshold": 1},
+    }
+
+    response = client.post(
+        "/anonymizer/anonymize-document",
+        data={"annotations": json.dumps(annotations)},
+        files={
+            "file": (
+                "sample.pdf",
+                b"%PDF-1.4\n",
+                "application/pdf",
+            )
+        },
+    )
+
+    assert response.status_code == 200
+    preds = mock_anonymizer.call_args[0][1]
+    assert len(preds[0]["labels"]) == 1
+    assert preds[0]["labels"][0]["text"] == "1/2025"
+    assert preds[0]["labels"][0]["start_char"] == 14
+    assert preds[0]["labels"][0]["end_char"] == 20
+
+    attrs = preds[0]["labels"][0]["attrs"]
+    assert attrs["aymurai_alt_text"] == "1/2025"
+    assert attrs["aymurai_alt_start_char"] == 14
+    assert attrs["aymurai_alt_end_char"] == 20
+
+    render_context = mock_anonymizer.call_args.kwargs["render_context"]
+    assert render_context["count_by_base"]["NUM_ACTUACION"] == 1
+    assert render_context["index_by_entity"][("NUM_ACTUACION", "1/2025")] == 1
+
+
+@pytest.mark.integration
+@patch("aymurai.api.endpoints.routers.anonymizer.anonymizer.subprocess.check_output")
+@patch("aymurai.api.endpoints.routers.anonymizer.anonymizer.get_anonymizer")
+def test_should_exclude_null_alt_attrs_from_anonymize_document_preds(
+    mock_get_anonymizer, mock_check_output, client, tmp_path
+):
+    anonymized_path = str(tmp_path / "output.docx")
+    with open(anonymized_path, "wb") as f:
+        f.write(b"fake-docx-content")
+
+    mock_anonymizer = MagicMock(return_value=anonymized_path)
+    mock_get_anonymizer.return_value = mock_anonymizer
+
+    def fake_convert(*args, **kwargs):
+        cmd = args[0]
+        source_path = cmd[-1]
+        output_path = source_path.rsplit(".", 1)[0] + ".odt"
+        with open(output_path, "wb") as output_file:
+            output_file.write(b"odt-content")
+        return "ok"
+
+    mock_check_output.side_effect = fake_convert
+    annotations = {
+        "data": [
+            {
+                "document": "Ana Perez denuncio en el juzgado.",
+                "labels": [build_label("PER", "Ana Perez").model_dump(mode="json")],
+            }
+        ],
+        "label_policies": {"PER": {"anonymize": True, "disambiguation": "fuzzy"}},
+        "render_policy": {"suffix_mode": "auto", "suffix_threshold": 1},
+    }
+
+    response = client.post(
+        "/anonymizer/anonymize-document",
+        data={"annotations": json.dumps(annotations)},
+        files={
+            "file": (
+                "sample.docx",
+                b"input-document",
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            )
+        },
+    )
+
+    assert response.status_code == 200
+    preds = mock_anonymizer.call_args[0][1]
+    assert preds[0]["labels"][0]["text"] == "Ana Perez"
+
+    attrs = preds[0]["labels"][0]["attrs"]
+    assert "aymurai_alt_text" not in attrs
+    assert "aymurai_alt_start_char" not in attrs
+    assert "aymurai_alt_end_char" not in attrs
 
 
 @pytest.mark.integration
