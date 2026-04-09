@@ -63,6 +63,20 @@ def run_safe_text_extraction(
             raise
 
 
+def _split_document_paragraphs(document: str) -> list[str]:
+    if re.search(r"\n\s*\n+", document):
+        raw_paragraphs = re.split(r"\n\s*\n+", document)
+    else:
+        raw_paragraphs = document.splitlines()
+
+    paragraphs = [
+        re.sub(r"[ \t]{2,}", " ", paragraph.strip())
+        for paragraph in raw_paragraphs
+        if paragraph.strip()
+    ]
+    return list(unique_justseen(paragraphs))
+
+
 @router.post("/document-extract", response_model=Document)
 def plain_text_extractor(file: UploadFile) -> Document:
     """
@@ -111,13 +125,6 @@ def plain_text_extractor(file: UploadFile) -> Document:
     logger.info(f"removed temp file from local storage => {tmp_filename}")
 
     document_id = data_to_uuid(data)
-
-    paragraphs = [
-        paragraph.strip()
-        for paragraph in re.split(r"\n\s*\n+", document)
-        if paragraph.strip()
-    ]
-    paragraphs = [re.sub(r"[ \t]{2,}", " ", paragraph) for paragraph in paragraphs]
-    paragraphs = list(unique_justseen(paragraphs))
+    paragraphs = _split_document_paragraphs(document)
 
     return Document(document=paragraphs, document_id=document_id)
