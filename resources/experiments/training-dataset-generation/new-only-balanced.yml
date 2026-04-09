@@ -1,0 +1,25 @@
+paths:
+  train_set_path: resources/data/restricted/ner-flair-finetuning/old-data/train.txt
+  dev_set_path: resources/data/restricted/ner-flair-finetuning/old-data/dev.txt
+  test_set_path: resources/data/restricted/ner-flair-finetuning/old-data/test.txt
+  new_candidates_path: resources/data/restricted/ner-langextract-alignment/curated/train_candidates.jsonl
+  output_dir: resources/outputs/training-dataset-generation
+  low_frequency_labels_path:
+
+deduplication:
+  internal_threshold: 95.0
+  corpus_threshold: 95.0
+
+label_selection:
+  mode: all_clean_labeled
+  low_frequency_top_k: 15
+  min_target_labels_per_candidate: 1
+
+unlabeled_sampling:
+  mode: ratio_to_selected_labeled
+  target_background_to_labeled_ratio: 1.0
+
+assembly:
+  include_original_train: false
+  shuffle_selected_candidates: true
+  seed: 42

@@ -1,0 +1,36 @@
+paths:
+  odt_paths:
+    - "resources/data/restricted/data-augmentation/output/Resoluciones 2024.odt"
+    - "resources/data/restricted/data-augmentation/output/Resoluciones 2025.odt"
+  less_frequent_labels_path: "notebooks/data-preparation/new-datasets/top-15-less-frequent-labels.txt"
+  original_train_unique_labels_path: "notebooks/data-preparation/new-datasets/original-train-unique-labels.txt"
+  output_dir: "resources/outputs/data-augmentation"
+  run_dir_name_template: "{timestamp}"
+  jsonl_filename: "augmented_paragraphs.jsonl"
+  bio_filename: "augmented_train.txt"
+  alignments_dirname: "alignments"
+
+api:
+  base_url: "http://localhost:8000"
+  document_extract_path: "/misc/document-extract"
+  timeout_s: 300
+
+ollama:
+  model: "qwen3:8b"
+  keep_alive: "5m"
+  num_ctx: 8192
+  temperature: 0
+  allow_missing_labels: true
+  allow_non_faker_values: true
+
+generation:
+  target_label_count: 15
+  candidates_per_label: 5
+  max_attempts_per_label: 50
+  max_paragraphs: 10
+  run_with_ollama: true
+
+normalization:
+  fuzzy_threshold: 0.75
+  strict_require_all_raw_labels_mapped: true
+  exact_map: {}
