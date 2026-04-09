@@ -17,18 +17,18 @@ from flair.datasets import ColumnCorpus
 from flair.models import SequenceTagger
 from mlflow.tracking import MlflowClient
 
-from aymurai.experiments.ner_flair_finetunning.config import (
+from aymurai.experiments.ner_flair_finetuning.config import (
     NERFinetuningConfig,
     load_experiment_config,
     render_run_name,
 )
-from aymurai.experiments.ner_flair_finetunning.loaders import (
+from aymurai.experiments.ner_flair_finetuning.loaders import (
     build_span_comparison_row,
     flair_to_prediction,
     sentence_to_canonical_sample,
 )
-from aymurai.experiments.ner_flair_finetunning.metrics import evaluate_predictions
-from aymurai.experiments.ner_flair_finetunning.mlflow_logging import (
+from aymurai.experiments.ner_flair_finetuning.metrics import evaluate_predictions
+from aymurai.experiments.ner_flair_finetuning.mlflow_logging import (
     configure_mlflow,
     log_run_metadata,
     log_span_comparison_trace,
@@ -43,11 +43,11 @@ from aymurai.experiments.ner_flair_finetunning.mlflow_logging import (
     write_jsonl,
     write_label_metrics_csv,
 )
-from aymurai.experiments.ner_flair_finetunning.train import (
+from aymurai.experiments.ner_flair_finetuning.train import (
     build_stacked_tagger,
     execute_training,
 )
-from aymurai.experiments.ner_flair_finetunning.types import (
+from aymurai.experiments.ner_flair_finetuning.types import (
     prediction_to_dict,
     sample_to_dict,
     score_to_dict,

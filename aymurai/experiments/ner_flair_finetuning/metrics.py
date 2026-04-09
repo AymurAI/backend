@@ -4,11 +4,11 @@ from collections import Counter, defaultdict
 from statistics import mean
 from typing import Any
 
-from aymurai.experiments.ner_flair_finetunning.loaders import (
+from aymurai.experiments.ner_flair_finetuning.loaders import (
     spans_to_bio,
     token_offsets_from_text,
 )
-from aymurai.experiments.ner_flair_finetunning.types import (
+from aymurai.experiments.ner_flair_finetuning.types import (
     BackendPrediction,
     CanonicalSample,
     CanonicalSpan,

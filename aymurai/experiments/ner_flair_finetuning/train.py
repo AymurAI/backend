@@ -14,7 +14,7 @@ from flair.models import SequenceTagger
 from flair.trainers import ModelTrainer
 from torch.optim.lr_scheduler import OneCycleLR
 
-from aymurai.experiments.ner_flair_finetunning.config import (
+from aymurai.experiments.ner_flair_finetuning.config import (
     FlairModelConfig,
     TrainingConfig,
 )

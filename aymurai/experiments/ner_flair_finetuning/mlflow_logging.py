@@ -16,7 +16,7 @@ import pandas as pd
 from mlflow.tracking import MlflowClient
 from pandas.errors import EmptyDataError, ParserError
 
-from aymurai.experiments.ner_flair_finetunning.config import NERFinetuningConfig
+from aymurai.experiments.ner_flair_finetuning.config import NERFinetuningConfig
 from aymurai.logger import get_logger
 from aymurai.utils.yaml_data import save_yaml
 

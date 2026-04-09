@@ -5,7 +5,7 @@ from typing import Any
 
 from flair.data import Sentence
 
-from aymurai.experiments.ner_flair_finetunning.types import (
+from aymurai.experiments.ner_flair_finetuning.types import (
     BackendPrediction,
     CanonicalSample,
     CanonicalSpan,
