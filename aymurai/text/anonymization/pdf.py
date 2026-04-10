@@ -1581,6 +1581,128 @@ def _try_image_entity(
     return best
 
 
+def _append_cleanup_rect(
+    cleanup_rects: dict[int, list[pymupdf.Rect]],
+    page_idx: int,
+    rect: pymupdf.Rect | tuple[float, float, float, float] | None,
+) -> None:
+    if rect is None:
+        return
+
+    cleanup_rect = pymupdf.Rect(rect)
+    if cleanup_rect.get_area() <= 0:
+        return
+    cleanup_rects.setdefault(page_idx, []).append(cleanup_rect)
+
+
+def _cleanup_rect_for_page_op(op: dict[str, Any]) -> pymupdf.Rect | None:
+    if op.get("image_rect") is not None:
+        cleanup_rect = pymupdf.Rect(op["image_rect"])
+        redact_rect = op.get("redact_rect")
+        if redact_rect is not None:
+            cleanup_rect.include_rect(pymupdf.Rect(redact_rect))
+        return cleanup_rect
+
+    cleanup_source = (
+        op.get("redact_rect") or op.get("background_rect") or op.get("canvas_rect")
+    )
+    if cleanup_source is None:
+        return None
+    return pymupdf.Rect(cleanup_source)
+
+
+def _cleanup_rect_for_widget_op(op: dict[str, Any]) -> pymupdf.Rect | None:
+    widget_info = op.get("widget_info") or {}
+    widget_rect = widget_info.get("rect")
+    if widget_rect is None:
+        return None
+    return pymupdf.Rect(widget_rect)
+
+
+def _cleanup_rect_for_signature_widget_op(op: dict[str, Any]) -> pymupdf.Rect | None:
+    widget_rect = op.get("widget_rect")
+    if widget_rect is not None:
+        return pymupdf.Rect(widget_rect)
+
+    background_rect = op.get("background_rect") or op.get("canvas_rect")
+    if background_rect is None:
+        return None
+    return pymupdf.Rect(background_rect)
+
+
+def _collect_link_cleanup_rects(
+    page_ops: dict[int, list[dict]],
+    widget_ops: dict[int, list[dict]],
+    signature_widget_ops: dict[int, list[dict]],
+) -> dict[int, list[pymupdf.Rect]]:
+    cleanup_rects: dict[int, list[pymupdf.Rect]] = {}
+
+    for page_idx, ops in page_ops.items():
+        for op in ops:
+            _append_cleanup_rect(cleanup_rects, page_idx, _cleanup_rect_for_page_op(op))
+
+    for page_idx, ops in widget_ops.items():
+        for op in ops:
+            _append_cleanup_rect(
+                cleanup_rects,
+                page_idx,
+                _cleanup_rect_for_widget_op(op),
+            )
+
+    for page_idx, ops in signature_widget_ops.items():
+        for op in ops:
+            _append_cleanup_rect(
+                cleanup_rects,
+                page_idx,
+                _cleanup_rect_for_signature_widget_op(op),
+            )
+
+    return cleanup_rects
+
+
+def _remove_overlapping_page_links(
+    doc: pymupdf.Document,
+    cleanup_rects: dict[int, list[pymupdf.Rect]],
+) -> None:
+    for page_idx, page_rects in cleanup_rects.items():
+        if not page_rects:
+            continue
+
+        page = doc[page_idx]
+        for link in list(page.get_links()):
+            link_rect = link.get("from")
+            if link_rect is None:
+                continue
+            link_rect = pymupdf.Rect(link_rect)
+            if not any(link_rect.intersects(rect) for rect in page_rects):
+                continue
+            try:
+                page.delete_link(link)
+            except Exception as exc:
+                logger.warning(
+                    "Failed to delete PDF link on page=%s rect=%s: %s",
+                    page_idx,
+                    tuple(round(value, 2) for value in link_rect),
+                    exc,
+                )
+
+
+def _scrub_pdf_metadata(doc: pymupdf.Document) -> None:
+    doc.set_metadata(
+        {
+            "title": "",
+            "author": "",
+            "subject": "",
+            "keywords": "",
+            "creator": "",
+            "producer": "",
+            "creationDate": "",
+            "modDate": "",
+            "trapped": "",
+        }
+    )
+
+
 def _apply_redactions(
     doc: pymupdf.Document,
     page_ops: dict[int, list[dict]],
@@ -1909,10 +2031,17 @@ class PdfAnonymizer(BaseAnonymizer):
                 render_context,
             )
             _apply_redactions(doc, page_ops, widget_ops, signature_widget_ops)
+            cleanup_rects = _collect_link_cleanup_rects(
+                page_ops,
+                widget_ops,
+                signature_widget_ops,
+            )
+            _remove_overlapping_page_links(doc, cleanup_rects)
+            _scrub_pdf_metadata(doc)
             _add_footer_watermark(doc)
 
             os.makedirs(output_dir, exist_ok=True)
             output_path = Path(output_dir) / f"{file_path.stem}.anonymized.pdf"
-            doc.save(str(output_path))
+            doc.save(str(output_path), garbage=4, clean=1, deflate=1)
 
         return str(output_path)
