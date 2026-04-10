@@ -144,11 +144,23 @@ endif
 	uv run --group mlops -- python -m aymurai.experiments.ner_langextract_alignment.runner --config $(CONFIG)
 
 export MLFLOW_TRACKING_URI=http://localhost:5005
-exp-ner-flair-finetunning:
+exp-ner-flair-finetuning:
 ifndef CONFIG
-	$(error CONFIG variable is required, e.g. make exp-ner-flair-finetunning CONFIG=resources/experiments/ner-flair-finetunning/ner_flair_finetunning.yml)
+	$(error CONFIG variable is required, e.g. make exp-ner-flair-finetuning CONFIG=resources/experiments/ner-flair-finetuning/ner_flair_finetuning.yml)
 endif
-	uv run --group mlops -- python -m aymurai.experiments.ner_flair_finetunning.runner --config $(CONFIG)
+	uv run --group mlops -- python -m aymurai.experiments.ner_flair_finetuning.runner --config $(CONFIG)
+
+data-augmentation-run:
+ifndef CONFIG
+	$(error CONFIG variable is required, e.g. make data-augmentation-run CONFIG=resources/experiments/data-augmentation/data_augmentation_run.yml)
+endif
+	uv run python -m aymurai.data_augmentation.runner --config $(CONFIG)
+
+training-dataset-generation-run:
+ifndef CONFIG
+	$(error CONFIG variable is required, e.g. make training-dataset-generation-run CONFIG=resources/experiments/training-dataset-generation/config-template.yml)
+endif
+	uv run python -m aymurai.training_dataset_generation.runner --config $(CONFIG)
 
 
 stress-test:
