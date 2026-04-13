@@ -154,13 +154,13 @@ data-augmentation-run:
 ifndef CONFIG
 	$(error CONFIG variable is required, e.g. make data-augmentation-run CONFIG=resources/experiments/data-augmentation/data_augmentation_run.yml)
 endif
-	uv run python -m aymurai.data_augmentation.runner --config $(CONFIG)
+	uv run python -m aymurai.experiments.data_augmentation.runner --config $(CONFIG)
 
 training-dataset-generation-run:
 ifndef CONFIG
 	$(error CONFIG variable is required, e.g. make training-dataset-generation-run CONFIG=resources/experiments/training-dataset-generation/config-template.yml)
 endif
-	uv run python -m aymurai.training_dataset_generation.runner --config $(CONFIG)
+	uv run python -m aymurai.experiments.training_dataset_generation.runner --config $(CONFIG)
 
 
 stress-test:

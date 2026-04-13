@@ -19,7 +19,7 @@ import requests
 from pydantic import BaseModel
 from tqdm.auto import tqdm
 
-from aymurai.data_augmentation.config import (
+from aymurai.experiments.data_augmentation.config import (
     DataAugmentationRunConfig,
     load_data_augmentation_config,
     render_run_dir_name,

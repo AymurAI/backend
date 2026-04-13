@@ -5,13 +5,13 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
-from aymurai.training_dataset_generation.config import (
+from aymurai.experiments.training_dataset_generation.config import (
     TrainingDatasetGenerationConfig,
     build_strategy_slug,
     load_training_dataset_generation_config,
     render_run_dir_name,
 )
-from aymurai.training_dataset_generation.core import (
+from aymurai.experiments.training_dataset_generation.core import (
     calculate_train_set_stats,
     export_jsonl,
     filter_labeled_candidates,

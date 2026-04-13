@@ -6,7 +6,7 @@ from joblib import hash
 from datasets import Dataset
 from more_itertools import unzip, flatten
 
-from aymurai.data_augmentation.anonymizer_entities import faker
+from aymurai.experiments.data_augmentation.anonymizer_entities import faker
 
 from .utils import compute_label_weights
 
