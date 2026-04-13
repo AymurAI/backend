@@ -595,7 +595,7 @@ def load_augmentation_registry(project_root: Path) -> tuple[dict[str, Any], Any]
     try:
         os.chdir(notebook_like_cwd)
         module = importlib.import_module(
-            "aymurai.data_augmentation.anonymizer_entities"
+            "aymurai.experiments.data_augmentation.anonymizer_entities"
         )
     finally:
         os.chdir(original_cwd)
