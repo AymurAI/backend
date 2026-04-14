@@ -66,6 +66,14 @@ class Settings(BaseSettings):
 
     # Fuzzy Matching
     THRESHOLD: int = 70
+    ANONYMIZER_PREDICT_BATCH_SIZE: int = 1
+
+    @field_validator("ANONYMIZER_PREDICT_BATCH_SIZE")
+    @classmethod
+    def validate_anonymizer_predict_batch_size(cls, v: int) -> int:
+        if v < 1:
+            raise ValueError("ANONYMIZER_PREDICT_BATCH_SIZE must be >= 1")
+        return v
 
     # LLM
     MODEL: str = "phi4:14b"

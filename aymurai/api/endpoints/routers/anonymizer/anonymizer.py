@@ -3,6 +3,7 @@ import os
 import subprocess
 import tempfile
 from threading import Lock
+from typing import List
 
 import torch
 from fastapi import Body, Depends, Form, Query, UploadFile
@@ -47,6 +48,7 @@ logger = get_logger(__name__)
 
 
 RESOURCES_BASEPATH = settings.RESOURCES_BASEPATH
+ANONYMIZER_PREDICT_BATCH_SIZE = settings.ANONYMIZER_PREDICT_BATCH_SIZE
 torch.set_num_threads = 100  # FIXME: polemic ?
 pipeline_lock = Lock()
 
@@ -337,6 +339,110 @@ async def anonymizer_paragraph_predict(
         paragraph = anonymization_paragraph_create(paragraph, session=session)
 
     return DocumentInformation(document=text, labels=labels)
+
+
+# MARK: Predict Batch
+@router.post("/predict-batch", response_model=DocumentAnnotations)
+async def anonymizer_batch_predict(
+    text_request: List[TextRequest] = Body(
+        default=[
+            {"text": "Acusado: Ramiro Marrón ID 34.555.666."},
+            {"text": "Juez: Dr. Pablo Lopez."},
+        ],
+        description="A list of paragraphs to be anonymized.",
+    ),
+    use_cache: bool = Query(
+        True, description="Use cache to store or retrieve predictions"
+    ),
+    session: Session = Depends(get_session),
+) -> DocumentAnnotations:
+    """Predicts anonymization labels for a batch of text paragraphs.
+
+    Args:
+        text_request: A list of `TextRequest` objects to be processed.
+        use_cache: A boolean flag. If True, the system will attempt to retrieve
+            results from the database and store new predictions after inference.
+        session: The SQLAlchemy database session provided via dependency injection.
+
+    Returns:
+        DocumentAnnotations with one `DocumentInformation` entry per input item.
+    """
+
+    logger.info(
+        f"Anonymization batch predict: processing {len(text_request)} paragraphs"
+    )
+
+    if not text_request:
+        return DocumentAnnotations(data=[])
+
+    texts = [item.text for item in text_request]
+    results: list[DocumentInformation | None] = [None] * len(texts)
+    to_predict_indices = []
+
+    uuids = [text_to_uuid(text) for text in texts]
+
+    if use_cache:
+        cached_entries = (
+            session.query(AnonymizationParagraph)
+            .filter(AnonymizationParagraph.id.in_(uuids))
+            .all()
+        )
+        cache_map = {item.id: item for item in cached_entries}
+        logger.info(f"Cache lookup completed. Found {len(cache_map)} hits.")
+    else:
+        cache_map = {}
+
+    for i, (text, p_id) in enumerate(zip(texts, uuids)):
+        if p_id in cache_map:
+            cached = cache_map[p_id]
+            labels = _entities_to_doclabels(cached.prediction or [])
+            results[i] = DocumentInformation(document=cached.text, labels=labels)
+        else:
+            to_predict_indices.append(i)
+
+    if to_predict_indices:
+        logger.info(f"Running inference for {len(to_predict_indices)} missing items")
+        batch_size = ANONYMIZER_PREDICT_BATCH_SIZE or 1
+        logger.info("predict-batch chunk size: %d", batch_size)
+
+        pipeline = load_pipeline(
+            os.path.join(
+                RESOURCES_BASEPATH, "pipelines", "production", "flair-anonymizer"
+            )
+        )
+
+        for offset in range(0, len(to_predict_indices), batch_size):
+            chunk_indices = to_predict_indices[offset : offset + batch_size]
+            texts_to_process = [texts[i] for i in chunk_indices]
+
+            with pipeline_lock:
+                items = [
+                    {"path": "empty", "data": {"doc.text": t}} for t in texts_to_process
+                ]
+                processed_items = pipeline.preprocess(items)
+                processed_items = pipeline.predict(processed_items)
+                processed_items = pipeline.postprocess(processed_items)
+
+            new_cache_objects: list[AnonymizationParagraphCreate] = []
+            for idx, processed in zip(chunk_indices, processed_items):
+                text = get_element(processed, ["data", "doc.text"]) or ""
+                raw_entities = get_element(processed, ["predictions", "entities"]) or []
+                labels = _entities_to_doclabels(raw_entities)
+
+                results[idx] = DocumentInformation(document=text, labels=labels)
+
+                if use_cache:
+                    new_cache_objects.append(
+                        AnonymizationParagraphCreate(text=text, prediction=labels)
+                    )
+
+            if new_cache_objects:
+                anonymization_paragraph_batch_create_update(
+                    new_cache_objects, session=session
+                )
+
+    predictions = [prediction for prediction in results if prediction is not None]
+    return DocumentAnnotations(data=predictions)
 
 
 # MARK: Disambiguate

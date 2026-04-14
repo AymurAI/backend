@@ -73,6 +73,7 @@ def run_safe_text_extraction(
             raise
 
 
+# MARK: Document Extraction
 @router.post("/document-extract", response_model=Document)
 def plain_text_extractor(
     file: UploadFile,
