@@ -108,11 +108,13 @@ def build_stacked_tagger(corpus: Corpus, config: FlairModelConfig) -> SequenceTa
         [
             TransformerWordEmbeddings(
                 config.model_id,
-                layers="-1",
-                subtoken_pooling="first",
+                layers=config.layers if hasattr(config, "layers") else "-1",
+                subtoken_pooling=config.subtoken_pooling
+                if hasattr(config, "subtoken_pooling")
+                else "first",
                 fine_tune=config.fine_tune,
                 use_context=config.use_context,
-                allow_long_sentences=True,
+                allow_long_sentences=config.allow_long_sentences,
             ),
             FlairEmbeddings(config.flair_forward),
             FlairEmbeddings(config.flair_backward),
@@ -128,6 +130,7 @@ def build_stacked_tagger(corpus: Corpus, config: FlairModelConfig) -> SequenceTa
         use_crf=config.use_crf,
         use_rnn=config.use_rnn,
         reproject_embeddings=config.reproject_embeddings,
+        dropout=config.dropout if hasattr(config, "dropout") else 0.0,
     )
 
 

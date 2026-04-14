@@ -13,12 +13,16 @@ backend:
 flair_model:
   finetune_from: "aymurai/anonymizer-beto-cased-flair"
   model_id: "dccuchile/bert-base-spanish-wwm-cased"
+  layers: "-1"
+  subtoken_pooling: "first"
   fine_tune: true
   use_context: true
+  allow_long_sentences: true
   hidden_size: 256
   use_crf: true
   use_rnn: true
   reproject_embeddings: true
+  dropout: 0.0
   flair_forward: "es-forward"
   flair_backward: "es-backward"
 

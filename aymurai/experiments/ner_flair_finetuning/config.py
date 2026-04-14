@@ -36,12 +36,16 @@ class FlairModelConfig(BaseModel):
 
     finetune_from: str | None = None
     model_id: str = "dccuchile/bert-base-spanish-wwm-cased"
+    layers: str = "-1"
+    subtoken_pooling: str = "first"
     fine_tune: bool = True
     use_context: bool = True
+    allow_long_sentences: bool = True
     hidden_size: int = 256
     use_crf: bool = True
     use_rnn: bool = True
     reproject_embeddings: bool = True
+    dropout: float = 0.0
     flair_forward: str = "es-forward"
     flair_backward: str = "es-backward"
 
