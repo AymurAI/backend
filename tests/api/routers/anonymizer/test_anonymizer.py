@@ -152,6 +152,35 @@ def test_pdf_anonymizer_scrubs_pdf_payloads_and_preserves_safe_links(tmp_path):
 
 
 @pytest.mark.integration
+def test_pdf_anonymizer_moves_watermark_away_from_footer_content(tmp_path):
+    document = "Ana Perez presento el escrito"
+    footer_rect = pymupdf.Rect(360, 760, 575, 815)
+
+    def configure(_doc: pymupdf.Document, page: pymupdf.Page) -> None:
+        page.insert_text((72, 72), document)
+        page.draw_rect(footer_rect, color=(0, 0, 0), fill=(0, 0, 0), overlay=True)
+
+    source_path = _write_pdf(tmp_path / "footer-watermark.pdf", configure)
+    output_path = _run_pdf_anonymizer(
+        tmp_path,
+        source_path,
+        document,
+        [_label_dict("Ana Perez")],
+    )
+
+    with pymupdf.open(output_path) as output_doc:
+        page = output_doc[0]
+        watermark_links = [
+            link for link in page.get_links() if link.get("uri") == WATERMARK_URL
+        ]
+
+        assert len(watermark_links) == 1
+        watermark_rect = pymupdf.Rect(watermark_links[0]["from"])
+        assert not watermark_rect.intersects(footer_rect)
+        assert watermark_rect.x1 < footer_rect.x0
+
+
+@pytest.mark.integration
 def test_pdf_anonymizer_removes_image_backed_entities(tmp_path):
     source_path = _write_pdf(
         tmp_path / "image.pdf",
