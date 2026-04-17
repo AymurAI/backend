@@ -162,6 +162,12 @@ ifndef CONFIG
 endif
 	uv run python -m aymurai.experiments.training_dataset_generation.runner --config $(CONFIG)
 
+synthetic-paragraph-generation-run:
+ifndef CONFIG
+	$(error CONFIG variable is required, e.g. make synthetic-paragraph-generation-run CONFIG=resources/experiments/synthetic-paragraph-generation/synthetic-paragraph-generation.yml)
+endif
+	uv run python -m aymurai.experiments.synthetic_paragraph_generation.runner --config $(CONFIG)
+
 
 stress-test:
 	locust -f locustfile.py --host http://localhost:8899
