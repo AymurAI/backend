@@ -1,13 +1,243 @@
+import base64
 import json
+import re
 import subprocess
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import pymupdf
 import pytest
+from docx import Document
 
 from aymurai.database.schema import AnonymizationParagraph
 from aymurai.database.utils import text_to_uuid
+from aymurai.text.anonymization import DocxAnonymizer, PdfAnonymizer, get_anonymizer
 from tests.api.conftest import build_label
 from tests.api.routers.conftest import build_mock_pipeline
+
+PNG_1X1 = base64.b64decode(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a6R8AAAAASUVORK5CYII="
+)
+WATERMARK_URL = "https://www.aymurai.info/"
+
+
+def _write_pdf(path: Path, configure) -> Path:
+    doc = pymupdf.open()
+    page = doc.new_page()
+    configure(doc, page)
+    doc.save(path)
+    doc.close()
+    return path
+
+
+def _label_dict(text: str, label: str = "PER", **attrs) -> dict:
+    payload = build_label(label, text).model_dump(mode="json")
+    payload["attrs"].update(attrs)
+    return payload
+
+
+def _run_pdf_anonymizer(
+    tmp_path: Path,
+    source_path: Path,
+    document: str,
+    labels: list[dict],
+) -> Path:
+    output_dir = tmp_path / "out"
+    output_dir.mkdir(exist_ok=True)
+    output_path = PdfAnonymizer().anonymize(
+        {"path": str(source_path)},
+        [{"document": document, "labels": labels}],
+        str(output_dir),
+    )
+    return Path(output_path)
+
+
+@pytest.mark.integration
+def test_anonymization_package_exports_and_registry_are_stable():
+    assert PdfAnonymizer.__name__ == "PdfAnonymizer"
+    assert DocxAnonymizer.__name__ == "DocxAnonymizer"
+    assert isinstance(get_anonymizer("pdf"), PdfAnonymizer)
+    assert isinstance(get_anonymizer("docx"), DocxAnonymizer)
+
+
+@pytest.mark.integration
+def test_pdf_anonymizer_falls_back_from_invalid_alt_offsets(tmp_path):
+    document = "Ana Perez firmo el escrito"
+    source_path = _write_pdf(
+        tmp_path / "invalid-alt.pdf",
+        lambda _doc, page: page.insert_text((72, 72), document),
+    )
+    labels = [
+        _label_dict(
+            "Ana Perez",
+            aymurai_alt_start_char=999,
+            aymurai_alt_end_char=1000,
+        )
+    ]
+
+    output_path = _run_pdf_anonymizer(tmp_path, source_path, document, labels)
+
+    with pymupdf.open(output_path) as output_doc:
+        page_text = output_doc[0].get_text()
+
+    assert "Ana Perez" not in page_text
+    assert "<PER>" in page_text
+
+
+@pytest.mark.integration
+def test_pdf_anonymizer_scrubs_pdf_payloads_and_preserves_safe_links(tmp_path):
+    document = "Ana Perez presento el escrito"
+
+    def configure(doc: pymupdf.Document, page: pymupdf.Page) -> None:
+        page.insert_text((72, 72), document)
+        sensitive_rect = page.search_for("Ana Perez")[0]
+        page.insert_link(
+            {
+                "kind": pymupdf.LINK_URI,
+                "from": sensitive_rect,
+                "uri": "https://secret.example",
+            }
+        )
+        safe_rect = pymupdf.Rect(72, 140, 180, 155)
+        page.insert_text((72, 150), "Portal publico")
+        page.insert_link(
+            {
+                "kind": pymupdf.LINK_URI,
+                "from": safe_rect,
+                "uri": "https://safe.example",
+            }
+        )
+        page.add_file_annot((220, 72), b"attached secret", "attached.txt")
+        doc.set_metadata(
+            {
+                "title": "Secret title",
+                "author": "Secret author",
+                "subject": "Secret subject",
+                "keywords": "alpha,beta",
+                "creator": "Secret creator",
+                "producer": "Secret producer",
+            }
+        )
+        doc.set_xml_metadata("<x:xmpmeta>top-secret</x:xmpmeta>")
+        doc.embfile_add("secret.txt", b"secret bytes", filename="secret.txt")
+
+    source_path = _write_pdf(tmp_path / "metadata.pdf", configure)
+    labels = [_label_dict("Ana Perez")]
+
+    output_path = _run_pdf_anonymizer(tmp_path, source_path, document, labels)
+
+    with pymupdf.open(output_path) as output_doc:
+        page = output_doc[0]
+        link_uris = {link.get("uri") for link in page.get_links()}
+
+        assert output_doc.metadata.get("title") == ""
+        assert output_doc.metadata.get("subject") == ""
+        assert output_doc.metadata.get("keywords") == ""
+        assert output_doc.metadata.get("creationDate") == ""
+        assert re.fullmatch(
+            r"D:\d{14}\+00'00'",
+            output_doc.metadata.get("modDate") or "",
+        )
+        assert output_doc.metadata.get("trapped") == ""
+        assert output_doc.metadata.get("author") == ""
+        assert output_doc.metadata.get("creator") == "AymurAI"
+        assert output_doc.metadata.get("producer") == "AymurAI"
+        assert not output_doc.get_xml_metadata()
+        assert output_doc.embfile_names() == []
+        assert list(page.annots() or []) == []
+        assert "https://secret.example" not in link_uris
+        assert "https://safe.example" in link_uris
+        assert WATERMARK_URL in link_uris
+
+
+@pytest.mark.integration
+def test_pdf_anonymizer_removes_image_backed_entities(tmp_path):
+    source_path = _write_pdf(
+        tmp_path / "image.pdf",
+        lambda _doc, page: (
+            page.insert_image(pymupdf.Rect(60, 60, 220, 110), stream=PNG_1X1),
+            page.insert_text((80, 90), "Ana Perez"),
+        ),
+    )
+
+    output_path = _run_pdf_anonymizer(
+        tmp_path,
+        source_path,
+        "Ana Perez",
+        [_label_dict("Ana Perez")],
+    )
+
+    with pymupdf.open(output_path) as output_doc:
+        page = output_doc[0]
+        page_text = page.get_text()
+
+        assert page.get_image_info() == []
+        assert "Ana Perez" not in page_text
+        assert "<PER>" in page_text
+
+
+@pytest.mark.integration
+def test_pdf_anonymizer_removes_signature_widgets_without_restoring_appearance(
+    tmp_path,
+):
+    def configure(_doc: pymupdf.Document, page: pymupdf.Page) -> None:
+        page.insert_text((80, 90), "Ana Perez")
+        widget = pymupdf.Widget()
+        widget.field_name = "sig_1"
+        widget.field_type = pymupdf.PDF_WIDGET_TYPE_SIGNATURE
+        widget.rect = pymupdf.Rect(60, 60, 220, 110)
+        page.add_widget(widget)
+
+    source_path = _write_pdf(tmp_path / "signature.pdf", configure)
+    output_path = _run_pdf_anonymizer(
+        tmp_path,
+        source_path,
+        "Ana Perez",
+        [_label_dict("Ana Perez")],
+    )
+
+    with pymupdf.open(output_path) as output_doc:
+        page = output_doc[0]
+        page_text = page.get_text()
+
+        assert list(page.widgets() or []) == []
+        assert page.get_image_info() == []
+        assert "Ana Perez" not in page_text
+        assert "<PER>" in page_text
+
+
+@pytest.mark.integration
+def test_docx_anonymizer_sets_aymurai_core_properties(tmp_path):
+    source_path = tmp_path / "source.docx"
+    document = Document()
+    document.add_paragraph("Ana Perez firmo el escrito")
+    document.core_properties.author = "Sensitive Author"
+    document.core_properties.last_modified_by = "Sensitive Modifier"
+    document.save(source_path)
+
+    started_at = datetime.now(timezone.utc).replace(microsecond=0)
+
+    output_path = DocxAnonymizer().anonymize(
+        {"path": str(source_path)},
+        [
+            {
+                "document": "Ana Perez firmo el escrito",
+                "labels": [_label_dict("Ana Perez")],
+            }
+        ],
+        str(tmp_path / "out"),
+    )
+
+    output_document = Document(output_path)
+    core_properties = output_document.core_properties
+    assert core_properties.author == ""
+    assert core_properties.last_modified_by == "AymurAI"
+    assert core_properties.modified is not None
+    modified = core_properties.modified
+    if modified.tzinfo is None:
+        modified = modified.replace(tzinfo=timezone.utc)
+    assert started_at <= modified <= datetime.now(timezone.utc) + timedelta(seconds=5)
 
 
 @pytest.mark.integration
@@ -293,6 +523,40 @@ def test_should_return_validation_when_paragraph_exists(client, db_session):
 
 
 @pytest.mark.integration
+@patch("aymurai.api.endpoints.routers.anonymizer.anonymizer.get_anonymizer")
+def test_should_return_application_pdf_when_pdf_document_is_anonymized(
+    mock_get_anonymizer,
+    client,
+    tmp_path,
+):
+    anonymized_path = _write_pdf(
+        tmp_path / "output.pdf",
+        lambda _doc, page: page.insert_text((72, 72), "Anonymized PDF output"),
+    )
+    mock_get_anonymizer.return_value = MagicMock(return_value=str(anonymized_path))
+
+    annotations = {
+        "data": [
+            {
+                "document": "Ana Perez presento el escrito",
+                "labels": [build_label("PER", "Ana Perez").model_dump(mode="json")],
+            }
+        ],
+        "label_policies": {"PER": {"anonymize": True, "disambiguation": "none"}},
+        "render_policy": {"suffix_mode": "auto", "suffix_threshold": 1},
+    }
+
+    response = client.post(
+        "/anonymizer/anonymize-document",
+        data={"annotations": json.dumps(annotations)},
+        files={"file": ("sample.pdf", b"%PDF-1.4 fake", "application/pdf")},
+    )
+
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "application/pdf"
+    assert len(response.content) > 0
+
+
 @patch("aymurai.api.endpoints.routers.anonymizer.anonymizer.subprocess.check_output")
 @patch("aymurai.api.endpoints.routers.anonymizer.anonymizer.get_anonymizer")
 def test_should_anonymize_document_when_annotations_are_valid(
