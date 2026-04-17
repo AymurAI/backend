@@ -338,7 +338,7 @@ def index_paragraphs(file: str) -> list[dict]:
         list[dict]: A list of dictionaries representing the indexed paragraphs.
     """
     # Read the XML file
-    with open(file) as f:
+    with open(file, encoding="utf-8-sig") as f:
         xml = f.read()
 
     paragraphs = []
