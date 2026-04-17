@@ -116,7 +116,6 @@ def _label_replacement_text(label: dict, document: str) -> str:
         start_char, end_char = int(alt_start), int(alt_end)
         if 0 <= start_char < end_char <= len(document):
             return document[start_char:end_char]
-        return ""
 
     start_char = int(label.get("start_char") or 0)
     end_char = int(label.get("end_char") or 0)
