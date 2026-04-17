@@ -2,6 +2,7 @@ import base64
 import json
 import re
 import subprocess
+import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -13,6 +14,7 @@ from docx import Document
 from aymurai.database.schema import AnonymizationParagraph
 from aymurai.database.utils import text_to_uuid
 from aymurai.text.anonymization import DocxAnonymizer, PdfAnonymizer, get_anonymizer
+from aymurai.text.anonymization.alignment import index_paragraphs
 from tests.api.conftest import build_label
 from tests.api.routers.conftest import build_mock_pipeline
 
@@ -20,6 +22,12 @@ PNG_1X1 = base64.b64decode(
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a6R8AAAAASUVORK5CYII="
 )
 WATERMARK_URL = "https://www.aymurai.info/"
+
+WINDOWS_PYMUPDF_LAYOUT_XFAIL = pytest.mark.xfail(
+    sys.platform == "win32",
+    reason="pymupdf4llm ONNX layout model receives int32 tensors on Windows (expects int64)",
+    strict=False,
+)
 
 
 def _write_pdf(path: Path, configure) -> Path:
@@ -62,6 +70,7 @@ def test_anonymization_package_exports_and_registry_are_stable():
 
 
 @pytest.mark.integration
+@WINDOWS_PYMUPDF_LAYOUT_XFAIL
 def test_pdf_anonymizer_falls_back_from_invalid_alt_offsets(tmp_path):
     document = "Ana Perez firmo el escrito"
     source_path = _write_pdf(
@@ -86,6 +95,7 @@ def test_pdf_anonymizer_falls_back_from_invalid_alt_offsets(tmp_path):
 
 
 @pytest.mark.integration
+@WINDOWS_PYMUPDF_LAYOUT_XFAIL
 def test_pdf_anonymizer_scrubs_pdf_payloads_and_preserves_safe_links(tmp_path):
     document = "Ana Perez presento el escrito"
 
@@ -152,6 +162,7 @@ def test_pdf_anonymizer_scrubs_pdf_payloads_and_preserves_safe_links(tmp_path):
 
 
 @pytest.mark.integration
+@WINDOWS_PYMUPDF_LAYOUT_XFAIL
 def test_pdf_anonymizer_moves_watermark_away_from_footer_content(tmp_path):
     document = "Ana Perez presento el escrito"
     footer_rect = pymupdf.Rect(360, 760, 575, 815)
@@ -181,6 +192,7 @@ def test_pdf_anonymizer_moves_watermark_away_from_footer_content(tmp_path):
 
 
 @pytest.mark.integration
+@WINDOWS_PYMUPDF_LAYOUT_XFAIL
 def test_pdf_anonymizer_removes_image_backed_entities(tmp_path):
     source_path = _write_pdf(
         tmp_path / "image.pdf",
@@ -207,6 +219,7 @@ def test_pdf_anonymizer_removes_image_backed_entities(tmp_path):
 
 
 @pytest.mark.integration
+@WINDOWS_PYMUPDF_LAYOUT_XFAIL
 def test_pdf_anonymizer_removes_signature_widgets_without_restoring_appearance(
     tmp_path,
 ):
@@ -234,6 +247,24 @@ def test_pdf_anonymizer_removes_signature_widgets_without_restoring_appearance(
         assert page.get_image_info() == []
         assert "Ana Perez" not in page_text
         assert "<PER>" in page_text
+
+
+def test_index_paragraphs_reads_docx_xml_as_utf8(tmp_path):
+    xml_path = tmp_path / "document.xml"
+    xml_path.write_bytes(
+        """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:body>
+    <w:p><w:r><w:t>Señora — resolución</w:t></w:r></w:p>
+  </w:body>
+</w:document>
+""".encode("utf-8")
+    )
+
+    paragraphs = index_paragraphs(str(xml_path))
+
+    assert len(paragraphs) == 1
+    assert paragraphs[0]["plain_text"] == "Señora — resolución"
 
 
 @pytest.mark.integration
