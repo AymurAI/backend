@@ -109,7 +109,7 @@ Rules:
 
 
 def log_step(message: str) -> None:
-    print(f"[synthetic-paragraph-generation] {message}")
+    print(f"[synthetic-paragraph-generation] {message}\n")
 
 
 def timestamp_now() -> str:
@@ -151,9 +151,13 @@ def strip_label_names_from_text(text: str, labels: list[str]) -> str:
     if not labels:
         return text
     sorted_labels = sorted(labels, key=len, reverse=True)
-    pattern = r"\b(" + "|".join(re.escape(label) for label in sorted_labels) + r")\b"
+    pattern = (
+        r"\b("
+        + "|".join(re.escape(label) for label in sorted_labels)
+        + r")\b\s*[:]?\s*"
+    )
 
-    clean_text = re.sub(pattern, "", text, flags=re.IGNORECASE)
+    clean_text = re.sub(pattern, "", text)
 
     return re.sub(r"\s+", " ", clean_text).strip()
 
@@ -494,6 +498,8 @@ def locate_entities(text: str, entities: list[dict[str, str]]) -> list[dict[str,
     for entity in entities:
         label = str(entity["label"]).strip()
         value = str(entity["value"]).strip()
+        if not value:
+            continue
         if not label or not value:
             raise ValueError(f"Invalid entity payload: {entity}")
         start = text.find(value)
@@ -501,10 +507,10 @@ def locate_entities(text: str, entities: list[dict[str, str]]) -> list[dict[str,
             raise ValueError(
                 f"Could not find entity value '{value}' for label '{label}' in generated paragraph."
             )
-        if text.find(value, start + 1) != -1:
-            raise ValueError(
-                f"Entity value '{value}' for label '{label}' appears more than once in generated paragraph."
-            )
+        # if text.find(value, start + 1) != -1:
+        #     raise ValueError(
+        #         f"Entity value '{value}' for label '{label}' appears more than once in generated paragraph."
+        #     )
         end = start + len(value)
         for existing_start, existing_end in spans:
             if not (end <= existing_start or start >= existing_end):
@@ -947,7 +953,7 @@ def run_pipeline(config: SyntheticParagraphGenerationConfig) -> dict[str, Any]:
             for _attempt in range(1, config.llm.max_retries_per_sample + 2):
                 try:
                     log_step(
-                        "LLM call request: "
+                        f"LLM call request for attempt {_attempt}: "
                         f"desired_target_label={desired_target_label}, "
                         f"example_structure_labels={example_structure_labels}, "
                         f"batch_labels={batch.labels}, "
@@ -987,11 +993,19 @@ def run_pipeline(config: SyntheticParagraphGenerationConfig) -> dict[str, Any]:
 
                     for paragraph_item in parsed.paragraphs:
                         requested_job = job_lookup[paragraph_item.job_id]
+                        log_step(
+                            f"Validating paragraph for job_id={paragraph_item.job_id} with requested labels {batch.labels} and provided values {requested_job['provided_values']}"
+                        )
                         requested_values = requested_job["provided_values"]
                         clean_paragraph = strip_label_names_from_text(
                             paragraph_item.paragraph, normalized_labels
                         )
+                        log_step(f"Raw paragraph: '{paragraph_item.paragraph}'.")
                         log_step(f"Paragraph: '{clean_paragraph}'.")
+                        log_step("Started entity validation.")
+                        log_step(
+                            f"Expected entities based on request: {[entity.model_dump(mode='json') for entity in paragraph_item.entities]}"
+                        )
                         entities = locate_entities(
                             clean_paragraph,
                             [

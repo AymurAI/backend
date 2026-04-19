@@ -35,22 +35,22 @@ faker:
 sampling:
   target_total_synthetic: 1
   desired_target_labels:
-    # - NUM_CAJA_AHORRO
-    # - NOMBRE_ARCHIVO
-    # - IP
-    # - NUM_MATRICULA
-    # - USUARIX
-    # - CBU
-    # - CUIT_CUIL
+    - NUM_CAJA_AHORRO
+    - NOMBRE_ARCHIVO
+    - IP
+    - NUM_MATRICULA
+    - USUARIX
+    - CBU
+    - CUIT_CUIL
     - TEXTO_ANONIMIZAR
-    # - ESTUDIOS
-    # - PATENTE_DOMINIO
-    # - MARCA_AUTOMOVIL
-    # - BANCO
-    # - NACIONALIDAD
-    # - CORREO_ELECTRONICO
-    # - EDAD
-    # - LINK
+    - ESTUDIOS
+    - PATENTE_DOMINIO
+    - MARCA_AUTOMOVIL
+    - BANCO
+    - NACIONALIDAD
+    - CORREO_ELECTRONICO
+    - EDAD
+    - LINK
   seed: 42
 
 similarity:
