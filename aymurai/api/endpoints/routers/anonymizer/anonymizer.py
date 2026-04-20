@@ -422,8 +422,12 @@ async def anonymizer_disambiguate(
         else []
     )
 
+    logger.info("canonical entities detected were: %s", canonical_entities)
+
     if "FECHA" in fuzzy_labels:
         canonical_entities += get_canonical_dates(labels)
+
+    logger.info("canonical entities after adding dates: %s", canonical_entities)
 
     logger.info(
         "fuzzy clustering produced %d canonical entities", len(canonical_entities)
