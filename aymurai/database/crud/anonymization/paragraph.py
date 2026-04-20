@@ -27,7 +27,7 @@ def _serialize_doclabels(value: list[DocLabel] | None):
     """
     if value is None:
         return None
-    return _DOC_LABELS_ADAPTER.dump_python(value, mode="json")
+    return _DOC_LABELS_ADAPTER.dump_python(value, mode="json", exclude_none=True)
 
 
 def _normalize_paragraph_payload(payload: dict) -> dict:
@@ -63,7 +63,7 @@ def anonymization_paragraph_create(
     Returns:
         AnonymizationParagraph: The persisted paragraph record.
     """
-    payload = _normalize_paragraph_payload(paragraph_in.model_dump())
+    payload = _normalize_paragraph_payload(paragraph_in.model_dump(exclude_none=True))
     new_paragraph = AnonymizationParagraph(**payload)
 
     if override:
@@ -171,14 +171,14 @@ def anonymization_paragraph_batch_create_update(
 
         paragraph = session.get(AnonymizationParagraph, paragraph_id)
         if paragraph:
-            payload = _normalize_paragraph_payload(p_in.model_dump())
+            payload = _normalize_paragraph_payload(p_in.model_dump(exclude_none=True))
             payload.pop("id", None)
             for field, value in payload.items():
                 if value is not None:
                     setattr(paragraph, field, value)
 
         else:
-            payload = _normalize_paragraph_payload(p_in.model_dump())
+            payload = _normalize_paragraph_payload(p_in.model_dump(exclude_none=True))
             paragraph = AnonymizationParagraph(**payload)
 
         session.add(paragraph)

@@ -47,7 +47,7 @@ Editable source: [pipeline.excalidraw](pipeline.excalidraw)
 
 ### Core backend modules
 - Router: `aymurai/api/endpoints/routers/anonymizer/anonymizer.py`
-- Rendering: `aymurai/text/anonymization/doc_anonymizer.py`
+- Rendering: `aymurai/text/anonymization/docx.py` and `aymurai/text/anonymization/pdf.py`
 - Canonical entity mapping: `aymurai/utils/entity_disambiguation/`
 
 ## Persistence (DB)

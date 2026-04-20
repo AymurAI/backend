@@ -1,5 +1,6 @@
 import concurrent.futures
 import io
+import sys
 from unittest.mock import patch
 
 import pytest
@@ -74,6 +75,11 @@ def test_should_extract_real_text_from_sample_docx_without_mocking(client):
 
 @pytest.mark.integration
 @pytest.mark.slow
+@pytest.mark.xfail(
+    sys.platform == "win32",
+    reason="pymupdf4llm ONNX layout model receives int32 tensors on Windows (expects int64)",
+    strict=False,
+)
 def test_should_extract_real_text_from_pdf_without_mocking(client):
     """Test that a real PDF upload is extracted without mocking."""
     expected_paragraphs = [

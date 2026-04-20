@@ -5,7 +5,7 @@ import tempfile
 from threading import Lock
 
 import torch
-from fastapi import Body, Depends, Form, Query, UploadFile
+from fastapi import Body, Depends, Form, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse
 from fastapi.routing import APIRouter
 from sqlmodel import Session
@@ -31,7 +31,10 @@ from aymurai.meta.api_interfaces import (
     TextRequest,
 )
 from aymurai.settings import settings
-from aymurai.text.anonymization import DocAnonymizer, replace_labels_in_text
+from aymurai.text.anonymization import (
+    InvalidDocumentAnonymizer,
+    get_anonymizer,
+)
 from aymurai.text.extraction import MIMETYPE_EXTENSION_MAPPER
 from aymurai.utils.entity_disambiguation import (
     build_canonical_entities,
@@ -514,11 +517,21 @@ async def anonymizer_compile_document(
     """
     logger.info(f"receiving => {file.filename}")
     extension = MIMETYPE_EXTENSION_MAPPER.get(file.content_type)
-    logger.info(f"detection extension: {extension} ({file.content_type})")
+    file_suffix = os.path.splitext(file.filename or "")[1].lower()
+
+    if extension is None and file_suffix:
+        extension = file_suffix.lstrip(".")
+
+    if extension not in {"docx", "pdf"}:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported format for anonymization: {extension or 'unknown'}",
+        )
+
+    logger.info(f"detected extension: {extension} ({file.content_type})")
 
     # Create a temporary file
-    _, suffix = os.path.splitext(file.filename)
-    suffix = suffix if suffix == ".docx" else ".txt"
+    suffix = f".{extension}"
     tmp_dir = tempfile.gettempdir()
 
     # Use delete=False to avoid the file being deleted when the NamedTemporaryFile object is closed
@@ -537,7 +550,7 @@ async def anonymizer_compile_document(
 
     annots_json = json.loads(annotations)
     annots = DocumentAnnotations.model_validate(annots_json)
-    logger.info(f"processing annotations => {annots}")
+
     effective_label_policies = _merge_label_policies(annots.label_policies)
     effective_render_policy = _merge_render_policy(annots.render_policy)
 
@@ -562,9 +575,6 @@ async def anonymizer_compile_document(
         override=False,
     )
 
-    # Anonymize the document
-    doc_anonymizer = DocAnonymizer()
-
     filtered_annotations = []
     for paragraph in annots.data:
         filtered_labels = [
@@ -583,39 +593,36 @@ async def anonymizer_compile_document(
         filtered_annotations, effective_render_policy, effective_label_policies
     )
 
-    if suffix == ".docx":
-        item = {"path": tmp_filename}
-        doc_anonymizer.render_context = render_context
-        doc_anonymizer(
-            item,
-            [
-                document_information.model_dump()
-                for document_information in filtered_annotations
-            ],
+    preds = [
+        document_information.model_dump(mode="json", exclude_none=True)
+        for document_information in filtered_annotations
+    ]
+
+    try:
+        anonymizer = get_anonymizer(extension)
+        anonymized_path = anonymizer(
+            {"path": tmp_filename},
+            preds,
             tmp_dir,
+            render_context=render_context,
         )
-        logger.info(f"saved temp file on local storage => {tmp_filename}")
+    except (ValueError, InvalidDocumentAnonymizer) as exc:
+        if os.path.exists(tmp_filename):
+            os.remove(tmp_filename)
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
-    else:
-        # Export as raw document
-        anonymized_doc = [
-            replace_labels_in_text(
-                document_information.model_dump(),
-                render_context=render_context,
-            )
-            .replace("&lt;", "<")
-            .replace("&gt;", ">")
-            for document_information in filtered_annotations
-        ]
-        with open(tmp_filename, "w") as f:
-            f.write("\n".join(anonymized_doc))
+    if extension == "pdf":
+        if os.path.exists(tmp_filename):
+            os.remove(tmp_filename)
 
-            # Add watermark to the end of the document
-            f.write(
-                "\n\nDocumento anonimizado por AymurAI\n\nhttps://www.aymurai.info/"
-            )
+        return FileResponse(
+            anonymized_path,
+            background=BackgroundTask(os.remove, anonymized_path),
+            media_type="application/pdf",
+            filename=f"{os.path.splitext(file.filename)[0]}.pdf",
+        )
 
-    # Convert to ODT
+    # DOCX flow keeps ODT output
     cmd = [
         settings.LIBREOFFICE_BIN,
         "--headless",
@@ -623,9 +630,8 @@ async def anonymizer_compile_document(
         "odt",
         "--outdir",
         tmp_dir,
-        tmp_filename,
+        anonymized_path,
     ]
-
     logger.info(f"Executing: {' '.join(cmd)}")
 
     try:
@@ -633,19 +639,19 @@ async def anonymizer_compile_document(
             cmd, shell=False, encoding="utf-8", errors="ignore"
         )
         logger.info(f"LibreOffice output: {output}")
-    except subprocess.CalledProcessError as e:
+    except subprocess.CalledProcessError as exc:
         raise RuntimeError(
-            f"LibreOffice conversion failed: {e.output.decode('utf-8', errors='ignore')}"
-        )
+            f"LibreOffice conversion failed: {exc.output.decode('utf-8', errors='ignore')}"
+        ) from exc
+    finally:
+        if os.path.exists(tmp_filename):
+            os.remove(tmp_filename)
 
-    odt = tmp_filename.replace(suffix, ".odt")
+    odt = f"{os.path.splitext(anonymized_path)[0]}.odt"
     logger.info(f"Expected output file path: {odt}")
 
     if not os.path.exists(odt):
         raise RuntimeError(f"File at path {odt} does not exist.")
-
-    # Ensure the temporary file is deleted
-    os.remove(tmp_filename)
 
     return FileResponse(
         odt,

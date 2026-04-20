@@ -64,7 +64,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          uv sync --frozen --python python --no-dev --no-managed-python --group tests
+          uv sync --frozen --python python --no-dev --no-python-downloads --group tests
 
       - name: Run api tests
         env:

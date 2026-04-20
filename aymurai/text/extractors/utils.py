@@ -1,12 +1,13 @@
-import statistics
+import re
 import unicodedata
 import xml.etree.ElementTree as ET
 import zipfile
 from pathlib import Path
-from typing import Any
+from typing import AbstractSet, Any
 
-import numpy as np
 import pymupdf
+import pymupdf.layout  # noqa: F401  # activates layout support
+import pymupdf4llm
 import xmltodict
 from lxml import etree
 from more_itertools import flatten
@@ -18,6 +19,7 @@ logger = get_logger(__file__)
 
 
 ODT_NS = {"text": "urn:oasis:names:tc:opendocument:xmlns:text:1.0"}
+PDF_SKIP_BOX_CLASSES = frozenset({"picture", "formula", "table"})
 
 
 def normalize_text(text: str) -> str:
@@ -33,109 +35,83 @@ def normalize_text(text: str) -> str:
     return unicodedata.normalize("NFKC", text)
 
 
-def _compute_median_margin_between_blocks(pdf_path: str) -> float:
+def _clean_pdf_box_text(text: str, box_class: str) -> str:
     """
-    Computes the median vertical margin between text blocks in a PDF.
+    Clean box-level PDF text while preserving the original layout content.
+
     Args:
-        pdf_path (str): Path to the PDF file.
+        text (str): Raw text sliced from a page box.
+        box_class (str): Box class emitted by ``pymupdf4llm``.
+
     Returns:
-        float: Median margin between text blocks (in points).
+        str: Cleaned, normalized box text.
     """
-    margins = []
-
-    with pymupdf.open(pdf_path) as doc:
-        for page in doc:
-            # Extract all text blocks from the page
-            blocks = page.get_text("blocks")
-
-            # Sort blocks by their top y-coordinate (y0)
-            blocks_sorted = sorted(blocks, key=lambda b: b[1])
-
-            # Compute vertical margins between consecutive blocks
-            for i in range(1, len(blocks_sorted)):
-                previous_block = blocks_sorted[i - 1]
-                current_block = blocks_sorted[i]
-
-                # Calculate the vertical margin
-                previous_y1 = previous_block[3]  # Bottom of the previous block
-                current_y0 = current_block[1]  # Top of the current block
-                margin = current_y0 - previous_y1
-
-                if margin > 0:  # Ignore overlapping blocks
-                    margins.append(margin)
-
-    # Compute and return the median margin
-    if margins:
-        return statistics.median(margins)
-    else:
-        return 0.0  # Return 0 if no margins were found
+    text = normalize_text(text).strip()
+    if box_class == "footnote":
+        text = re.sub(r"(?m)^>\s?", "", text)
+    return text
 
 
-def _extract_and_merge_paragraphs(pdf_path: str, y_tolerance: float = 5) -> list[str]:
+def pdf_to_paragraphs(
+    file_path: Path | str,
+    *,
+    include_headers: bool = True,
+    include_footers: bool = True,
+    skip_box_classes: AbstractSet[str] = PDF_SKIP_BOX_CLASSES,
+) -> list[str]:
     """
-    Extracts and merges paragraphs from a PDF by grouping close text blocks.
+    Extract paragraph-like layout units from a PDF using PyMuPDF layout parsing.
+
     Args:
-        pdf_path (str): Path to the PDF file.
-        y_tolerance (float, optional): Maximum vertical gap (in points) to consider blocks part of the same paragraph.
-            Defaults to 5.
+        file_path (Path | str): Path to the PDF document.
+        include_headers (bool): Whether to keep header boxes. Defaults to True.
+        include_footers (bool): Whether to keep footer boxes. Defaults to True.
+        skip_box_classes (AbstractSet[str]): Layout box classes to ignore. Defaults to PDF_SKIP_BOX_CLASSES.
+
     Returns:
-        list[str]: A list of merged paragraphs as strings.
+        list[str]: Normalized paragraph strings extracted from the PDF.
     """
-    paragraphs = []
-    current_paragraph = []
-    last_y1 = None
+    logger.debug("Extracting layout paragraphs from PDF: %s", file_path)
 
-    with pymupdf.open(pdf_path) as doc:
-        for page in doc:
-            # Extract all text blocks from the page
-            blocks = page.get_text("blocks")
+    with pymupdf.open(str(file_path)) as doc:
+        chunks = pymupdf4llm.to_text(
+            doc,
+            filename=str(file_path),
+            page_chunks=True,
+            header=include_headers,
+            footer=include_footers,
+            show_progress=False,
+            force_text=True,
+            use_ocr=False,
+            force_ocr=False,
+        )
 
-            # Sort blocks by their top y-coordinate (y0)
-            blocks_sorted = sorted(blocks, key=lambda b: b[1])
+    paragraphs: list[str] = []
+    for chunk in chunks:
+        page_text = chunk.get("text") or ""
+        for box in chunk.get("page_boxes") or []:
+            if box.get("class") in skip_box_classes:
+                continue
 
-            for block in blocks_sorted:
-                x0, y0, x1, y1, text, *_ = block
-
-                if last_y1 is not None and (y0 - last_y1) > y_tolerance:
-                    # If the gap between blocks is too large, start a new paragraph
-                    if current_paragraph:
-                        paragraphs.append(" ".join(current_paragraph))
-                    current_paragraph = []
-
-                current_paragraph.append(text)
-                last_y1 = y1
-
-            if current_paragraph:
-                paragraphs.append(" ".join(current_paragraph))
-                current_paragraph = []
+            start, stop = box.get("pos", (0, 0))
+            text = _clean_pdf_box_text(page_text[start:stop], box.get("class") or "")
+            if text:
+                paragraphs.append(text)
 
     return paragraphs
 
 
-def pdf_to_text(
-    file_path: Path | str,
-    y_tolerance: float | None = None,
-) -> str:
+def pdf_to_text(file_path: Path | str) -> str:
     """
-    Extract text from a PDF file and return normalized plain text.
+    Extract normalized plain text from a PDF using filtered layout boxes.
 
     Args:
-        file_path (Path): Path to the PDF document.
-        y_tolerance (float, optional): Maximum vertical gap (in points) to consider blocks part of the same paragraph.
-            If None, it will be computed as the median margin between blocks. Defaults to None.
+        file_path (Path | str): Path to the PDF document.
 
     Returns:
         str: Cleaned textual content extracted from the PDF.
     """
-    logger.info("Extracting text from PDF: %s", file_path)
-
-    if y_tolerance is None:
-        y_tolerance = _compute_median_margin_between_blocks(file_path)
-
-    paragraphs = _extract_and_merge_paragraphs(file_path, np.ceil(y_tolerance))
-    docu = "\n\n".join(paragraphs)
-
-    return normalize_text(docu)
+    return "\n\n".join(pdf_to_paragraphs(file_path))
 
 
 def load_xml_from_docx(path: Path, xmlfile: str = "word/footnotes.xml") -> Any | None:

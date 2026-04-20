@@ -2,45 +2,72 @@ import re
 import unicodedata
 
 
-def document_normalize(text: str) -> str:
-    """Normalize extracted text from documents
-    * join invalid newlines
-    * remove continous whitespaces
+def _normalize_document_characters(text: str) -> str:
+    """
+    Apply character-level normalization without changing document structure.
 
     Args:
-        text (str): document
+        text (str): Raw extracted document text.
 
     Returns:
-        str: normalized
+        str: Character-normalized text.
     """
-
-    # normalize character encodings
-    # text = unicodedata.normalize("NFKD", text)
+    text = text.replace("\r\n", "\n").replace("\r", "\n")
     text = unicodedata.normalize("NFKC", text)
+    text = re.sub(r"(“|”)", '"', text)
+    text = text.replace("\\/", "/")
+    text = re.sub(r"[ \t]{2,}", " ", text)
+    return text
 
-    # remove continous whitespace
-    text = re.sub(r" {2,}", r" ", text)
+
+def _normalize_paragraph_text(text: str) -> str:
+    """
+    Normalize text inside a single paragraph while preserving paragraph borders.
+
+    Args:
+        text (str): Paragraph text.
+
+    Returns:
+        str: Normalized paragraph content.
+    """
+    text = re.sub(r"[ \t]*\n[ \t]*", "\n", text.strip())
 
     # delete newline if NEXT char is:
     # - lower character or a number
-    # - punctuanion
+    # - punctuation
     text = re.sub(r"\n([a-z0-9;:,\.])", r" \g<1>", text)
 
     # delete newline if PREVIOUS char is:
     # - quote mark
-    # - punctuanions (except '.' because possible ambiguity)
+    # - punctuations (except '.' because possible ambiguity)
     text = re.sub(r"([\w,\"-])\n", r"\g<1> ", text)
 
     # cleanup some junk
-    # - multiple newlines, hyphens
-    text = re.sub(r"\n{2,}", "\n", text)
     text = re.sub(r"[-]{2,}", "-", text)
     text = re.sub(r"\.-", ".", text)
+    text = re.sub(r" {2,}", " ", text)
+    return text.strip()
 
-    # quotation marks
-    text = re.sub(r"(“|”)", '"', text)
 
-    # scaped slashes
-    text = text.replace("\/", "/")
+def document_normalize(text: str, *, preserve_paragraphs: bool = False) -> str:
+    """Normalize extracted text from documents.
 
-    return text
+    Args:
+        text (str): Document text.
+        preserve_paragraphs (bool): Preserve blank-line paragraph boundaries. Defaults to False.
+
+    Returns:
+        str: Normalized document text.
+    """
+    text = _normalize_document_characters(text)
+
+    if preserve_paragraphs:
+        paragraphs = [
+            _normalize_paragraph_text(paragraph)
+            for paragraph in re.split(r"\n\s*\n+", text)
+            if paragraph.strip()
+        ]
+        return "\n\n".join(paragraphs)
+
+    text = _normalize_paragraph_text(text)
+    return re.sub(r"\n{2,}", "\n", text)

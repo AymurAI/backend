@@ -65,6 +65,10 @@ class Settings(BaseSettings):
     MEMORY_CACHE_TTL: int = 60
 
     LIBREOFFICE_BIN: str = "libreoffice"
+    PDF_WATERMARK_FONT_REGULAR: str | None = None
+    PDF_WATERMARK_FONT_BOLD: str | None = None
+    ANONYMIZATION_METADATA_CREATOR: str = "AymurAI"
+    ANONYMIZATION_METADATA_PRODUCER: str = "AymurAI"
 
     # Disambiguation Config
 

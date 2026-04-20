@@ -47,7 +47,7 @@ Fuente editable: [../../../pipelines/anonymizer/pipeline.excalidraw](../../../pi
 
 ### Módulos backend relevantes
 - Router: `aymurai/api/endpoints/routers/anonymizer/anonymizer.py`
-- Render/anonymize: `aymurai/text/anonymization/doc_anonymizer.py`
+- Render/anonymize: `aymurai/text/anonymization/docx.py` and `aymurai/text/anonymization/pdf.py`
 - Desambiguación canónica: `aymurai/utils/entity_disambiguation/`
 
 ## Persistencia (DB)

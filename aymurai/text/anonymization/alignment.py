@@ -9,9 +9,9 @@ from jiwer import cer
 from joblib import hash
 from more_itertools import flatten
 
+from aymurai.meta.api_interfaces import LabelPolicy
 from aymurai.models.flair.utils import FlairTextNormalize
 from aymurai.utils.alignment.core import align_text, tokenize
-from aymurai.meta.api_interfaces import LabelPolicy
 
 REGEX_PARAGRAPH = r"((?<!\/)w:p\b)(?P<paragraph>.*?)(\/w:p\b)"
 REGEX_FRAGMENT = r"(?<!\/)w:t\b.*?>(?P<text>.*?)(<.*?\/w:t)"
@@ -61,6 +61,71 @@ def resolve_render_token(label: dict, render_context: dict | None = None) -> str
     return f"{base}_{index}"
 
 
+def _label_replacement_start(label: dict) -> int:
+    """
+    Determines the start character index for a label, considering possible alternative attributes.
+
+    Args:
+        label (dict): Label dictionary which may contain alternative start character attributes.
+
+    Returns:
+        int: The start character index for the label.
+    """
+    attrs = label.get("attrs") or {}
+    alt_start = attrs.get("aymurai_alt_start_char")
+    start_char = label.get("start_char")
+    return int(alt_start if alt_start is not None else (start_char or 0))
+
+
+def _label_replacement_end(label: dict) -> int:
+    """
+    Determines the end character index for a label, considering possible alternative attributes.
+
+    Args:
+        label (dict): Label dictionary which may contain alternative end character attributes.
+
+    Returns:
+        int: The end character index for the label.
+    """
+    attrs = label.get("attrs") or {}
+    alt_end = attrs.get("aymurai_alt_end_char")
+    end_char = label.get("end_char")
+    return int(alt_end if alt_end is not None else (end_char or 0))
+
+
+def _label_replacement_text(label: dict, document: str) -> str:
+    """
+    Determines the replacement text for a label, considering possible alternative attributes.
+
+    Args:
+        label (dict): Label dictionary which may contain alternative text attributes.
+        document (str): The document text from which to extract the label text.
+
+    Returns:
+        str: The text for the label, considering possible alternative attributes.
+    """
+    attrs = label.get("attrs") or {}
+
+    alt_text = attrs.get("aymurai_alt_text")
+    if alt_text is not None:
+        return str(alt_text) if alt_text else ""
+
+    alt_start = attrs.get("aymurai_alt_start_char")
+    alt_end = attrs.get("aymurai_alt_end_char")
+    if alt_start is not None and alt_end is not None:
+        start_char, end_char = int(alt_start), int(alt_end)
+        if 0 <= start_char < end_char <= len(document):
+            return document[start_char:end_char]
+
+    start_char = int(label.get("start_char") or 0)
+    end_char = int(label.get("end_char") or 0)
+    if 0 <= start_char < end_char <= len(document):
+        return document[start_char:end_char]
+
+    text = label.get("text")
+    return str(text) if text else ""
+
+
 def unify_consecutive_labels(
     sample: dict,
     text_key: str = "document",
@@ -93,9 +158,11 @@ def unify_consecutive_labels(
     # Iterate over labels
     for label in labels:
         # Get attributes
-        text = label["attrs"]["aymurai_alt_text"] or label["text"]
-        start_char = label["attrs"]["aymurai_alt_start_char"] or label["start_char"]
-        end_char = label["attrs"]["aymurai_alt_end_char"] or label["end_char"]
+        text = _label_replacement_text(label, document)
+        start_char = _label_replacement_start(label)
+        end_char = _label_replacement_end(label)
+        if not text or end_char <= start_char:
+            continue
         aymurai_label = resolve_render_token(label, render_context)
 
         if current_group is None:
@@ -115,7 +182,7 @@ def unify_consecutive_labels(
         else:
             # Finish the current group and start a new one
             current_group["text"] = document[
-                current_group["start_char"] : current_group["end_char"] + 1
+                current_group["start_char"] : current_group["end_char"]
             ]
             unified_labels.append(current_group)
             current_group = {
@@ -128,7 +195,7 @@ def unify_consecutive_labels(
     # Finish the last group
     if current_group is not None:
         current_group["text"] = document[
-            current_group["start_char"] : current_group["end_char"] + 1
+            current_group["start_char"] : current_group["end_char"]
         ]
         unified_labels.append(current_group)
 
@@ -271,7 +338,7 @@ def index_paragraphs(file: str) -> list[dict]:
         list[dict]: A list of dictionaries representing the indexed paragraphs.
     """
     # Read the XML file
-    with open(file) as f:
+    with open(file, encoding="utf-8-sig") as f:
         xml = f.read()
 
     paragraphs = []
