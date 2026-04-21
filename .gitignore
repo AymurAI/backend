@@ -128,3 +128,9 @@ resources
 .venv
 
 aymurai/version.py
+
+# Git worktrees
+.worktrees/
+
+# Local-only superpowers specs and plans (never committed)
+docs/superpowers/
