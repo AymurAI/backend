@@ -160,6 +160,7 @@ async def asr_read_document_validation(
     return ASRDocument(
         document_id=document_id,
         document=record.validation or record.transcription,
+        speaker_names=record.speaker_names or {},
     )
 
 
