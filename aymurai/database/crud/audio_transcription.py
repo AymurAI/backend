@@ -28,6 +28,7 @@ def audio_transcription_create_or_update(
     name: str,
     transcription: list[ASRParagraph],
     session: Session,
+    speaker_names: dict[str, str] | None = None,
 ) -> AudioTranscription:
     """
     Create or update an audio transcription record.
@@ -37,6 +38,9 @@ def audio_transcription_create_or_update(
         name (str): Name of the transcription.
         transcription (list[ASRParagraph]): List of ASRParagraph objects representing the transcription.
         session (Session): SQLAlchemy session.
+        speaker_names (dict[str, str] | None, optional): Mapping of speaker index (as str) to user-provided name.
+            When None, the existing value is preserved on updates (defaults to empty dict on create).
+            When provided (including an empty dict), replaces the stored value.
 
     Returns:
         AudioTranscription: The created or updated AudioTranscription record.
@@ -52,11 +56,14 @@ def audio_transcription_create_or_update(
             name=name,
             transcription=serialized_transcription,
             validation=[],
+            speaker_names=speaker_names if speaker_names is not None else {},
         )
     else:
         record.name = name
         record.transcription = serialized_transcription
         record.validation = []
+        if speaker_names is not None:
+            record.speaker_names = speaker_names
 
     session.add(record)
     session.commit()
