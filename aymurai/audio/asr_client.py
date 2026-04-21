@@ -3,6 +3,7 @@ import contextlib
 import io
 import json
 from pathlib import Path
+from typing import AsyncGenerator
 
 import librosa
 import numpy as np
@@ -194,6 +195,82 @@ async def transcribe_audio_bytes(payload: bytes) -> WLKMessageStatus | None:
         raise RuntimeError("Unexpected error during transcription") from exc
 
     return last_active_transcription
+
+
+async def transcribe_audio_bytes_stream(
+    payload: bytes,
+) -> AsyncGenerator[list[ASRParagraph], None]:
+    """
+    Stream transcription updates from the ASR WebSocket service.
+
+    Yields a list[ASRParagraph] snapshot for each intermediate active_transcription
+    update received from the upstream service. The generator terminates when the
+    service sends a ready_to_stop message or the connection closes normally.
+
+    Args:
+        payload (bytes): The audio data to be transcribed.
+
+    Raises:
+        RuntimeError: If TRANSCRIBE_WS_URI is not configured or the upstream
+            websocket service errors out mid-stream.
+
+    Yields:
+        list[ASRParagraph]: Cumulative snapshot of paragraphs seen so far.
+    """
+    ws_uri = settings.TRANSCRIBE_WS_URI
+
+    if not ws_uri:
+        raise RuntimeError("TRANSCRIBE_WS_URI is not configured")
+
+    logger.info("streaming audio for transcription (sse)")
+
+    streaming_task: asyncio.Task | None = None
+    try:
+        async with websockets.connect(ws_uri) as websocket:
+            streaming_task = asyncio.create_task(
+                _stream_and_signal_end(payload, websocket)
+            )
+            while True:
+                try:
+                    msg = await websocket.recv()
+                except websockets.exceptions.ConnectionClosedOK:
+                    logger.info("connection closed normally")
+                    break
+                except websockets.exceptions.WebSocketException as exc:
+                    logger.error("websocket error while receiving: %s", exc)
+                    raise RuntimeError("Transcription service websocket error") from exc
+
+                parsed = _parse_ws_message(msg)
+                match parsed:
+                    case None:
+                        continue
+                    case WLKMessageStatus(status="active_transcription") as message:
+                        yield lines_to_paragraphs(message.lines)
+                    case WLKMessageReadyToStopMessage():
+                        break
+    except websockets.exceptions.WebSocketException as exc:
+        logger.error("websocket error during transcription: %s", exc)
+        raise RuntimeError("Transcription service websocket error") from exc
+    finally:
+        if streaming_task is not None:
+            if not streaming_task.done():
+                streaming_task.cancel()
+            try:
+                await streaming_task
+            except asyncio.CancelledError:
+                pass  # expected when we cancelled it
+            except Exception as exc:
+                logger.error("audio streaming task failed: %s", exc)
+
+
+async def _stream_and_signal_end(
+    payload: bytes,
+    websocket: "websockets.ClientConnection",
+) -> None:
+    """Stream audio bytes then send the empty end-of-stream marker."""
+    total_bytes = await _stream_audio_bytes(payload, websocket)
+    await websocket.send(b"")
+    logger.info("sent %s bytes to transcription service", total_bytes)
 
 
 def transcribe_audio_path(path: Path) -> WLKMessageStatus | None:
