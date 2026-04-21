@@ -272,3 +272,54 @@ def test_should_stream_transcription_events_and_persist_final_result(
         assert record is not None
         first_item = cast(dict[str, Any], record.transcription[0])
         assert first_item["text"] == "hola mundo"
+
+
+def test_should_emit_only_done_event_when_stream_cache_hit(
+    asr_test_client,
+    make_wav_bytes,
+):
+    client, engine = asr_test_client
+    audio_bytes = make_wav_bytes(freq_hz=440)
+    document_id = data_to_uuid(audio_bytes)
+
+    # Seed DB
+    with Session(engine) as session:
+        session.add(
+            AudioTranscription(
+                id=document_id,
+                name="cached.wav",
+                transcription=cast(
+                    Any,
+                    [
+                        ASRParagraph(
+                            speaker_no=0,
+                            start=timedelta(seconds=0),
+                            end=timedelta(seconds=1),
+                            text="cached text",
+                        ).model_dump(mode="json")
+                    ],
+                ),
+            )
+        )
+        session.commit()
+
+    # Fail loud if the stream generator is called
+    def _boom(_payload):
+        raise AssertionError("should not call stream on cache hit")
+
+    with patch(
+        "aymurai.api.endpoints.routers.asr.transcribe.transcribe_audio_bytes_stream",
+        side_effect=_boom,
+    ):
+        response = client.post(
+            "/asr/transcribe/stream",
+            files={"file": ("cached.wav", audio_bytes, "audio/wav")},
+        )
+
+    assert response.status_code == 200
+    events = _parse_sse_events(response.text)
+    names = [name for name, _ in events]
+    assert names == ["done"]
+
+    payload = ASRDocument.model_validate_json(events[0][1])
+    assert payload.document[0].text == "cached text"
