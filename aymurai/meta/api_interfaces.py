@@ -113,9 +113,8 @@ class ASRParagraph(TranscriptionItem):
     def to_txt(self) -> str:
         start = self._format_hh_mm_ss(self.start)
         end = self._format_hh_mm_ss(self.end)
-        speaker_label = (
-            self.speaker_name if self.speaker_name is not None else str(self.speaker_no)
-        )
+        name = (self.speaker_name or "").strip()
+        speaker_label = name or str(self.speaker_no)
         return "\n".join(
             [
                 f"{start} - {end}",
