@@ -193,3 +193,82 @@ def test_should_format_error_event_with_code_and_detail():
     assert frame.startswith("event: error\n")
     assert '"code": "UPSTREAM_SERVICE_ERROR"' in frame
     assert '"detail": "boom"' in frame
+
+
+# MARK: POST Transcribe Stream
+def _parse_sse_events(body: str) -> list[tuple[str, str]]:
+    """Parse SSE wire format into (event_name, data) tuples. Ignores comments."""
+    events: list[tuple[str, str]] = []
+    for chunk in body.split("\n\n"):
+        chunk = chunk.strip()
+        if not chunk or chunk.startswith(":"):
+            continue
+        event_name = "message"
+        data_lines: list[str] = []
+        for line in chunk.split("\n"):
+            if line.startswith("event:"):
+                event_name = line[len("event:") :].strip()
+            elif line.startswith("data:"):
+                data_lines.append(line[len("data:") :].strip())
+        events.append((event_name, "\n".join(data_lines)))
+    return events
+
+
+def test_should_stream_transcription_events_and_persist_final_result(
+    asr_test_client,
+    make_wav_bytes,
+):
+    client, engine = asr_test_client
+    audio_bytes = make_wav_bytes()
+    document_id = data_to_uuid(audio_bytes)
+
+    paragraph_snapshots = [
+        [
+            ASRParagraph(
+                speaker_no=0,
+                start=timedelta(seconds=0),
+                end=timedelta(seconds=1),
+                text="hola",
+            )
+        ],
+        [
+            ASRParagraph(
+                speaker_no=0,
+                start=timedelta(seconds=0),
+                end=timedelta(seconds=2),
+                text="hola mundo",
+            )
+        ],
+    ]
+
+    async def fake_generator(_payload):
+        for snapshot in paragraph_snapshots:
+            yield snapshot
+
+    with patch(
+        "aymurai.api.endpoints.routers.asr.transcribe.transcribe_audio_bytes_stream",
+        new=fake_generator,
+    ):
+        response = client.post(
+            "/asr/transcribe/stream?use_cache=false",
+            files={"file": ("sample.wav", audio_bytes, "audio/wav")},
+        )
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/event-stream")
+
+    events = _parse_sse_events(response.text)
+    names = [name for name, _ in events]
+    assert names.count("transcription") == 2
+    assert names[-1] == "done"
+
+    done_payload = ASRDocument.model_validate_json(events[-1][1])
+    assert str(done_payload.document_id) == str(document_id)
+    assert done_payload.document[0].text == "hola mundo"
+
+    # Final result persisted
+    with Session(engine) as session:
+        record = session.get(AudioTranscription, document_id)
+        assert record is not None
+        first_item = cast(dict[str, Any], record.transcription[0])
+        assert first_item["text"] == "hola mundo"

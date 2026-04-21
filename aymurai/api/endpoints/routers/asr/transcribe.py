@@ -1,7 +1,11 @@
+import asyncio
+import contextlib
 import json
+from typing import AsyncGenerator
 from uuid import UUID
 
 from fastapi import Body, Depends, UploadFile
+from fastapi.responses import StreamingResponse
 from fastapi.routing import APIRouter
 from pydantic import UUID5
 from sqlmodel import Session
@@ -12,7 +16,11 @@ from aymurai.api.exceptions.base import (
     NotFoundError,
     UpstreamServiceError,
 )
-from aymurai.audio.asr_client import lines_to_paragraphs, transcribe_audio_bytes
+from aymurai.audio.asr_client import (
+    lines_to_paragraphs,
+    transcribe_audio_bytes,
+    transcribe_audio_bytes_stream,
+)
 from aymurai.database.crud.audio_transcription import (
     audio_transcription_create_or_update,
     audio_transcription_get,
@@ -106,7 +114,11 @@ async def _transcribe_audio_bytes_with_error_handling(
     return lines_to_paragraphs(status.lines)
 
 
-@router.post("/transcribe", response_model=ASRDocument)
+@router.post(
+    "/transcribe",
+    response_model=ASRDocument,
+    deprecated=True,
+)
 async def transcribe(
     file: UploadFile,
     use_cache: bool = True,
@@ -151,6 +163,126 @@ async def transcribe(
     logger.debug(f"Audio transcription stored in DB for {file.filename}")
 
     return document
+
+
+@router.post("/transcribe/stream")
+async def transcribe_stream(
+    file: UploadFile,
+    use_cache: bool = True,
+    ws_uri: str = Depends(get_transcribe_ws_uri),
+    session: Session = Depends(get_session),
+) -> StreamingResponse:
+    """
+    Transcribe an uploaded audio file and stream intermediate results as SSE.
+
+    Emits `event: transcription` frames per upstream update (cumulative snapshots),
+    a final `event: done` frame with the complete ASRDocument, and `event: error`
+    on upstream failure. Checks the cache first; on cache miss, persists the final
+    result.
+    """
+    data = await file.read()
+    filename = file.filename
+    document_id = data_to_uuid(data)
+
+    async def _event_stream() -> AsyncGenerator[str, None]:
+        # Cache check
+        if use_cache:
+            cached = audio_transcription_get(
+                transcription_id=document_id, session=session
+            )
+            if cached is not None:
+                logger.debug(f"Audio transcription DB hit for {filename}")
+                cached_paragraphs = [
+                    ASRParagraph.model_validate(p)
+                    for p in (cached.validation or cached.transcription)
+                ]
+                yield _format_done_event(document_id, cached_paragraphs)
+                return
+
+        # Live streaming path
+        keepalive_task: asyncio.Task | None = None
+        keepalive_queue: asyncio.Queue[str] = asyncio.Queue()
+        interval = settings.TRANSCRIBE_SSE_KEEPALIVE_SECONDS
+
+        async def _keepalive_pump() -> None:
+            while True:
+                await asyncio.sleep(interval)
+                await keepalive_queue.put(": keepalive\n\n")
+
+        if interval > 0:
+            keepalive_task = asyncio.create_task(_keepalive_pump())
+
+        last_snapshot: list[ASRParagraph] = []
+        stream_iter = transcribe_audio_bytes_stream(data).__aiter__()
+
+        try:
+            while True:
+                next_task = asyncio.create_task(stream_iter.__anext__())
+                keepalive_get = asyncio.create_task(keepalive_queue.get())
+
+                done, pending = await asyncio.wait(
+                    {next_task, keepalive_get},
+                    return_when=asyncio.FIRST_COMPLETED,
+                )
+
+                for task in pending:
+                    task.cancel()
+                    with contextlib.suppress(asyncio.CancelledError):
+                        await task
+
+                if next_task in done:
+                    try:
+                        snapshot = next_task.result()
+                    except StopAsyncIteration:
+                        break
+                    except RuntimeError as exc:
+                        logger.error("upstream error during streaming: %s", exc)
+                        yield _format_error_event(
+                            detail=str(exc), code="UPSTREAM_SERVICE_ERROR"
+                        )
+                        return
+                    except Exception:
+                        logger.exception("unexpected error during streaming")
+                        yield _format_error_event(
+                            detail="Unexpected error during transcription",
+                            code="INTERNAL_ERROR",
+                        )
+                        return
+                    last_snapshot = snapshot
+                    yield _format_transcription_event(document_id, snapshot)
+                else:
+                    # keepalive fired
+                    yield keepalive_get.result()
+        finally:
+            if keepalive_task is not None and not keepalive_task.done():
+                keepalive_task.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await keepalive_task
+            with contextlib.suppress(Exception):
+                await stream_iter.aclose()  # type: ignore[attr-defined]
+
+        # Persist + done event
+        try:
+            audio_transcription_create_or_update(
+                transcription_id=document_id,
+                name=filename or str(document_id),
+                transcription=last_snapshot,
+                session=session,
+            )
+            logger.debug(f"Audio transcription stored in DB for {filename}")
+        except Exception:
+            logger.exception("failed to persist transcription; continuing")
+
+        yield _format_done_event(document_id, last_snapshot)
+
+    return StreamingResponse(
+        _event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 @router.get("/validation/document/{document_id}")
