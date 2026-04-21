@@ -323,3 +323,18 @@ def test_should_emit_only_done_event_when_stream_cache_hit(
 
     payload = ASRDocument.model_validate_json(events[0][1])
     assert payload.document[0].text == "cached text"
+
+
+def test_should_mark_transcribe_endpoint_as_deprecated_in_openapi(
+    asr_test_client,
+):
+    client, _ = asr_test_client
+    response = client.get("/openapi.json")
+    assert response.status_code == 200
+    schema = response.json()
+
+    transcribe_op = schema["paths"]["/asr/transcribe"]["post"]
+    assert transcribe_op.get("deprecated") is True
+
+    stream_op = schema["paths"]["/asr/transcribe/stream"]["post"]
+    assert stream_op.get("deprecated") is not True
