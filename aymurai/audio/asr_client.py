@@ -13,8 +13,10 @@ from aymurai.api.meta.asr.websocket import (
     WLKMessageRawResponse,
     WLKMessageReadyToStopMessage,
     WLKMessageStatus,
+    WLKMessageTranscriptionLine,
 )
 from aymurai.logger import get_logger
+from aymurai.meta.api_interfaces import ASRParagraph
 from aymurai.settings import settings
 
 logger = get_logger(__name__)
@@ -24,6 +26,29 @@ CHUNK_SECONDS = 1
 CHUNK_SAMPLES = SAMPLE_RATE_HZ * CHUNK_SECONDS
 MAX_WS_LOG_CHARS = 2000
 ASR_RAW_RESPONSE_ADAPTER = TypeAdapter(WLKMessageRawResponse)
+
+
+def lines_to_paragraphs(
+    lines: list[WLKMessageTranscriptionLine],
+) -> list[ASRParagraph]:
+    """
+    Map WebSocket transcription lines to ASRParagraph objects.
+
+    Args:
+        lines (list[WLKMessageTranscriptionLine]): Transcription lines from the ASR service.
+
+    Returns:
+        list[ASRParagraph]: ASRParagraph objects ready for serialization or storage.
+    """
+    return [
+        ASRParagraph(
+            speaker_no=line.speaker,
+            start=line.start,
+            end=line.end,
+            text=line.text,
+        )
+        for line in lines
+    ]
 
 
 async def _stream_audio_bytes(

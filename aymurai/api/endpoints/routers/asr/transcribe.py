@@ -9,7 +9,7 @@ from aymurai.api.exceptions.base import (
     NotFoundError,
     UpstreamServiceError,
 )
-from aymurai.audio.asr_client import transcribe_audio_bytes
+from aymurai.audio.asr_client import lines_to_paragraphs, transcribe_audio_bytes
 from aymurai.database.crud.audio_transcription import (
     audio_transcription_create_or_update,
     audio_transcription_get,
@@ -71,16 +71,7 @@ async def _transcribe_audio_bytes_with_error_handling(
     if not status:
         raise AymuraiAPIException(detail="No transcription result received")
 
-    return [
-        ASRParagraph(
-            speaker_no=line.speaker,
-            speaker_id=f"speaker-{line.speaker}",
-            start=line.start,
-            end=line.end,
-            text=line.text,
-        )
-        for line in status.lines
-    ]
+    return lines_to_paragraphs(status.lines)
 
 
 @router.post("/transcribe", response_model=ASRDocument)
