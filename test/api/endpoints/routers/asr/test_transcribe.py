@@ -1,6 +1,7 @@
 from datetime import timedelta
 from typing import Any, cast
 from unittest.mock import AsyncMock, patch
+from uuid import UUID
 
 from sqlmodel import Session
 
@@ -11,6 +12,12 @@ from aymurai.api.meta.asr.websocket import (
 from aymurai.database.meta.audio_transcription import AudioTranscription
 from aymurai.database.utils import data_to_uuid
 from aymurai.meta.api_interfaces import ASRDocument, ASRParagraph
+
+from aymurai.api.endpoints.routers.asr.transcribe import (
+    _format_done_event,
+    _format_error_event,
+    _format_transcription_event,
+)
 
 
 # MARK: POST Transcribe
@@ -150,3 +157,39 @@ def test_should_persist_validation_annotations_when_posting_validation_for_exist
         assert record is not None
         first_item = cast(dict[str, Any], record.validation[0])
         assert first_item["text"] == "Linea validada"
+
+
+# MARK: SSE Formatters
+def test_should_format_transcription_event_with_document_json():
+    doc_id = UUID("00000000-0000-5000-8000-000000000000")
+    paragraphs = [
+        ASRParagraph(
+            speaker_no=0,
+            start=timedelta(seconds=0),
+            end=timedelta(seconds=1),
+            text="hola",
+        )
+    ]
+
+    frame = _format_transcription_event(doc_id, paragraphs)
+
+    assert frame.startswith("event: transcription\n")
+    assert frame.endswith("\n\n")
+    assert '"document_id"' in frame
+    assert '"hola"' in frame
+
+
+def test_should_format_done_event_with_document_json():
+    doc_id = UUID("00000000-0000-5000-8000-000000000000")
+    frame = _format_done_event(doc_id, [])
+
+    assert frame.startswith("event: done\n")
+    assert frame.endswith("\n\n")
+
+
+def test_should_format_error_event_with_code_and_detail():
+    frame = _format_error_event(detail="boom", code="UPSTREAM_SERVICE_ERROR")
+
+    assert frame.startswith("event: error\n")
+    assert '"code": "UPSTREAM_SERVICE_ERROR"' in frame
+    assert '"detail": "boom"' in frame

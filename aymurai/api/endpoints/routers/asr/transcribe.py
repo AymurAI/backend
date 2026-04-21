@@ -1,3 +1,6 @@
+import json
+from uuid import UUID
+
 from fastapi import Body, Depends, UploadFile
 from fastapi.routing import APIRouter
 from pydantic import UUID5
@@ -19,6 +22,35 @@ from aymurai.database.utils import data_to_uuid
 from aymurai.logger import get_logger
 from aymurai.meta.api_interfaces import ASRDocument, ASRParagraph, ASRParagraphRequest
 from aymurai.settings import settings
+
+
+def _format_transcription_event(
+    document_id: UUID,
+    paragraphs: list[ASRParagraph],
+) -> str:
+    """Format an active_transcription SSE event."""
+    payload = ASRDocument(
+        document_id=document_id, document=paragraphs
+    ).model_dump_json()
+    return f"event: transcription\ndata: {payload}\n\n"
+
+
+def _format_done_event(
+    document_id: UUID,
+    paragraphs: list[ASRParagraph],
+) -> str:
+    """Format the final 'done' SSE event."""
+    payload = ASRDocument(
+        document_id=document_id, document=paragraphs
+    ).model_dump_json()
+    return f"event: done\ndata: {payload}\n\n"
+
+
+def _format_error_event(detail: str, code: str) -> str:
+    """Format an error SSE event."""
+    payload = json.dumps({"detail": detail, "code": code})
+    return f"event: error\ndata: {payload}\n\n"
+
 
 router = APIRouter()
 logger = get_logger(__name__)
