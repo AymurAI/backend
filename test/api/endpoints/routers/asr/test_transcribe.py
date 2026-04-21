@@ -1,3 +1,4 @@
+import json
 from datetime import timedelta
 from typing import Any, cast
 from unittest.mock import AsyncMock, patch
@@ -338,3 +339,46 @@ def test_should_mark_transcribe_endpoint_as_deprecated_in_openapi(
 
     stream_op = schema["paths"]["/asr/transcribe/stream"]["post"]
     assert stream_op.get("deprecated") is not True
+
+
+def test_should_emit_error_event_when_upstream_fails_mid_stream(
+    asr_test_client,
+    make_wav_bytes,
+):
+    client, engine = asr_test_client
+    audio_bytes = make_wav_bytes(freq_hz=550)
+    document_id = data_to_uuid(audio_bytes)
+
+    async def failing_generator(_payload):
+        yield [
+            ASRParagraph(
+                speaker_no=0,
+                start=timedelta(seconds=0),
+                end=timedelta(seconds=1),
+                text="partial",
+            )
+        ]
+        raise RuntimeError("Transcription service websocket error")
+
+    with patch(
+        "aymurai.api.endpoints.routers.asr.transcribe.transcribe_audio_bytes_stream",
+        new=failing_generator,
+    ):
+        response = client.post(
+            "/asr/transcribe/stream?use_cache=false",
+            files={"file": ("err.wav", audio_bytes, "audio/wav")},
+        )
+
+    assert response.status_code == 200
+    events = _parse_sse_events(response.text)
+    names = [name for name, _ in events]
+    assert "error" in names
+    assert names[-1] == "error"
+
+    error_payload = json.loads(events[-1][1])
+    assert error_payload["code"] == "UPSTREAM_SERVICE_ERROR"
+
+    # No DB record should be written
+    with Session(engine) as session:
+        record = session.get(AudioTranscription, document_id)
+        assert record is None
