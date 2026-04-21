@@ -68,6 +68,7 @@ class Settings(BaseSettings):
     # ASR Config
     ##########################################################################
     TRANSCRIBE_WS_URI: str | None = None
+    TRANSCRIBE_SSE_KEEPALIVE_SECONDS: int = 15
 
     ##########################################################################
     # Disambiguation Config
