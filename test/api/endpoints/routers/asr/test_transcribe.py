@@ -290,3 +290,78 @@ def test_should_clear_speaker_names_when_posting_empty_map(
         record = session.get(AudioTranscription, document_id)
         assert record is not None
         assert record.speaker_names == {}
+
+
+# MARK: GET Validation with speaker_names
+def test_should_include_speaker_names_in_get_validation_response(
+    asr_test_client,
+    make_wav_bytes,
+):
+    client, engine = asr_test_client
+    audio_bytes = make_wav_bytes(freq_hz=770)
+    document_id = data_to_uuid(audio_bytes)
+
+    with Session(engine) as session:
+        session.add(
+            AudioTranscription(
+                id=document_id,
+                name="get_speakers.wav",
+                transcription=cast(
+                    Any,
+                    [
+                        ASRParagraph(
+                            speaker_no=0,
+                            start=timedelta(seconds=0),
+                            end=timedelta(seconds=1),
+                            text="Saludo",
+                        ).model_dump(mode="json")
+                    ],
+                ),
+                validation=[],
+                speaker_names={"0": "Jueza", "1": "Defensor"},
+            )
+        )
+        session.commit()
+
+    response = client.get(f"/asr/validation/document/{document_id}")
+
+    assert response.status_code == 200
+    payload = ASRDocument.model_validate(response.json())
+    assert payload.speaker_names == {"0": "Jueza", "1": "Defensor"}
+
+
+def test_should_return_empty_speaker_names_when_none_stored(
+    asr_test_client,
+    make_wav_bytes,
+):
+    client, engine = asr_test_client
+    audio_bytes = make_wav_bytes(freq_hz=880)
+    document_id = data_to_uuid(audio_bytes)
+
+    with Session(engine) as session:
+        session.add(
+            AudioTranscription(
+                id=document_id,
+                name="empty_speakers.wav",
+                transcription=cast(
+                    Any,
+                    [
+                        ASRParagraph(
+                            speaker_no=0,
+                            start=timedelta(seconds=0),
+                            end=timedelta(seconds=1),
+                            text="x",
+                        ).model_dump(mode="json")
+                    ],
+                ),
+                validation=[],
+                speaker_names={},
+            )
+        )
+        session.commit()
+
+    response = client.get(f"/asr/validation/document/{document_id}")
+
+    assert response.status_code == 200
+    payload = ASRDocument.model_validate(response.json())
+    assert payload.speaker_names == {}
