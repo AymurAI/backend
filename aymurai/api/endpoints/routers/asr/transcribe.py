@@ -17,7 +17,11 @@ from aymurai.database.crud.audio_transcription import (
 from aymurai.database.session import get_session
 from aymurai.database.utils import data_to_uuid
 from aymurai.logger import get_logger
-from aymurai.meta.api_interfaces import ASRDocument, ASRParagraph, ASRParagraphRequest
+from aymurai.meta.api_interfaces import (
+    ASRDocument,
+    ASRParagraph,
+    ASRValidationRequest,
+)
 from aymurai.settings import settings
 
 router = APIRouter()
@@ -162,15 +166,18 @@ async def asr_read_document_validation(
 @router.post("/validation/document/{document_id}")
 async def asr_save_document_validation(
     document_id: UUID5,
-    annotations: list[ASRParagraphRequest] = Body(...),
+    payload: ASRValidationRequest = Body(...),
     session: Session = Depends(get_session),
 ) -> None:
     """
-    Saves the validation annotations for a given document ID.
+    Saves the validation annotations and optional speaker names for a document.
 
     Args:
         document_id (UUID5): The ID of the document to validate.
-        annotations (list[ASRParagraphRequest], optional): The list of annotations for the document. Defaults to Body(...).
+        payload (ASRValidationRequest): Body containing ``annotations`` and
+            optional ``speaker_names``. When ``speaker_names`` is ``None`` the
+            stored map is preserved; when present (including ``{}``) it fully
+            replaces the stored map.
         session (Session, optional): The database session. Defaults to Depends(get_session).
 
     Raises:
@@ -183,8 +190,11 @@ async def asr_save_document_validation(
     # NOTE: we are serializing the paragraphs to JSON for writing to the DB
     record.validation = [  # type: ignore
         ASRParagraph.model_validate(item).model_dump(mode="json")
-        for item in annotations
+        for item in payload.annotations
     ]
+
+    if payload.speaker_names is not None:
+        record.speaker_names = payload.speaker_names
 
     session.add(record)
     session.commit()
