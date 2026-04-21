@@ -104,6 +104,7 @@ class TranscriptionItem(BaseModel):
     model_config: ClassVar[ConfigDict] = ConfigDict(from_attributes=True)
 
     speaker_no: int
+    speaker_name: str | None = None
     start: timedelta
     end: timedelta
     text: str

@@ -113,10 +113,13 @@ class ASRParagraph(TranscriptionItem):
     def to_txt(self) -> str:
         start = self._format_hh_mm_ss(self.start)
         end = self._format_hh_mm_ss(self.end)
+        speaker_label = (
+            self.speaker_name if self.speaker_name is not None else str(self.speaker_no)
+        )
         return "\n".join(
             [
                 f"{start} - {end}",
-                f"speaker {self.speaker_no}",
+                f"speaker {speaker_label}",
                 self.text,
             ]
         )
@@ -124,36 +127,15 @@ class ASRParagraph(TranscriptionItem):
 
 class ASRParagraphRequest(BaseModel):
     speaker_no: int
+    speaker_name: str | None = None
     start: str | float | int
     end: str | float | int
     text: str
 
 
-class ASRValidationRequest(BaseModel):
-    """Request body for POST /asr/validation/document/{id}.
-
-    Carries both the corrected paragraph annotations and the optional speaker
-    name map. Replaces the previous bare-list request format.
-    """
-
-    annotations: list[ASRParagraphRequest]
-    speaker_names: dict[str, str] | None = Field(
-        default=None,
-        description=(
-            "Mapping of speaker index (as string) to user-provided name. "
-            "None keeps the existing value; {} clears all names; a non-empty "
-            "dict fully replaces the stored map."
-        ),
-    )
-
-
 class ASRDocument(BaseModel):
     document: list[ASRParagraph]
     document_id: UUID
-    speaker_names: dict[str, str] = Field(
-        default_factory=dict,
-        description="Mapping of speaker index (as string) to user-provided name.",
-    )
 
     def to_txt(self) -> str:
         return "\n\n".join([paragraph.to_txt() for paragraph in self.document])
@@ -163,7 +145,6 @@ class ASRDocument(BaseModel):
         return cls(
             document=transcription.validation or transcription.transcription,
             document_id=transcription.id,
-            speaker_names=transcription.speaker_names or {},
         )
 
 

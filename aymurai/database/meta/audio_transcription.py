@@ -18,10 +18,6 @@ class AudioTranscriptionBase(SQLModel):
         default_factory=list,
         sa_column=Column(JSON),
     )
-    speaker_names: dict[str, str] = Field(
-        default_factory=dict,
-        sa_column=Column(JSON),
-    )
 
 
 class AudioTranscription(AudioTranscriptionBase, table=True):
@@ -43,7 +39,6 @@ class AudioTranscriptionUpdate(SQLModel):
     name: str | None = None
     transcription: list[ASRParagraph] | None = None
     validation: list[ASRParagraph] | None = None
-    speaker_names: dict[str, str] | None = None
 
 
 class AudioTranscriptionRead(AudioTranscriptionBase):
