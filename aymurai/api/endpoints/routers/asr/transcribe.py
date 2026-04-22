@@ -18,7 +18,6 @@ from aymurai.api.exceptions.base import (
 )
 from aymurai.audio.asr_client import (
     ASRStreamChunk,
-    lines_to_paragraphs,
     transcribe_audio_bytes,
     transcribe_audio_bytes_stream,
 )
@@ -29,7 +28,11 @@ from aymurai.database.crud.audio_transcription import (
 from aymurai.database.session import get_session
 from aymurai.database.utils import data_to_uuid
 from aymurai.logger import get_logger
-from aymurai.meta.api_interfaces import ASRDocument, ASRParagraph, ASRParagraphRequest
+from aymurai.meta.api_interfaces import (
+    ASRDocument,
+    ASRParagraph,
+    ASRParagraphRequest,
+)
 from aymurai.settings import settings
 
 
@@ -105,7 +108,15 @@ async def _transcribe_audio_bytes_with_error_handling(
     if not status:
         raise AymuraiAPIException(detail="No transcription result received")
 
-    return lines_to_paragraphs(status.lines)
+    return [
+        ASRParagraph(
+            speaker_no=line.speaker,
+            start=line.start,
+            end=line.end,
+            text=line.text,
+        )
+        for line in status.lines
+    ]
 
 
 @router.post(
@@ -339,9 +350,9 @@ async def asr_save_document_validation(
     """Save validation annotations for a given document ID.
 
     Args:
-        document_id: The ID of the document to validate.
-        annotations: The list of annotations for the document.
-        session: The database session.
+    document_id: The ID of the document to validate.
+    annotations: The list of annotations for the document.
+    session: The database session.
 
     Raises:
         NotFoundError: If the document with the given ID is not found.

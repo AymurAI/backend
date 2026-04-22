@@ -113,10 +113,12 @@ class ASRParagraph(TranscriptionItem):
     def to_txt(self) -> str:
         start = self._format_hh_mm_ss(self.start)
         end = self._format_hh_mm_ss(self.end)
+        name = (self.speaker_name or "").strip()
+        speaker_label = name or str(self.speaker_no)
         return "\n".join(
             [
                 f"{start} - {end}",
-                f"speaker {self.speaker_no}",
+                f"speaker {speaker_label}",
                 self.text,
             ]
         )
@@ -124,6 +126,7 @@ class ASRParagraph(TranscriptionItem):
 
 class ASRParagraphRequest(BaseModel):
     speaker_no: int
+    speaker_name: str | None = None
     start: str | float | int
     end: str | float | int
     text: str
