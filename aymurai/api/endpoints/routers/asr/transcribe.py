@@ -17,6 +17,7 @@ from aymurai.api.exceptions.base import (
     UpstreamServiceError,
 )
 from aymurai.audio.asr_client import (
+    ASRStreamChunk,
     lines_to_paragraphs,
     transcribe_audio_bytes,
     transcribe_audio_bytes_stream,
@@ -35,10 +36,15 @@ from aymurai.settings import settings
 def _format_transcription_event(
     document_id: UUID,
     paragraphs: list[ASRParagraph],
+    current_time: float | None = None,
+    total_time: float | None = None,
 ) -> str:
     """Format an active_transcription SSE event."""
     payload = ASRDocument(
-        document_id=document_id, document=paragraphs
+        document_id=document_id,
+        document=paragraphs,
+        current_time=current_time,
+        total_time=total_time,
     ).model_dump_json()
     return f"event: transcription\ndata: {payload}\n\n"
 
@@ -46,10 +52,15 @@ def _format_transcription_event(
 def _format_done_event(
     document_id: UUID,
     paragraphs: list[ASRParagraph],
+    current_time: float | None = None,
+    total_time: float | None = None,
 ) -> str:
     """Format the final 'done' SSE event."""
     payload = ASRDocument(
-        document_id=document_id, document=paragraphs
+        document_id=document_id,
+        document=paragraphs,
+        current_time=current_time,
+        total_time=total_time,
     ).model_dump_json()
     return f"event: done\ndata: {payload}\n\n"
 
@@ -213,26 +224,36 @@ async def transcribe_stream(
             keepalive_task = asyncio.create_task(_keepalive_pump())
 
         last_snapshot: list[ASRParagraph] = []
+        last_current_time: float | None = None
+        last_total_time: float | None = None
         stream_iter = transcribe_audio_bytes_stream(data).__aiter__()
 
         try:
+            # next_task is created once and reused across keepalive interruptions so
+            # that cancelling the keepalive_get task never aborts the in-flight
+            # __anext__() call.
+            next_task: asyncio.Task[ASRStreamChunk] = asyncio.create_task(
+                stream_iter.__anext__()
+            )
             while True:
-                next_task = asyncio.create_task(stream_iter.__anext__())
                 keepalive_get = asyncio.create_task(keepalive_queue.get())
 
-                done, pending = await asyncio.wait(
+                done, _ = await asyncio.wait(
                     {next_task, keepalive_get},
                     return_when=asyncio.FIRST_COMPLETED,
                 )
 
-                for task in pending:
-                    task.cancel()
+                if keepalive_get in done:
+                    yield keepalive_get.result()
+                else:
+                    # keepalive_get lost the race — discard it cleanly
+                    keepalive_get.cancel()
                     with contextlib.suppress(asyncio.CancelledError):
-                        await task
+                        await keepalive_get
 
                 if next_task in done:
                     try:
-                        snapshot = next_task.result()
+                        chunk: ASRStreamChunk = next_task.result()
                     except StopAsyncIteration:
                         break
                     except RuntimeError as exc:
@@ -248,11 +269,17 @@ async def transcribe_stream(
                             code="INTERNAL_ERROR",
                         )
                         return
-                    last_snapshot = snapshot
-                    yield _format_transcription_event(document_id, snapshot)
-                else:
-                    # keepalive fired
-                    yield keepalive_get.result()
+                    last_snapshot = chunk.paragraphs
+                    last_current_time = chunk.current_time
+                    last_total_time = chunk.total_time
+                    yield _format_transcription_event(
+                        document_id,
+                        chunk.paragraphs,
+                        current_time=chunk.current_time,
+                        total_time=chunk.total_time,
+                    )
+                    # Advance to the next chunk only after the current one is consumed
+                    next_task = asyncio.create_task(stream_iter.__anext__())
         finally:
             if keepalive_task is not None and not keepalive_task.done():
                 keepalive_task.cancel()
@@ -273,7 +300,12 @@ async def transcribe_stream(
         except Exception:
             logger.exception("failed to persist transcription; continuing")
 
-        yield _format_done_event(document_id, last_snapshot)
+        yield _format_done_event(
+            document_id,
+            last_snapshot,
+            current_time=last_current_time,
+            total_time=last_total_time,
+        )
 
     return StreamingResponse(
         _event_stream(),

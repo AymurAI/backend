@@ -10,6 +10,7 @@ from aymurai.api.meta.asr.websocket import (
     WLKMessageStatus,
     WLKMessageTranscriptionLine,
 )
+from aymurai.audio.asr_client import ASRStreamChunk
 from aymurai.database.meta.audio_transcription import AudioTranscription
 from aymurai.database.utils import data_to_uuid
 from aymurai.meta.api_interfaces import ASRDocument, ASRParagraph
@@ -244,7 +245,11 @@ def test_should_stream_transcription_events_and_persist_final_result(
 
     async def fake_generator(_payload):
         for snapshot in paragraph_snapshots:
-            yield snapshot
+            yield ASRStreamChunk(
+                paragraphs=snapshot,
+                current_time=snapshot[-1].end.total_seconds(),
+                total_time=2.0,
+            )
 
     with patch(
         "aymurai.api.endpoints.routers.asr.transcribe.transcribe_audio_bytes_stream",
@@ -350,14 +355,18 @@ def test_should_emit_error_event_when_upstream_fails_mid_stream(
     document_id = data_to_uuid(audio_bytes)
 
     async def failing_generator(_payload):
-        yield [
-            ASRParagraph(
-                speaker_no=0,
-                start=timedelta(seconds=0),
-                end=timedelta(seconds=1),
-                text="partial",
-            )
-        ]
+        yield ASRStreamChunk(
+            paragraphs=[
+                ASRParagraph(
+                    speaker_no=0,
+                    start=timedelta(seconds=0),
+                    end=timedelta(seconds=1),
+                    text="partial",
+                )
+            ],
+            current_time=1.0,
+            total_time=2.0,
+        )
         raise RuntimeError("Transcription service websocket error")
 
     with patch(

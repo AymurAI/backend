@@ -115,17 +115,27 @@ async def test_should_yield_paragraphs_per_status_when_streaming():
             new=AsyncMock(return_value=0),
         ),
         patch(
+            "aymurai.audio.asr_client._audio_duration_seconds",
+            return_value=2.0,
+        ),
+        patch(
             "aymurai.audio.asr_client.settings.TRANSCRIBE_WS_URI",
             "ws://fake/ws",
         ),
     ):
         snapshots = []
-        async for paragraphs in transcribe_audio_bytes_stream(b"fake-audio"):
-            snapshots.append(paragraphs)
+        async for chunk in transcribe_audio_bytes_stream(b"fake-audio"):
+            snapshots.append(chunk)
 
     assert len(snapshots) == 2
-    assert snapshots[0][0].text == "hola"
-    assert snapshots[1][0].text == "hola mundo"
+    assert snapshots[0].paragraphs[0].text == "hola"
+    assert snapshots[1].paragraphs[0].text == "hola mundo"
+    # total_time comes from the mocked duration probe
+    assert snapshots[0].total_time == 2.0
+    assert snapshots[1].total_time == 2.0
+    # current_time reflects the last line's end timestamp in seconds
+    assert snapshots[0].current_time == 1.0
+    assert snapshots[1].current_time == 2.0
 
 
 @pytest.mark.asyncio
@@ -147,7 +157,7 @@ async def test_should_cleanup_streaming_task_when_caller_cancels():
 
     stream_calls = []
 
-    async def slow_stream(_payload, _ws):
+    async def slow_stream(_payload, _ws, _backpressure=None):
         stream_calls.append("started")
         try:
             await asyncio.sleep(10)
@@ -159,11 +169,15 @@ async def test_should_cleanup_streaming_task_when_caller_cancels():
     with (
         patch("aymurai.audio.asr_client.websockets.connect", return_value=fake_ws),
         patch("aymurai.audio.asr_client._stream_audio_bytes", new=slow_stream),
+        patch(
+            "aymurai.audio.asr_client._audio_duration_seconds",
+            return_value=1.0,
+        ),
         patch("aymurai.audio.asr_client.settings.TRANSCRIBE_WS_URI", "ws://fake/ws"),
     ):
         gen = transcribe_audio_bytes_stream(b"data")
         first = await gen.__anext__()
-        assert first[0].text == "hola"
+        assert first.paragraphs[0].text == "hola"
         await gen.aclose()
 
     assert "started" in stream_calls
