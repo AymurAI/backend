@@ -162,7 +162,7 @@ async def test_should_cleanup_streaming_task_when_caller_cancels():
 
     stream_calls = []
 
-    async def slow_stream(_payload, _ws, _backpressure=None):
+    async def slow_stream(_payload, _ws):
         stream_calls.append("started")
         try:
             await asyncio.sleep(10)
