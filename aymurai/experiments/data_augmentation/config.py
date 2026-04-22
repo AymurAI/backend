@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -32,12 +33,22 @@ class APIConfig(BaseModel):
 class OllamaConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    provider: Literal["ollama", "openai"] = "ollama"
     model: str = "qwen3:8b"
     keep_alive: str = "5m"
     num_ctx: int = 8192
     temperature: float = 0.0
     allow_missing_labels: bool = True
     allow_non_faker_values: bool = True
+
+
+class OpenAIConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    model: str = "gpt-4.1-mini"
+    api_key_env_var: str = "OPENAI_API_KEY"
+    base_url: str | None = None
+    temperature: float = 0.0
 
 
 class GenerationConfig(BaseModel):
@@ -64,6 +75,7 @@ class DataAugmentationRunConfig(BaseModel):
     paths: PathsConfig
     api: APIConfig = APIConfig()
     ollama: OllamaConfig = OllamaConfig()
+    openai: OpenAIConfig = OpenAIConfig()
     generation: GenerationConfig = GenerationConfig()
     normalization: NormalizationConfig = NormalizationConfig()
 

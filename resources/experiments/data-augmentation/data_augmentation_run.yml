@@ -16,6 +16,7 @@ api:
   timeout_s: 300
 
 ollama:
+  provider: "openai"
   model: "qwen3:8b"
   keep_alive: "5m"
   num_ctx: 8192
@@ -23,11 +24,17 @@ ollama:
   allow_missing_labels: true
   allow_non_faker_values: true
 
+openai:
+  model: "gpt-4.1-mini"
+  api_key_env_var: "OPENAI_API_KEY"
+  base_url: null
+  temperature: 0
+
 generation:
-  target_label_count: 15
+  target_label_count: null
   candidates_per_label: 5
   max_attempts_per_label: 50
-  max_paragraphs: 10
+  max_paragraphs: 5000
   run_with_ollama: true
 
 normalization:

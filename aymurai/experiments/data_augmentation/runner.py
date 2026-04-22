@@ -37,7 +37,7 @@ DEFAULT_LABEL_NORMALIZATION_MAP: dict[str, str] = {
     "FECHA_HECHO": "FECHA",
     "NUM": "TELEFONO",
     "NUM_TEL": "TELEFONO",
-    "CAUSA": "CUIJ",
+    "CAUSA": "NUM_EXPEDIENTE",
     "NUM_CUIT": "CUIT_CUIL",
     "NUMERO_TELEFONO": "TELEFONO",
     "PERIODO": "FECHA",
@@ -47,10 +47,10 @@ DEFAULT_LABEL_NORMALIZATION_MAP: dict[str, str] = {
     "EMPRESA": "TEXTO_ANONIMIZAR",
     "FECHA_DEL_HECHO": "FECHA",
     "CTA": "NUM_CAJA_AHORRO",
-    "NUM_CAUSA": "CUIJ",
-    "NUM:CAUSA": "CUIJ",
-    "NUM_IPP": "IP",
-    "NUM_IP": "IP",
+    "NUM_CAUSA": "NUM_EXPEDIENTE",
+    "NUM:CAUSA": "NUM_EXPEDIENTE",
+    "NUM_IPP": "NUM_EXPEDIENTE",
+    "NUM_IP": "NUM_EXPEDIENTE",
     "INTITUCION": "LOC",
     "INSTITUCIÓN": "LOC",
     "IMEI": "TEXTO_ANONIMIZAR",
@@ -84,9 +84,9 @@ LABEL_RULES: list[tuple[re.Pattern[str], str]] = [
     (re.compile(r"OCUPACION"), "ESTUDIOS"),
     (re.compile(r"PROFESION"), "ESTUDIOS"),
     (re.compile(r"FECHA_NUMERICA|FECHA_HECHO|FECHA_DEL_HECHO|PERIODO"), "FECHA"),
-    (re.compile(r"NUM_CAUSA|^CAUSA$"), "CUIJ"),
+    (re.compile(r"NUM_CAUSA|^CAUSA$"), "NUM_EXPEDIENTE"),
     (re.compile(r"NUM_CUIT"), "CUIT_CUIL"),
-    (re.compile(r"NUM_IPP|NUM_IP"), "IP"),
+    (re.compile(r"NUM_IPP|NUM_IP"), "NUM_EXPEDIENTE"),
     (re.compile(r"^CTA(?:_|$)"), "NUM_CAJA_AHORRO"),
     (re.compile(r"^DIR(?:_|$)"), "DIRECCION"),
     (re.compile(r"DOMINIO(?:_PATENTE)?"), "PATENTE_DOMINIO"),
@@ -150,6 +150,10 @@ Rules:
 - Keep grammatical and legal coherence whenever possible.
 - Do not add explanations.
 """.strip()
+
+
+def get_llm_provider_name(config: DataAugmentationRunConfig) -> str:
+    return config.ollama.provider
 
 
 def log_step(message: str) -> None:
@@ -844,30 +848,82 @@ def choose_replacements_with_ollama(
         candidate_map=candidate_map,
         missing_labels=missing_labels if config.ollama.allow_missing_labels else [],
     )
-    from aymurai.llm_providers import OllamaLLMProvider
+    provider_name = get_llm_provider_name(config)
+    provider_model_name: str
+    raw_response_text: str
 
-    provider = OllamaLLMProvider(
-        model=config.ollama.model,
-        keep_alive=config.ollama.keep_alive,
-    )
-    response = provider.generate(
-        messages=[
-            {"role": "system", "content": OLLAMA_SYSTEM_PROMPT},
-            {"role": "user", "content": user_prompt},
-        ],
-        options={
-            "temperature": config.ollama.temperature,
-            "num_ctx": config.ollama.num_ctx,
-        },
-        format=ReplacementSelectionBatch.model_json_schema(),
-    )
-    payload = json.loads(response.text)
+    if provider_name == "ollama":
+        from aymurai.llm_providers import OllamaLLMProvider
+
+        provider = OllamaLLMProvider(
+            model=config.ollama.model,
+            keep_alive=config.ollama.keep_alive,
+        )
+        response = provider.generate(
+            messages=[
+                {"role": "system", "content": OLLAMA_SYSTEM_PROMPT},
+                {"role": "user", "content": user_prompt},
+            ],
+            options={
+                "temperature": config.ollama.temperature,
+                "num_ctx": config.ollama.num_ctx,
+            },
+            format=ReplacementSelectionBatch.model_json_schema(),
+        )
+        raw_response_text = response.text
+        provider_model_name = provider.model_name
+    elif provider_name == "openai":
+        from openai import OpenAI
+
+        from aymurai.settings import load_env
+        from aymurai.utils.openai_httpx_compat import apply_openai_httpx_compat
+
+        load_env()
+        apply_openai_httpx_compat()
+        api_key = os.getenv(config.openai.api_key_env_var)
+        if not api_key:
+            raise ValueError(
+                f"Missing OpenAI API key. Set {config.openai.api_key_env_var} in .env."
+            )
+
+        client = OpenAI(
+            api_key=api_key,
+            base_url=config.openai.base_url,
+        )
+        response = client.chat.completions.create(
+            model=config.openai.model,
+            messages=[
+                {"role": "system", "content": OLLAMA_SYSTEM_PROMPT},
+                {"role": "user", "content": user_prompt},
+            ],
+            temperature=config.openai.temperature,
+            response_format={
+                "type": "json_schema",
+                "json_schema": {
+                    "name": "replacement_selection_batch",
+                    "schema": ReplacementSelectionBatch.model_json_schema(),
+                    "strict": True,
+                },
+            },
+        )
+        raw_response_text = (
+            response.choices[0].message.content
+            if response.choices and response.choices[0].message.content
+            else ""
+        )
+        if not raw_response_text:
+            raise ValueError("OpenAI returned an empty response.")
+        provider_model_name = config.openai.model
+    else:
+        raise ValueError(f"Unsupported LLM provider: {provider_name}")
+
+    payload = json.loads(raw_response_text)
     replacements = payload.get("replacements")
     resolved_paragraph = str(payload.get("resolved_paragraph", "")).strip()
     if not isinstance(replacements, list):
-        raise ValueError(f"Invalid Ollama response payload: {payload}")
+        raise ValueError(f"Invalid LLM response payload: {payload}")
     if not resolved_paragraph:
-        raise ValueError(f"Missing resolved_paragraph in Ollama response: {payload}")
+        raise ValueError(f"Missing resolved_paragraph in LLM response: {payload}")
 
     validated: list[dict[str, Any]] = []
     expected_ids = {occurrence.occurrence_id for occurrence in occurrences}
@@ -908,8 +964,8 @@ def choose_replacements_with_ollama(
                 "label": label,
                 "chosen_value": chosen_value,
                 "used_non_faker_value": used_non_faker_value,
-                "selection_mode": "ollama",
-                "model": provider.model_name,
+                "selection_mode": provider_name,
+                "model": provider_model_name,
             }
         )
 
@@ -921,11 +977,12 @@ def choose_replacements_with_ollama(
         "resolved_paragraph": resolved_paragraph,
         "replacements": sorted(validated, key=lambda item: item["occurrence_id"]),
         "selection_mode": "ollama",
+        "provider": provider_name,
         "contains_non_faker_values": any(
             item["used_non_faker_value"] for item in validated
         ),
         "user_prompt": user_prompt,
-        "raw_response_text": response.text,
+        "raw_response_text": raw_response_text,
     }
 
 
@@ -1056,9 +1113,11 @@ def run_pipeline(
     output_dir = Path(config.paths.output_dir) / run_dir_name
     alignments_dir = output_dir / config.paths.alignments_dirname
     endpoint = f"{config.api.base_url}{config.api.document_extract_path}"
+    llm_provider = get_llm_provider_name(config)
 
     log_step(f"Starting run in {output_dir}")
     log_step(f"Using document extract endpoint: {endpoint}")
+    log_step(f"Using LLM provider: {llm_provider}")
 
     log_step("Loading canonical train labels and least-frequent label list")
     original_train_unique_labels_df = load_unique_labels(
