@@ -254,12 +254,16 @@ async def _stream_audio_bytes(
         chunk_int16 = (chunk * 32768).astype(np.int16)
         data = chunk_int16.tobytes()
         total_bytes += len(data)
-        chunk_seconds = len(chunk) / SAMPLE_RATE_HZ
-        if backpressure is not None:
-            await backpressure.wait_if_needed()
+        # chunk_seconds = len(chunk) / SAMPLE_RATE_HZ
+
         await websocket.send(data)
-        if backpressure is not None:
-            backpressure.record_sent(chunk_seconds)
+        await asyncio.sleep(0.01)
+
+        # if backpressure is not None:
+        #     await backpressure.wait_if_needed()
+        # await websocket.send(data)
+        # if backpressure is not None:
+        #     backpressure.record_sent(chunk_seconds)
     return total_bytes
 
 
