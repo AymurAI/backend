@@ -16,9 +16,8 @@ from aymurai.database.utils import data_to_uuid
 from aymurai.meta.api_interfaces import ASRDocument, ASRParagraph
 
 from aymurai.api.endpoints.routers.asr.transcribe import (
-    _format_done_event,
     _format_error_event,
-    _format_transcription_event,
+    _format_sse_event,
 )
 
 
@@ -173,7 +172,7 @@ def test_should_format_transcription_event_with_document_json():
         )
     ]
 
-    frame = _format_transcription_event(doc_id, paragraphs)
+    frame = _format_sse_event("transcription", doc_id, paragraphs)
 
     assert frame.startswith("event: transcription\n")
     assert frame.endswith("\n\n")
@@ -183,7 +182,7 @@ def test_should_format_transcription_event_with_document_json():
 
 def test_should_format_done_event_with_document_json():
     doc_id = UUID("00000000-0000-5000-8000-000000000000")
-    frame = _format_done_event(doc_id, [])
+    frame = _format_sse_event("done", doc_id, [])
 
     assert frame.startswith("event: done\n")
     assert frame.endswith("\n\n")
@@ -391,3 +390,176 @@ def test_should_emit_error_event_when_upstream_fails_mid_stream(
     with Session(engine) as session:
         record = session.get(AudioTranscription, document_id)
         assert record is None
+
+
+def test_should_emit_internal_error_event_when_generator_raises_unexpected_exception(
+    asr_test_client,
+    make_wav_bytes,
+):
+    client, _ = asr_test_client
+    audio_bytes = make_wav_bytes(freq_hz=660)
+
+    async def broken_generator(_payload):
+        yield ASRStreamChunk(
+            paragraphs=[
+                ASRParagraph(
+                    speaker_no=0,
+                    start=timedelta(seconds=0),
+                    end=timedelta(seconds=1),
+                    text="partial",
+                )
+            ],
+            current_time=1.0,
+            total_time=2.0,
+        )
+        raise ValueError("something unexpected")
+
+    with patch(
+        "aymurai.api.endpoints.routers.asr.transcribe.transcribe_audio_bytes_stream",
+        new=broken_generator,
+    ):
+        response = client.post(
+            "/asr/transcribe/stream?use_cache=false",
+            files={"file": ("broken.wav", audio_bytes, "audio/wav")},
+        )
+
+    assert response.status_code == 200
+    events = _parse_sse_events(response.text)
+    names = [name for name, _ in events]
+    assert "error" in names
+    assert names[-1] == "error"
+
+    error_payload = json.loads(events[-1][1])
+    assert error_payload["code"] == "INTERNAL_ERROR"
+
+
+def test_should_include_progress_fields_in_done_event(
+    asr_test_client,
+    make_wav_bytes,
+):
+    client, _ = asr_test_client
+    audio_bytes = make_wav_bytes(freq_hz=770)
+
+    async def fake_generator(_payload):
+        yield ASRStreamChunk(
+            paragraphs=[
+                ASRParagraph(
+                    speaker_no=0,
+                    start=timedelta(seconds=0),
+                    end=timedelta(seconds=5),
+                    text="hello",
+                )
+            ],
+            current_time=5.0,
+            total_time=10.0,
+        )
+
+    with patch(
+        "aymurai.api.endpoints.routers.asr.transcribe.transcribe_audio_bytes_stream",
+        new=fake_generator,
+    ):
+        response = client.post(
+            "/asr/transcribe/stream?use_cache=false",
+            files={"file": ("progress.wav", audio_bytes, "audio/wav")},
+        )
+
+    assert response.status_code == 200
+    events = _parse_sse_events(response.text)
+    done_payload = ASRDocument.model_validate_json(events[-1][1])
+    assert done_payload.current_time == 5.0
+    assert done_payload.total_time == 10.0
+
+
+def test_should_emit_keepalive_comments_during_long_transcription(
+    asr_test_client,
+    make_wav_bytes,
+):
+    client, _ = asr_test_client
+    audio_bytes = make_wav_bytes(freq_hz=880)
+
+    async def slow_generator(_payload):
+        import asyncio
+
+        yield ASRStreamChunk(
+            paragraphs=[
+                ASRParagraph(
+                    speaker_no=0,
+                    start=timedelta(seconds=0),
+                    end=timedelta(seconds=1),
+                    text="first",
+                )
+            ],
+            current_time=1.0,
+            total_time=2.0,
+        )
+        await asyncio.sleep(0.3)
+        yield ASRStreamChunk(
+            paragraphs=[
+                ASRParagraph(
+                    speaker_no=0,
+                    start=timedelta(seconds=0),
+                    end=timedelta(seconds=2),
+                    text="first second",
+                )
+            ],
+            current_time=2.0,
+            total_time=2.0,
+        )
+
+    with (
+        patch(
+            "aymurai.api.endpoints.routers.asr.transcribe.transcribe_audio_bytes_stream",
+            new=slow_generator,
+        ),
+        patch(
+            "aymurai.api.endpoints.routers.asr.transcribe.settings.TRANSCRIBE_SSE_KEEPALIVE_SECONDS",
+            0,
+        ),
+    ):
+        response = client.post(
+            "/asr/transcribe/stream?use_cache=false",
+            files={"file": ("keepalive.wav", audio_bytes, "audio/wav")},
+        )
+
+    assert response.status_code == 200
+    assert ": keepalive" in response.text or "event: done" in response.text
+
+
+def test_should_return_upstream_error_when_transcribe_audio_bytes_raises_websocket_runtime_error(
+    asr_test_client,
+    make_wav_bytes,
+):
+    client, _ = asr_test_client
+    audio_bytes = make_wav_bytes(freq_hz=990)
+
+    with patch(
+        "aymurai.api.endpoints.routers.asr.transcribe.transcribe_audio_bytes",
+        new=AsyncMock(
+            side_effect=RuntimeError("Transcription service websocket error")
+        ),
+    ):
+        response = client.post(
+            "/asr/transcribe?use_cache=false",
+            files={"file": ("ws_err.wav", audio_bytes, "audio/wav")},
+        )
+
+    assert response.status_code == 502
+
+
+def test_should_return_api_error_when_transcribe_audio_bytes_returns_none(
+    asr_test_client,
+    make_wav_bytes,
+):
+    client, _ = asr_test_client
+    audio_bytes = make_wav_bytes(freq_hz=1100)
+
+    with patch(
+        "aymurai.api.endpoints.routers.asr.transcribe.transcribe_audio_bytes",
+        new=AsyncMock(return_value=None),
+    ):
+        response = client.post(
+            "/asr/transcribe?use_cache=false",
+            files={"file": ("no_result.wav", audio_bytes, "audio/wav")},
+        )
+
+    assert response.status_code == 500

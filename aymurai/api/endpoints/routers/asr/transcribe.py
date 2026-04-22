@@ -33,36 +33,21 @@ from aymurai.meta.api_interfaces import ASRDocument, ASRParagraph, ASRParagraphR
 from aymurai.settings import settings
 
 
-def _format_transcription_event(
+def _format_sse_event(
+    event_name: str,
     document_id: UUID,
     paragraphs: list[ASRParagraph],
     current_time: float | None = None,
     total_time: float | None = None,
 ) -> str:
-    """Format an active_transcription SSE event."""
+    """Format an SSE event with an ASRDocument payload."""
     payload = ASRDocument(
         document_id=document_id,
         document=paragraphs,
         current_time=current_time,
         total_time=total_time,
     ).model_dump_json()
-    return f"event: transcription\ndata: {payload}\n\n"
-
-
-def _format_done_event(
-    document_id: UUID,
-    paragraphs: list[ASRParagraph],
-    current_time: float | None = None,
-    total_time: float | None = None,
-) -> str:
-    """Format the final 'done' SSE event."""
-    payload = ASRDocument(
-        document_id=document_id,
-        document=paragraphs,
-        current_time=current_time,
-        total_time=total_time,
-    ).model_dump_json()
-    return f"event: done\ndata: {payload}\n\n"
+    return f"event: {event_name}\ndata: {payload}\n\n"
 
 
 def _format_error_event(detail: str, code: str) -> str:
@@ -206,7 +191,7 @@ async def transcribe_stream(
                     ASRParagraph.model_validate(p)
                     for p in (cached.validation or cached.transcription)
                 ]
-                yield _format_done_event(document_id, cached_paragraphs)
+                yield _format_sse_event("done", document_id, cached_paragraphs)
                 return
 
         # Live streaming path
@@ -271,7 +256,8 @@ async def transcribe_stream(
                     last_snapshot = chunk.paragraphs
                     last_current_time = chunk.current_time
                     last_total_time = chunk.total_time
-                    yield _format_transcription_event(
+                    yield _format_sse_event(
+                        "transcription",
                         document_id,
                         chunk.paragraphs,
                         current_time=chunk.current_time,
@@ -299,7 +285,8 @@ async def transcribe_stream(
         except Exception:
             logger.exception("failed to persist transcription; continuing")
 
-        yield _format_done_event(
+        yield _format_sse_event(
+            "done",
             document_id,
             last_snapshot,
             current_time=last_current_time,

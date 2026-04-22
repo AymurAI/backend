@@ -299,6 +299,55 @@ def _parse_ws_message(message: str | bytes) -> WLKMessageRawResponse | None:
         return None
 
 
+async def _iter_ws_messages(
+    websocket: websockets.ClientConnection,
+    backpressure: _Backpressure | None = None,
+) -> AsyncGenerator[WLKMessageStatus, None]:
+    """Yield ``active_transcription`` status messages from a WebSocket.
+
+    Handles recv errors, message parsing, and backpressure progress
+    updates internally.  Yields only ``WLKMessageStatus`` messages with
+    ``status="active_transcription"``; silently skips unparseable messages
+    and ``WLKMessageConfig`` messages.  Terminates on ``ConnectionClosedOK``
+    or ``WLKMessageReadyToStopMessage``.
+
+    Args:
+        websocket: The WebSocket connection to receive from.
+        backpressure: Optional pacer to feed with server progress updates.
+
+    Yields:
+        Each active_transcription status received from the server.
+
+    Raises:
+        RuntimeError: On WebSocket errors during receive.
+    """
+    while True:
+        try:
+            msg = await websocket.recv()
+        except websockets.exceptions.ConnectionClosedOK:
+            logger.info("connection closed normally")
+            return
+        except websockets.exceptions.WebSocketException as exc:
+            logger.error(
+                "websocket error while receiving: %s",
+                _describe_ws_exception(exc),
+            )
+            raise RuntimeError("Transcription service websocket error") from exc
+
+        parsed = _parse_ws_message(msg)
+        match parsed:
+            case None:
+                continue
+            case WLKMessageStatus(status="active_transcription") as message:
+                if backpressure is not None:
+                    backpressure.update_server_progress(
+                        _current_time_from_status(message)
+                    )
+                yield message
+            case WLKMessageReadyToStopMessage():
+                return
+
+
 async def _receive_updates(
     websocket: websockets.ClientConnection,
     backpressure: _Backpressure | None = None,
@@ -313,32 +362,8 @@ async def _receive_updates(
         The last active transcription status, or None if none received.
     """
     last_active_transcription: WLKMessageStatus | None = None
-    while True:
-        try:
-            msg = await websocket.recv()
-        except websockets.exceptions.ConnectionClosedOK:
-            logger.info("connection closed normally")
-            break
-        except websockets.exceptions.WebSocketException as exc:
-            logger.error(
-                "websocket error while receiving updates: %s",
-                _describe_ws_exception(exc),
-            )
-            raise RuntimeError("Transcription service websocket error") from exc
-
-        parsed = _parse_ws_message(msg)
-        match parsed:
-            case None:
-                continue
-            case WLKMessageStatus(status="active_transcription") as message:
-                last_active_transcription = message
-                if backpressure is not None:
-                    backpressure.update_server_progress(
-                        _current_time_from_status(message)
-                    )
-            case WLKMessageReadyToStopMessage():
-                break
-
+    async for message in _iter_ws_messages(websocket, backpressure):
+        last_active_transcription = message
     return last_active_transcription
 
 
@@ -449,36 +474,13 @@ async def transcribe_audio_bytes_stream(
             streaming_task = asyncio.create_task(
                 _stream_and_signal_end(decoded, websocket, backpressure)
             )
-            while True:
-                try:
-                    msg = await websocket.recv()
-                except websockets.exceptions.ConnectionClosedOK:
-                    logger.info("connection closed normally")
-                    break
-                except websockets.exceptions.WebSocketException as exc:
-                    logger.error(
-                        "websocket error while receiving: %s",
-                        _describe_ws_exception(exc),
-                    )
-                    raise RuntimeError("Transcription service websocket error") from exc
-
-                parsed = _parse_ws_message(msg)
-                match parsed:
-                    case None:
-                        continue
-                    case WLKMessageStatus(status="active_transcription") as message:
-                        current_time = _current_time_from_status(message)
-                        # Feed the server's progress into the backpressure
-                        # controller so the send loop knows how far it can
-                        # safely get ahead.
-                        backpressure.update_server_progress(current_time)
-                        yield ASRStreamChunk(
-                            paragraphs=lines_to_paragraphs(message.lines),
-                            current_time=current_time,
-                            total_time=total_time,
-                        )
-                    case WLKMessageReadyToStopMessage():
-                        break
+            async for message in _iter_ws_messages(websocket, backpressure):
+                current_time = _current_time_from_status(message)
+                yield ASRStreamChunk(
+                    paragraphs=lines_to_paragraphs(message.lines),
+                    current_time=current_time,
+                    total_time=total_time,
+                )
     except websockets.exceptions.WebSocketException as exc:
         logger.error(
             "websocket error during transcription: %s", _describe_ws_exception(exc)
