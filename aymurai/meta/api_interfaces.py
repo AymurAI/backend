@@ -132,6 +132,21 @@ class ASRParagraphRequest(BaseModel):
 class ASRDocument(BaseModel):
     document: list[ASRParagraph]
     document_id: UUID
+    current_time: float | None = Field(
+        default=None,
+        description=(
+            "Seconds of audio transcribed so far (end timestamp of the last line). "
+            "None when unknown (e.g. cache hit)."
+        ),
+    )
+    total_time: float | None = Field(
+        default=None,
+        description=(
+            "Estimated total audio duration in seconds "
+            "(current_time + remaining_time from the upstream service). "
+            "None when unknown."
+        ),
+    )
 
     def to_txt(self) -> str:
         return "\n\n".join([paragraph.to_txt() for paragraph in self.document])

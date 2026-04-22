@@ -68,6 +68,30 @@ class Settings(BaseSettings):
     # ASR Config
     ##########################################################################
     TRANSCRIBE_WS_URI: str | None = None
+    TRANSCRIBE_SSE_KEEPALIVE_SECONDS: int = 15
+    # WebSocket ping interval/timeout sent by this client to keep the upstream
+    # ASR connection alive during long transcriptions.  Set either to 0 to
+    # disable client-side pings entirely.
+    TRANSCRIBE_WS_PING_INTERVAL_SECONDS: int = 20
+    TRANSCRIBE_WS_PING_TIMEOUT_SECONDS: int = 60
+    # Lead-budget backpressure for the ASR WebSocket send loop.
+    #
+    # The upstream WhisperLiveKit server runs on uvicorn with a bounded
+    # WS frame queue (``ws_max_queue``, default 32) and consumes audio
+    # at real-time pace. Firehosing saturates the queue, blocks the
+    # frame reader, and causes ping/pong control frames to time out ->
+    # 1011 "keepalive ping timeout" close.
+    #
+    # We cap how far ahead of the server's progress we are allowed to
+    # send. Progress is the larger of:
+    #   - the server's last reported line-end timestamp, and
+    #   - ``wallclock_elapsed - INITIAL_GRACE`` (fallback while the
+    #     server is quiet, e.g. during silence stretches).
+    #
+    # ``LEAD_BUDGET_SECONDS`` is the allowed lead. ``INITIAL_GRACE``
+    # lets us get ahead at the start before wall-clock pacing kicks in.
+    TRANSCRIBE_WS_LEAD_BUDGET_SECONDS: float = 20.0
+    TRANSCRIBE_WS_LEAD_INITIAL_GRACE_SECONDS: float = 20.0
 
     ##########################################################################
     # Disambiguation Config
