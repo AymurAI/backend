@@ -24,7 +24,7 @@ llm:
   token_encoding_name: "cl100k_base"
   temperature: 0.5
   max_retries_per_sample: 1
-  paragraphs_per_call: 1
+  paragraphs_per_call: 3
 
 faker:
   candidates_per_label: 5
@@ -33,7 +33,7 @@ faker:
     - "TEXTO_ANONIMIZAR"
 
 sampling:
-  target_total_synthetic: 1
+  target_total_synthetic: 1000
   desired_target_labels:
     - NUM_CAJA_AHORRO
     - NOMBRE_ARCHIVO

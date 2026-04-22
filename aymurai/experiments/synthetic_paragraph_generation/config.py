@@ -156,6 +156,10 @@ def load_synthetic_paragraph_generation_config(
         data_payload["guidelines_path"] = resolve_config_path(
             data_payload["guidelines_path"], project_root=project_root
         )
+    if "normalized_labels_path" in data_payload:
+        data_payload["normalized_labels_path"] = resolve_config_path(
+            data_payload["normalized_labels_path"], project_root=project_root
+        )
 
     outputs_payload = payload.setdefault("outputs", {})
     if "base_dir" in outputs_payload:

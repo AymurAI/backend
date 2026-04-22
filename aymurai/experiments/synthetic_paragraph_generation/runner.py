@@ -162,6 +162,26 @@ def strip_label_names_from_text(text: str, labels: list[str]) -> str:
     return re.sub(r"\s+", " ", clean_text).strip()
 
 
+def load_normalized_labels(
+    path: str | None,
+    *,
+    fallback_labels: list[str],
+) -> list[str]:
+    if not path:
+        return fallback_labels
+    normalized_labels_path = Path(path)
+    if not normalized_labels_path.exists():
+        log_step(
+            f"normalized_labels_path was not found at {normalized_labels_path}; using batch labels instead."
+        )
+        return fallback_labels
+    return [
+        line.strip()
+        for line in normalized_labels_path.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ] or fallback_labels
+
+
 def parse_example_row(
     row: dict[str, Any],
     *,
@@ -275,7 +295,9 @@ def build_label_example_pools(
                 for i, (text, labels) in enumerate(parse_bio_paragraphs(path))
             )
         else:
-            continue
+            raise ValueError(
+                f"Unsupported source file format for {path}. Expected .jsonl or .txt."
+            )
 
         for index, row in enumerate(rows):
             if (
@@ -325,7 +347,7 @@ def build_label_example_pools(
     )
     if not normalized:
         raise ValueError(
-            "No labeled source examples could be sampled from data.source_path."
+            "No labeled source examples could be sampled from data.source_paths."
         )
     return normalized, seen_per_label, total_loaded, source_texts
 
@@ -949,6 +971,10 @@ def run_pipeline(config: SyntheticParagraphGenerationConfig) -> dict[str, Any]:
             last_error: str | None = None
             actual_prompt_tokens: int | None = None
             validation_results: list[dict[str, Any]] = []
+            normalized_labels = load_normalized_labels(
+                config.data.normalized_labels_path,
+                fallback_labels=batch.labels,
+            )
 
             for _attempt in range(1, config.llm.max_retries_per_sample + 2):
                 try:
@@ -978,18 +1004,6 @@ def run_pipeline(config: SyntheticParagraphGenerationConfig) -> dict[str, Any]:
                     job_lookup = {job["job_id"]: job for job in batch.paragraph_jobs}
                     success_records = []
                     validation_results = []
-                    normalized_labels = (
-                        [
-                            line.strip()
-                            for line in Path(config.data.normalized_labels_path)
-                            .read_text(encoding="utf-8")
-                            .splitlines()
-                            if line.strip()
-                        ]
-                        if config.data.normalized_labels_path
-                        and Path(config.data.normalized_labels_path).exists()
-                        else batch.labels
-                    )
 
                     for paragraph_item in parsed.paragraphs:
                         requested_job = job_lookup[paragraph_item.job_id]
