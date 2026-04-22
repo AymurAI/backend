@@ -4,7 +4,7 @@ experiment:
 
 
 data:
-  input_path: "/Users/MacConra/Documents/Collective/AymurAI/backend/resources/data/restricted/ner-flair-finetunning"
+  input_path: "resources/outputs/training-dataset-generation/new_only__all_clean_labeled__ratio_to_selected_labeled_your_run_name/train_generated.txt"
 
 
 backend:
