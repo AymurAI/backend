@@ -217,7 +217,7 @@ async def transcribe_stream(
             # that cancelling the keepalive_get task never aborts the in-flight
             # __anext__() call.
             next_task: asyncio.Task[ASRStreamChunk] = asyncio.create_task(
-                stream_iter.__anext__()
+                stream_iter.__anext__()  # pyrefly: ignore[bad-argument-type]
             )
             while True:
                 keepalive_get = asyncio.create_task(keepalive_queue.get())
@@ -230,7 +230,7 @@ async def transcribe_stream(
                 if keepalive_get in done:
                     yield keepalive_get.result()
                 else:
-                    # keepalive_get lost the race — discard it cleanly
+                    # keepalive_get lost the race - discard it cleanly
                     keepalive_get.cancel()
                     with contextlib.suppress(asyncio.CancelledError):
                         await keepalive_get
@@ -253,18 +253,30 @@ async def transcribe_stream(
                             code="INTERNAL_ERROR",
                         )
                         return
+
                     last_snapshot = chunk.paragraphs
                     last_current_time = chunk.current_time
                     last_total_time = chunk.total_time
-                    yield _format_sse_event(
-                        "transcription",
-                        document_id,
-                        chunk.paragraphs,
-                        current_time=chunk.current_time,
-                        total_time=chunk.total_time,
-                    )
+
+                    # emit an SSE event only if transcription content is present in the chunk
+                    paragraphs = [
+                        paragraph
+                        for paragraph in chunk.paragraphs
+                        if paragraph.text.strip()
+                    ]
+                    if paragraphs:
+                        yield _format_sse_event(
+                            "transcription",
+                            document_id,
+                            paragraphs,
+                            current_time=chunk.current_time,
+                            total_time=chunk.total_time,
+                        )
+
                     # Advance to the next chunk only after the current one is consumed
-                    next_task = asyncio.create_task(stream_iter.__anext__())
+                    next_task = asyncio.create_task(
+                        stream_iter.__anext__()  # pyrefly: ignore[bad-argument-type]
+                    )
         finally:
             if keepalive_task is not None and not keepalive_task.done():
                 keepalive_task.cancel()
@@ -288,7 +300,7 @@ async def transcribe_stream(
         yield _format_sse_event(
             "done",
             document_id,
-            last_snapshot,
+            paragraphs=[p for p in last_snapshot if p.text.strip()],
             current_time=last_current_time,
             total_time=last_total_time,
         )

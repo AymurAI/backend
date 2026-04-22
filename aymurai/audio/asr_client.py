@@ -23,9 +23,6 @@ from aymurai.settings import settings
 
 logger = get_logger(__name__)
 
-SAMPLE_RATE_HZ = 16000
-CHUNK_SECONDS = 1
-CHUNK_SAMPLES = SAMPLE_RATE_HZ * CHUNK_SECONDS
 MAX_WS_LOG_CHARS = 2000
 ASR_RAW_RESPONSE_ADAPTER = TypeAdapter(WLKMessageRawResponse)
 
@@ -78,15 +75,15 @@ class _DecodedAudio:
         self.duration_s = duration_s
 
 
-def _decode_audio(payload: bytes) -> _DecodedAudio:
-    """Decode an audio payload to a mono float32 array at SAMPLE_RATE_HZ.
+def _decode_audio(payload: bytes, sr: int = 16000) -> _DecodedAudio:
+    """Decode an audio payload to a mono float32 array at Sample Rate ``sr``.
 
     Pure CPU/IO work — call via ``asyncio.to_thread`` from async contexts
     to avoid blocking the event loop (which would starve WebSocket and SSE
     keepalives).
     """
-    audio, _ = librosa.load(io.BytesIO(payload), sr=SAMPLE_RATE_HZ, mono=True)
-    return _DecodedAudio(array=audio, duration_s=len(audio) / SAMPLE_RATE_HZ)
+    audio, _ = librosa.load(io.BytesIO(payload), sr=sr, mono=True)
+    return _DecodedAudio(array=audio, duration_s=len(audio) / sr)
 
 
 def _current_time_from_status(message: WLKMessageStatus) -> float | None:
@@ -138,12 +135,17 @@ async def _stream_audio_bytes(
     if isinstance(payload, _DecodedAudio):
         decoded = payload
     else:
-        decoded = await asyncio.to_thread(_decode_audio, payload)
+        decoded = await asyncio.to_thread(
+            _decode_audio,
+            payload,
+            sr=settings.TRANSCRIBE_WS_SAMPLE_RATE,
+        )
     audio = decoded.array
 
     total_bytes = 0
-    for i in range(0, len(audio), CHUNK_SAMPLES):
-        chunk = audio[i : i + CHUNK_SAMPLES]
+    _CHUNK_SAMPLES = settings.TRANSCRIBE_WS_CHUNK_SAMPLES
+    for i in range(0, len(audio), _CHUNK_SAMPLES):
+        chunk = audio[i : i + _CHUNK_SAMPLES]
         if len(chunk) == 0:
             continue
         chunk_int16 = (chunk * 32768).astype(np.int16)

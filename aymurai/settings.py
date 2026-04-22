@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import ClassVar
 
 from dotenv import load_dotenv
-from pydantic import FilePath, field_validator
+from pydantic import Field, FilePath, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 import aymurai
@@ -78,6 +78,21 @@ class Settings(BaseSettings):
     # control to the event loop so the recv task can drain incoming frames
     # and keepalive pings stay responsive.
     TRANSCRIBE_WS_CHUNK_SLEEP_SECONDS: float = 0.01
+
+    TRANSCRIBE_WS_CHUNK_SECONDS: float = Field(
+        10.0,
+        gt=0.0,
+        description="Number of seconds of audio to send in each WebSocket chunk.",
+    )
+    TRANSCRIBE_WS_SAMPLE_RATE: int = Field(
+        16000,
+        gt=0,
+        description="Sample rate of the audio to be sent in each WebSocket chunk.",
+    )
+
+    @property
+    def TRANSCRIBE_WS_CHUNK_SAMPLES(self) -> int:
+        return int(self.TRANSCRIBE_WS_CHUNK_SECONDS * self.TRANSCRIBE_WS_SAMPLE_RATE)
 
     ##########################################################################
     # Disambiguation Config
