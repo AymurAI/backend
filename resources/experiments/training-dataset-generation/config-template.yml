@@ -1,8 +1,9 @@
 paths:
-  train_set_path: resources/data/restricted/ner-review/labeled-dataset/train.txt
-  dev_set_path: resources/data/restricted/ner-review/labeled-dataset/dev-review-cb.txt
-  test_set_path: resources/data/restricted/ner-review/labeled-dataset/test-review-cb.txt
-  new_candidates_path: resources/data/restricted/ner-langextract-alignment/curated/train_candidates.jsonl
+  train_set_path: resources/data/restricted/ner-flair-finetuning/old-data/train.txt
+  dev_set_path: resources/data/restricted/ner-flair-finetuning/old-data/dev.txt
+  test_set_path: resources/data/restricted/ner-flair-finetuning/old-data/test.txt
+  candidate_input_paths:
+    - resources/data/restricted/ner-langextract-alignment/curated/train_candidates.jsonl
   output_dir: resources/outputs/training-dataset-generation
   low_frequency_labels_path:
   run_dir_name_template: "{strategy}_{timestamp}"

@@ -14,7 +14,7 @@ class PathsConfig(BaseModel):
     train_set_path: str
     dev_set_path: str
     test_set_path: str
-    new_candidates_path: str
+    candidate_input_paths: list[str]
     output_dir: str
     low_frequency_labels_path: str | None = None
     run_dir_name_template: str = "{strategy}_{timestamp}"
@@ -152,7 +152,6 @@ def load_training_dataset_generation_config(
         "train_set_path",
         "dev_set_path",
         "test_set_path",
-        "new_candidates_path",
         "output_dir",
         "low_frequency_labels_path",
     ):
@@ -160,5 +159,11 @@ def load_training_dataset_generation_config(
             paths_payload[key] = resolve_config_path(
                 paths_payload[key], project_root=project_root
             )
+
+    if "candidate_input_paths" in paths_payload:
+        paths_payload["candidate_input_paths"] = [
+            resolve_config_path(item, project_root=project_root)
+            for item in paths_payload["candidate_input_paths"]
+        ]
 
     return TrainingDatasetGenerationConfig.model_validate(payload)

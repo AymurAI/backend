@@ -122,6 +122,35 @@ def parse_bio_paragraphs(path: str | Path) -> list[tuple[str, list[str]]]:
     return paragraphs
 
 
+def parse_bio_token_paragraphs(path: str | Path) -> list[tuple[list[str], list[str]]]:
+    paragraphs: list[tuple[list[str], list[str]]] = []
+    current_tokens: list[str] = []
+    current_labels: list[str] = []
+
+    for raw_line in read_bio_lines(path):
+        line = raw_line.rstrip()
+        if not line:
+            if current_tokens:
+                paragraphs.append((list(current_tokens), list(current_labels)))
+                current_tokens = []
+                current_labels = []
+            continue
+
+        try:
+            token, label = line.rsplit(" ", 1)
+        except ValueError:
+            token = line
+            label = "O"
+
+        current_tokens.append(token)
+        current_labels.append(label.strip())
+
+    if current_tokens:
+        paragraphs.append((list(current_tokens), list(current_labels)))
+
+    return paragraphs
+
+
 def normalize_bio_label(label: str) -> str:
     label = str(label).strip()
     if label.startswith("B-") or label.startswith("I-"):
@@ -161,9 +190,10 @@ def calculate_train_set_stats(
     )
 
 
-def load_new_candidates(jsonl_path: str | Path) -> list[dict[str, Any]]:
+def load_jsonl_candidates(jsonl_path: str | Path) -> list[dict[str, Any]]:
     candidates: list[dict[str, Any]] = []
-    with Path(jsonl_path).open("r", encoding="utf-8") as handle:
+    source_path = Path(jsonl_path)
+    with source_path.open("r", encoding="utf-8") as handle:
         for line in handle:
             if not line.strip():
                 continue
@@ -173,7 +203,117 @@ def load_new_candidates(jsonl_path: str | Path) -> list[dict[str, Any]]:
                     "text": data.get("text", ""),
                     "entities": data.get("final_entities", [])
                     or data.get("entities", []),
+                    "source_path": str(source_path),
+                    "source_format": "jsonl",
                 }
+            )
+    return candidates
+
+
+def token_offsets_from_joined_text(
+    tokens: list[str],
+) -> tuple[str, list[tuple[int, int]]]:
+    parts: list[str] = []
+    offsets: list[tuple[int, int]] = []
+    cursor = 0
+
+    for idx, token in enumerate(tokens):
+        if idx > 0:
+            parts.append(" ")
+            cursor += 1
+        start = cursor
+        parts.append(token)
+        cursor += len(token)
+        end = cursor
+        offsets.append((start, end))
+
+    return "".join(parts), offsets
+
+
+def entities_from_bio_tokens(
+    tokens: list[str], labels: list[str]
+) -> tuple[str, list[dict[str, Any]]]:
+    text, offsets = token_offsets_from_joined_text(tokens)
+    entities: list[dict[str, Any]] = []
+    current_label: str | None = None
+    current_start: int | None = None
+    current_end: int | None = None
+
+    def flush_entity() -> None:
+        nonlocal current_label, current_start, current_end
+        if current_label is None or current_start is None or current_end is None:
+            return
+        entities.append(
+            {
+                "label": current_label,
+                "start_char": current_start,
+                "end_char": current_end,
+                "text": text[current_start:current_end],
+            }
+        )
+        current_label = None
+        current_start = None
+        current_end = None
+
+    for idx, raw_label in enumerate(labels):
+        label = str(raw_label).strip()
+        if not label or label == "O":
+            flush_entity()
+            continue
+
+        prefix = "B"
+        base_label = label
+        if label.startswith("B-") or label.startswith("I-"):
+            prefix = label[0]
+            base_label = label[2:]
+
+        token_start, token_end = offsets[idx]
+        starts_new_entity = (
+            prefix == "B" or current_label is None or current_label != base_label
+        )
+
+        if starts_new_entity:
+            flush_entity()
+            current_label = base_label
+            current_start = token_start
+            current_end = token_end
+        else:
+            current_end = token_end
+
+    flush_entity()
+    return text, entities
+
+
+def load_bio_txt_candidates(txt_path: str | Path) -> list[dict[str, Any]]:
+    source_path = Path(txt_path)
+    candidates: list[dict[str, Any]] = []
+    for tokens, labels in parse_bio_token_paragraphs(source_path):
+        text, entities = entities_from_bio_tokens(tokens, labels)
+        candidates.append(
+            {
+                "text": text,
+                "entities": entities,
+                "source_path": str(source_path),
+                "source_format": "txt",
+            }
+        )
+    return candidates
+
+
+def load_candidates_from_paths(
+    candidate_input_paths: Iterable[str | Path],
+) -> list[dict[str, Any]]:
+    candidates: list[dict[str, Any]] = []
+    for raw_path in candidate_input_paths:
+        path = Path(raw_path)
+        suffix = path.suffix.lower()
+        if suffix == ".jsonl":
+            candidates.extend(load_jsonl_candidates(path))
+        elif suffix == ".txt":
+            candidates.extend(load_bio_txt_candidates(path))
+        else:
+            raise ValueError(
+                f"Unsupported candidate input format for {path}. Expected .jsonl or .txt"
             )
     return candidates
 

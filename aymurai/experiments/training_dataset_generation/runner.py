@@ -15,6 +15,7 @@ from aymurai.experiments.training_dataset_generation.core import (
     calculate_train_set_stats,
     export_jsonl,
     filter_labeled_candidates,
+    load_candidates_from_paths,
     paragraphs_from_bio,
     parse_bio_paragraphs,
     perform_corpus_deduplication,
@@ -22,7 +23,6 @@ from aymurai.experiments.training_dataset_generation.core import (
     resolve_target_labels,
     sample_unlabeled_candidates,
     shuffle_candidates,
-    load_new_candidates,
     write_bio_dataset,
 )
 
@@ -62,8 +62,11 @@ def run_pipeline(config: TrainingDatasetGenerationConfig) -> dict:
         f"train={len(train_paragraphs)}, dev={len(dev_paragraphs)}, test={len(test_paragraphs)}"
     )
 
-    new_candidates = load_new_candidates(config.paths.new_candidates_path)
-    log_step(f"Loaded {len(new_candidates)} raw new candidates")
+    new_candidates = load_candidates_from_paths(config.paths.candidate_input_paths)
+    log_step(
+        f"Loaded {len(new_candidates)} raw candidates from "
+        f"{len(config.paths.candidate_input_paths)} input path(s)"
+    )
 
     unique_candidates, internal_duplicates = perform_internal_deduplication(
         new_candidates,
@@ -141,7 +144,7 @@ def run_pipeline(config: TrainingDatasetGenerationConfig) -> dict:
             "train_set_path": config.paths.train_set_path,
             "dev_set_path": config.paths.dev_set_path,
             "test_set_path": config.paths.test_set_path,
-            "new_candidates_path": config.paths.new_candidates_path,
+            "candidate_input_paths": config.paths.candidate_input_paths,
             "low_frequency_labels_path": config.paths.low_frequency_labels_path,
         },
         "selection_config": config.model_dump(mode="json"),

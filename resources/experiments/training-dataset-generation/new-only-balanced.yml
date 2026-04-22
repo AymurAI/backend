@@ -2,9 +2,11 @@ paths:
   train_set_path: resources/data/restricted/ner-flair-finetuning/old-data/train.txt
   dev_set_path: resources/data/restricted/ner-flair-finetuning/old-data/dev.txt
   test_set_path: resources/data/restricted/ner-flair-finetuning/old-data/test.txt
-  new_candidates_path: resources/data/restricted/ner-langextract-alignment/curated/train_candidates.jsonl
+  candidate_input_paths:
+    - resources/outputs/data-augmentation/your_run_name/augmented_train.txt
+    - resources/outputs/ner-langextract-alignment/your_run_name/train_candidates.jsonl
   output_dir: resources/outputs/training-dataset-generation
-  low_frequency_labels_path:
+  low_frequency_labels_path: notebooks/data-preparation/new-datasets/top-15-less-frequent-labels.txt
 
 deduplication:
   internal_threshold: 95.0
