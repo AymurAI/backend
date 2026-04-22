@@ -8,7 +8,7 @@ data:
   input_bio_txt: "resources/outputs/synthetic-paragraph-generation/your_run_name/synthetic_samples.txt"
   include_extensions: [".pdf", ".docx"]
   max_documents: 5
-  max_paragraphs: 300
+  max_paragraphs: null
 
 api:
   base_url: "http://localhost:8999"

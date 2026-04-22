@@ -59,6 +59,7 @@ from aymurai.experiments.ner_langextract_alignment.normalize import (
     serialize_entity,
 )
 from aymurai.experiments.ner_langextract_alignment.types import LLMTrace
+from aymurai.experiments.ner_holdout_evaluation.loaders import load_conll_bio
 from aymurai.logger import get_logger
 from aymurai.settings import load_env
 from aymurai.utils.yaml_data import load_yaml
@@ -68,8 +69,8 @@ load_env()
 logger = get_logger(__name__)
 
 
-def _ensure_dirs(config: NERLangExtractRunConfig) -> dict[str, Path]:
-    base = Path(config.outputs.base_dir)
+def _ensure_dirs(config: NERLangExtractRunConfig, run_name: str) -> dict[str, Path]:
+    base = Path(config.outputs.base_dir) / run_name
     base.mkdir(parents=True, exist_ok=True)
 
     paths: dict[str, Path] = {
@@ -88,7 +89,7 @@ def _ensure_dirs(config: NERLangExtractRunConfig) -> dict[str, Path]:
         paths[key].mkdir(parents=True, exist_ok=True)
 
     if config.labelstudio.enabled and config.labelstudio.export_dir:
-        paths["labelstudio"] = Path(config.labelstudio.export_dir)
+        paths["labelstudio"] = Path(config.labelstudio.export_dir) / run_name
         paths["labelstudio"].mkdir(parents=True, exist_ok=True)
 
     return paths
@@ -207,6 +208,30 @@ def _load_input_paragraphs(config: NERLangExtractRunConfig) -> list[dict[str, An
                 "paragraph_id": str(row.get("paragraph_id") or str(idx)),
                 "source_path": row.get("source_path"),
                 "text": str(row.get("text") or ""),
+            }
+        )
+
+    if config.data.max_paragraphs is not None:
+        out = out[: config.data.max_paragraphs]
+
+    return out
+
+
+def _load_input_bio_txt(config: NERLangExtractRunConfig) -> list[dict[str, Any]]:
+    if not config.data.input_bio_txt:
+        return []
+
+    source_path = Path(config.data.input_bio_txt)
+    samples = load_conll_bio(source_path)
+    out: list[dict[str, Any]] = []
+    for idx, sample in enumerate(samples):
+        out.append(
+            {
+                "sample_id": str(sample.sample_id or f"bio-{idx}"),
+                "document_id": "bio_txt",
+                "paragraph_id": str(idx),
+                "source_path": str(source_path),
+                "text": str(sample.text or ""),
             }
         )
 
@@ -354,7 +379,8 @@ def _save_json(path: Path, payload: Any) -> None:
 
 def run_experiment(config_path: str) -> None:
     config = load_experiment_config(config_path)
-    paths = _ensure_dirs(config)
+    run_name = render_run_name(config.experiment.run_name, config.langextract.model_id)
+    paths = _ensure_dirs(config, run_name)
 
     mapping = _load_mapping(config.mapping.labels_yaml_path)
     mapping_hash = sha256_file(Path(config.mapping.labels_yaml_path))
@@ -370,8 +396,6 @@ def run_experiment(config_path: str) -> None:
         # Backward compatibility for tests/mocks returning bool only.
         mlflow_enabled = bool(mlflow_setup)
         mlflow_experiment_id = None
-    run_name = render_run_name(config.experiment.run_name, config.langextract.model_id)
-
     run_context = (
         mlflow.start_run(run_name=run_name, experiment_id=mlflow_experiment_id)
         if mlflow_enabled
@@ -397,6 +421,9 @@ def run_experiment(config_path: str) -> None:
         session = requests.Session()
         if config.data.input_paragraphs_jsonl:
             samples_input = _load_input_paragraphs(config)
+            input_manifest = build_paragraph_manifest(samples_input)
+        elif config.data.input_bio_txt:
+            samples_input = _load_input_bio_txt(config)
             input_manifest = build_paragraph_manifest(samples_input)
         else:
             samples_input, input_manifest = _extract_paragraphs_from_docs(
@@ -488,7 +515,6 @@ def run_experiment(config_path: str) -> None:
             samples_output.append(record)
 
         serialized_traces = serialize_traces_for_logging(traces, config)
-
         write_jsonl(paths["samples"], samples_output)
         write_jsonl(paths["traces_jsonl"], serialized_traces)
         write_traces_summary_csv(paths["traces_csv"], traces)

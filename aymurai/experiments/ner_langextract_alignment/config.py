@@ -21,6 +21,7 @@ class DataConfig(BaseModel):
 
     input_documents_dir: str | None = None
     input_paragraphs_jsonl: str | None = None
+    input_bio_txt: str | None = None
     include_extensions: list[str] = Field(default_factory=lambda: [".pdf", ".docx"])
     max_documents: int | None = None
     max_paragraphs: int | None = None
@@ -28,9 +29,13 @@ class DataConfig(BaseModel):
 
     @model_validator(mode="after")
     def validate_source(self) -> "DataConfig":
-        if not self.input_documents_dir and not self.input_paragraphs_jsonl:
+        if (
+            not self.input_documents_dir
+            and not self.input_paragraphs_jsonl
+            and not self.input_bio_txt
+        ):
             raise ValueError(
-                "Either data.input_documents_dir or data.input_paragraphs_jsonl must be set."
+                "Set one input source: data.input_documents_dir, data.input_paragraphs_jsonl, or data.input_bio_txt."
             )
         return self
 
