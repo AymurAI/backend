@@ -76,14 +76,13 @@ logger = get_logger(__name__)
 
 
 def get_transcribe_ws_uri() -> str:
-    """
-    Get the WebSocket URI for the transcription service from settings.
+    """Get the WebSocket URI for the transcription service from settings.
 
     Raises:
-        ConfigurationError: If the WebSocket URI is not configured in settings.
+        ConfigurationError: If the WebSocket URI is not configured.
 
     Returns:
-        str: The WebSocket URI for the transcription service.
+        The WebSocket URI for the transcription service.
     """
     ws_uri = settings.TRANSCRIBE_WS_URI
     if not ws_uri:
@@ -94,18 +93,17 @@ def get_transcribe_ws_uri() -> str:
 async def _transcribe_audio_bytes_with_error_handling(
     data: bytes,
 ) -> list[ASRParagraph]:
-    """
-    Transcribes audio bytes into a list of ASRParagraph objects.
+    """Transcribe audio bytes into a list of ASRParagraph objects.
 
     Args:
-        data (bytes): The audio data to be transcribed.
+        data: The audio data to be transcribed.
 
     Raises:
-        UpstreamServiceError: If there is an error with the upstream transcription service.
+        UpstreamServiceError: If there is an error with the upstream service.
         AymuraiAPIException: If there is an unexpected error during transcription.
 
     Returns:
-        list[ASRParagraph]: A list of ASRParagraph objects representing the transcribed audio.
+        A list of ASRParagraph objects representing the transcribed audio.
     """
     try:
         status = await transcribe_audio_bytes(data)
@@ -136,17 +134,18 @@ async def transcribe(
     ws_uri: str = Depends(get_transcribe_ws_uri),
     session: Session = Depends(get_session),
 ) -> ASRDocument:
-    """
-    Transcribes an uploaded audio file and returns the transcribed document.
+    """Transcribe an uploaded audio file and return the transcribed document.
 
     Args:
-        file (UploadFile): The audio file to be transcribed.
-        use_cache (bool, optional): Whether to use cached transcription results. Defaults to True.
-        ws_uri (str, optional): The WebSocket URI for the transcription service. Defaults to Depends(get_transcribe_ws_uri).
-        session (Session, optional): The database session. Defaults to Depends(get_session).
+        file: The audio file to be transcribed.
+        use_cache: Whether to use cached transcription results.
+        ws_uri: The WebSocket URI for the transcription service (injected via
+            ``Depends`` for configuration validation — the value itself is read
+            from settings by the ASR client).
+        session: The database session.
 
     Returns:
-        ASRDocument: The transcribed audio document.
+        The transcribed audio document.
     """
     data = await file.read()
     document_id = data_to_uuid(data)
@@ -322,19 +321,17 @@ async def asr_read_document_validation(
     document_id: UUID5,
     session: Session = Depends(get_session),
 ) -> ASRDocument | None:
-    """
-    Retrieves the validation document for a given document ID.
+    """Retrieve the validation document for a given document ID.
 
     Args:
-        document_id (UUID5): The ID of the document to retrieve.
-        session (Session, optional): The database session. Defaults to Depends(get_session).
-
+        document_id: The ID of the document to retrieve.
+        session: The database session.
 
     Raises:
         NotFoundError: If the document with the given ID is not found.
 
     Returns:
-        ASRDocument | None: The validation document if found, otherwise None.
+        The validation document if found, otherwise None.
     """
     record = audio_transcription_get(transcription_id=document_id, session=session)
     if not record:
@@ -352,13 +349,12 @@ async def asr_save_document_validation(
     annotations: list[ASRParagraphRequest] = Body(...),
     session: Session = Depends(get_session),
 ) -> None:
-    """
-    Saves the validation annotations for a given document ID.
+    """Save validation annotations for a given document ID.
 
     Args:
-        document_id (UUID5): The ID of the document to validate.
-        annotations (list[ASRParagraphRequest], optional): The list of annotations for the document. Defaults to Body(...).
-        session (Session, optional): The database session. Defaults to Depends(get_session).
+        document_id: The ID of the document to validate.
+        annotations: The list of annotations for the document.
+        session: The database session.
 
     Raises:
         NotFoundError: If the document with the given ID is not found.

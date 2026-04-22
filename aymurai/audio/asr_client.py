@@ -264,14 +264,13 @@ async def _stream_audio_bytes(
 
 
 def _parse_ws_message(message: str | bytes) -> WLKMessageRawResponse | None:
-    """
-    Parses a WebSocket message into a WLKMessageRawResponse object.
+    """Parse a WebSocket message into a WLKMessageRawResponse object.
 
     Args:
-        message (str | bytes): The WebSocket message to be parsed.
+        message: The WebSocket message to be parsed.
 
     Returns:
-        WLKMessageRawResponse | None: The parsed WLKMessageRawResponse object, or None if parsing fails.
+        The parsed WLKMessageRawResponse object, or None if parsing fails.
     """
     if isinstance(message, bytes):
         message = message.decode("utf-8", errors="replace")
@@ -344,18 +343,16 @@ async def _receive_updates(
 
 
 async def transcribe_audio_bytes(payload: bytes) -> WLKMessageStatus | None:
-    """
-    Transcribes audio bytes by streaming them to a WebSocket transcription service and receiving updates.
+    """Transcribe audio bytes via the WebSocket ASR service.
 
     Args:
-        payload (bytes): The audio data to be transcribed.
+        payload: The audio data to be transcribed.
 
     Raises:
         RuntimeError: If there is an error with the transcription service.
 
     Returns:
-        WLKMessageStatus | None: The last active transcription status received from the transcription service,
-            or None if no active transcription was received.
+        The last active transcription status, or None if none received.
     """
     ws_uri = settings.TRANSCRIBE_WS_URI
 
@@ -391,6 +388,8 @@ async def transcribe_audio_bytes(payload: bytes) -> WLKMessageStatus | None:
                     with contextlib.suppress(asyncio.CancelledError):
                         await receive_task
                 raise
+    except RuntimeError:
+        raise
     except websockets.exceptions.WebSocketException as exc:
         logger.error(
             "websocket error during transcription: %s", _describe_ws_exception(exc)
