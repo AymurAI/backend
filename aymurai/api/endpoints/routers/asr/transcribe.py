@@ -156,7 +156,7 @@ async def transcribe(
             transcription_id=document_id, session=session
         )
         if cached_record is not None:
-            logger.debug(f"Audio transcription DB hit for {file.filename}")
+            logger.debug("Audio transcription DB hit for %s", file.filename)
             cached_document = ASRDocument(
                 document_id=document_id,
                 document=cached_record.validation or cached_record.transcription,
@@ -171,7 +171,7 @@ async def transcribe(
         transcription=document.document,
         session=session,
     )
-    logger.debug(f"Audio transcription stored in DB for {file.filename}")
+    logger.debug("Audio transcription stored in DB for %s", file.filename)
 
     return document
 
@@ -202,7 +202,7 @@ async def transcribe_stream(
                 transcription_id=document_id, session=session
             )
             if cached is not None:
-                logger.debug(f"Audio transcription DB hit for {filename}")
+                logger.debug("Audio transcription DB hit for %s", filename)
                 cached_paragraphs = [
                     ASRParagraph.model_validate(p)
                     for p in (cached.validation or cached.transcription)
@@ -296,7 +296,7 @@ async def transcribe_stream(
                 transcription=last_snapshot,
                 session=session,
             )
-            logger.debug(f"Audio transcription stored in DB for {filename}")
+            logger.debug("Audio transcription stored in DB for %s", filename)
         except Exception:
             logger.exception("failed to persist transcription; continuing")
 

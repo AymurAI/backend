@@ -3,10 +3,15 @@ import json
 from datetime import timedelta
 from unittest.mock import AsyncMock, patch
 
+import numpy as np
 import pytest
 
 from aymurai.api.meta.asr.websocket import WLKMessageTranscriptionLine
-from aymurai.audio.asr_client import lines_to_paragraphs, transcribe_audio_bytes_stream
+from aymurai.audio.asr_client import (
+    _DecodedAudio,
+    lines_to_paragraphs,
+    transcribe_audio_bytes_stream,
+)
 
 
 class FakeWS:
@@ -115,8 +120,8 @@ async def test_should_yield_paragraphs_per_status_when_streaming():
             new=AsyncMock(return_value=0),
         ),
         patch(
-            "aymurai.audio.asr_client._audio_duration_seconds",
-            return_value=2.0,
+            "aymurai.audio.asr_client._decode_audio",
+            return_value=_DecodedAudio(array=np.zeros(0), duration_s=2.0),
         ),
         patch(
             "aymurai.audio.asr_client.settings.TRANSCRIBE_WS_URI",
@@ -170,8 +175,8 @@ async def test_should_cleanup_streaming_task_when_caller_cancels():
         patch("aymurai.audio.asr_client.websockets.connect", return_value=fake_ws),
         patch("aymurai.audio.asr_client._stream_audio_bytes", new=slow_stream),
         patch(
-            "aymurai.audio.asr_client._audio_duration_seconds",
-            return_value=1.0,
+            "aymurai.audio.asr_client._decode_audio",
+            return_value=_DecodedAudio(array=np.zeros(0), duration_s=1.0),
         ),
         patch("aymurai.audio.asr_client.settings.TRANSCRIBE_WS_URI", "ws://fake/ws"),
     ):

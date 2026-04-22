@@ -1,14 +1,15 @@
+from __future__ import annotations
+
 import asyncio
 import contextlib
 import io
 import json
-from pathlib import Path
-from typing import AsyncGenerator, NamedTuple
+from typing import AsyncGenerator
 
 import librosa
 import numpy as np
 import websockets
-from pydantic import TypeAdapter, ValidationError
+from pydantic import BaseModel, TypeAdapter, ValidationError
 
 from aymurai.api.meta.asr.websocket import (
     WLKMessageRawResponse,
@@ -32,42 +33,22 @@ ASR_RAW_RESPONSE_ADAPTER = TypeAdapter(WLKMessageRawResponse)
 class _Backpressure:
     """Lead-budget backpressure for the ASR send loop.
 
-    Why this exists
-    ---------------
     The upstream WhisperLiveKit server runs on uvicorn with a bounded
-    WebSocket frame queue (``ws_max_queue`` defaults to 32 frames) and
-    its app consumes frames at real-time audio pace inside
-    ``process_audio(message)``. If we push audio faster than the server
-    consumes it, the queue fills up, the server's frame reader task
-    blocks on ``ASGIqueue.put()``, and our PING control frames sitting
-    in the TCP buffer behind queued BINARY frames never get seen in
-    time. Our ``websockets`` client then hits ``ping_timeout`` waiting
-    for a Pong that never comes, and closes the connection with 1011.
+    WebSocket frame queue (``ws_max_queue`` defaults to 32 frames). If
+    we push audio faster than the server consumes it, the queue fills,
+    the frame reader blocks, and PING control frames in the TCP buffer
+    never get processed in time — causing 1011 ``keepalive ping timeout``
+    closes.
 
-    Design
-    ------
-    We cap how far *ahead* of the server's progress we are allowed to
-    be. "Progress" is the larger of:
-
-    1. ``server_current_time_s`` \u2014 the ``end`` timestamp of the last
-       transcription line the server has reported, which is a concrete
-       signal that those seconds of audio have been fully processed.
-    2. ``wallclock_elapsed_s - INITIAL_GRACE`` \u2014 a wall-clock fallback
-       that advances during silence stretches when the server stops
-       emitting ``active_transcription`` messages. This keeps the
-       pacer from deadlocking when upstream goes quiet mid-audio.
-
-    ``lead_s = audio_sent_s - effective_progress_s`` must stay <=
-    ``lead_budget_s``. When the lead exceeds the budget, the send loop
-    pauses until recv updates ``server_current_time`` or wall-clock
-    catches up.
+    We cap how far *ahead* of the server's progress we send.  Progress
+    is ``max(server_current_time, wallclock_elapsed - initial_grace)``.
+    The wall-clock fallback prevents deadlocking during silence stretches.
 
     Attributes:
-        lead_budget_s: Maximum seconds of audio we're allowed to be
-            ahead of the server's effective progress.
-        initial_grace_s: Headroom we allow at the start before the
-            wall-clock fallback starts pushing back. Also effectively
-            the "catch-up" factor during silence gaps.
+        lead_budget_s: Max seconds of audio we're allowed to be ahead
+            of the server's effective progress.
+        initial_grace_s: Wall-clock headroom before pacing kicks in.
+            Also the catch-up factor during silence gaps.
         wait_poll_s: Polling interval while paused.
     """
 
@@ -149,14 +130,11 @@ class _Backpressure:
 
 
 def _describe_ws_exception(exc: BaseException) -> str:
-    """
-    Render a WebSocket exception with as much structured detail as possible.
+    """Render a WebSocket exception with structured detail.
 
-    For :class:`websockets.exceptions.ConnectionClosed` (and its subclasses
-    ``ConnectionClosedOK`` / ``ConnectionClosedError``), this surfaces the
-    close ``code`` and ``reason`` from both the frame the peer sent
-    (``rcvd``) and the frame we sent (``sent``). This is the signal needed
-    to distinguish e.g. an upstream server crash (1011) from a client-side
+    For ``ConnectionClosed`` (and subclasses), surfaces the close
+    ``code`` and ``reason`` from both the received and sent frames.
+    This distinguishes e.g. an upstream 1011 crash from a client-side
     keepalive timeout vs. a normal close (1000/1001).
     """
     # Lazy import-safe access: ConnectionClosed is defined in websockets.exceptions
@@ -174,31 +152,40 @@ def _describe_ws_exception(exc: BaseException) -> str:
     return f"{type(exc).__name__}: {exc}"
 
 
-class ASRStreamChunk(NamedTuple):
-    """A single snapshot yielded by :func:`transcribe_audio_bytes_stream`.
+class ASRStreamChunk(BaseModel):
+    """A single snapshot yielded by ``transcribe_audio_bytes_stream``.
 
     Attributes:
         paragraphs: Cumulative list of transcribed paragraphs so far.
         current_time: Seconds of audio covered by the transcription so far
-            (``end`` timestamp of the last line), or ``None`` if no lines exist.
-        total_time: Estimated total audio duration in seconds
-            (``current_time + remaining_time_transcription`` from the upstream
-            service), or ``None`` if ``current_time`` is ``None``.
+            (``end`` timestamp of the last line), or ``None`` if no lines.
+        total_time: Estimated total audio duration in seconds, or ``None``.
     """
 
     paragraphs: list[ASRParagraph]
-    current_time: float | None
-    total_time: float | None
+    current_time: float | None = None
+    total_time: float | None = None
 
 
-def _audio_duration_seconds(payload: bytes) -> float:
-    """Return the duration of an audio payload in seconds at SAMPLE_RATE_HZ.
+class _DecodedAudio:
+    """Result of decoding an audio payload — array and duration."""
 
-    Synchronous: call via :func:`asyncio.to_thread` from async contexts to
-    avoid blocking the event loop during decode.
+    __slots__ = ("array", "duration_s")
+
+    def __init__(self, array: np.ndarray, duration_s: float) -> None:
+        self.array = array
+        self.duration_s = duration_s
+
+
+def _decode_audio(payload: bytes) -> _DecodedAudio:
+    """Decode an audio payload to a mono float32 array at SAMPLE_RATE_HZ.
+
+    Pure CPU/IO work — call via ``asyncio.to_thread`` from async contexts
+    to avoid blocking the event loop (which would starve WebSocket and SSE
+    keepalives).
     """
     audio, _ = librosa.load(io.BytesIO(payload), sr=SAMPLE_RATE_HZ, mono=True)
-    return len(audio) / SAMPLE_RATE_HZ
+    return _DecodedAudio(array=audio, duration_s=len(audio) / SAMPLE_RATE_HZ)
 
 
 def _current_time_from_status(message: WLKMessageStatus) -> float | None:
@@ -211,14 +198,13 @@ def _current_time_from_status(message: WLKMessageStatus) -> float | None:
 def lines_to_paragraphs(
     lines: list[WLKMessageTranscriptionLine],
 ) -> list[ASRParagraph]:
-    """
-    Map WebSocket transcription lines to ASRParagraph objects.
+    """Map WebSocket transcription lines to ASRParagraph objects.
 
     Args:
-        lines (list[WLKMessageTranscriptionLine]): Transcription lines from the ASR service.
+        lines: Transcription lines from the ASR service.
 
     Returns:
-        list[ASRParagraph]: ASRParagraph objects ready for serialization or storage.
+        ASRParagraph objects ready for serialization or storage.
     """
     return [
         ASRParagraph(
@@ -231,21 +217,10 @@ def lines_to_paragraphs(
     ]
 
 
-def _decode_audio(payload: bytes) -> np.ndarray:
-    """Decode an audio payload to a mono float32 array at SAMPLE_RATE_HZ.
-
-    Pure CPU/IO work — kept as a plain sync function so callers can offload it
-    to a worker thread via :func:`asyncio.to_thread` and avoid blocking the
-    event loop (which would starve WebSocket keepalives and SSE keepalives).
-    """
-    audio, _ = librosa.load(io.BytesIO(payload), sr=SAMPLE_RATE_HZ, mono=True)
-    return audio
-
-
 async def _stream_audio_bytes(
-    payload: bytes,
+    payload: bytes | _DecodedAudio,
     websocket: websockets.ClientConnection,
-    backpressure: "_Backpressure | None" = None,
+    backpressure: _Backpressure | None = None,
 ) -> int:
     """Stream audio bytes to a WebSocket connection in chunks.
 
@@ -256,17 +231,19 @@ async def _stream_audio_bytes(
     1011 "keepalive ping timeout" closes.
 
     Args:
-        payload: The audio data to be streamed.
+        payload: The audio data (raw bytes or pre-decoded ``_DecodedAudio``).
         websocket: The WebSocket connection to stream the audio data to.
         backpressure: Optional adaptive pacer fed by the recv loop. When
             ``None``, sends at maximum TCP-permitted rate (legacy behavior).
 
     Returns:
-        int: The total number of bytes sent to the WebSocket.
+        The total number of bytes sent to the WebSocket.
     """
-    # Offload the CPU-bound decode to a worker thread so the event loop can
-    # keep servicing recv() / respond to server pings during decoding.
-    audio = await asyncio.to_thread(_decode_audio, payload)
+    if isinstance(payload, _DecodedAudio):
+        decoded = payload
+    else:
+        decoded = await asyncio.to_thread(_decode_audio, payload)
+    audio = decoded.array
     if backpressure is not None:
         backpressure.mark_started()
     total_bytes = 0
@@ -325,16 +302,16 @@ def _parse_ws_message(message: str | bytes) -> WLKMessageRawResponse | None:
 
 async def _receive_updates(
     websocket: websockets.ClientConnection,
+    backpressure: _Backpressure | None = None,
 ) -> WLKMessageStatus | None:
-    """
-    Receives updates from the WebSocket connection and returns the last active transcription status.
+    """Receive updates from the WebSocket connection.
 
     Args:
-        websocket (websockets.ClientConnection): The WebSocket connection to receive updates from.
+        websocket: The WebSocket connection to receive updates from.
+        backpressure: Optional pacer to feed with server progress updates.
 
     Returns:
-        WLKMessageStatus | None: The last active transcription status,
-            or None if no active transcription was received.
+        The last active transcription status, or None if none received.
     """
     last_active_transcription: WLKMessageStatus | None = None
     while True:
@@ -348,7 +325,7 @@ async def _receive_updates(
                 "websocket error while receiving updates: %s",
                 _describe_ws_exception(exc),
             )
-            break
+            raise RuntimeError("Transcription service websocket error") from exc
 
         parsed = _parse_ws_message(msg)
         match parsed:
@@ -356,6 +333,10 @@ async def _receive_updates(
                 continue
             case WLKMessageStatus(status="active_transcription") as message:
                 last_active_transcription = message
+                if backpressure is not None:
+                    backpressure.update_server_progress(
+                        _current_time_from_status(message)
+                    )
             case WLKMessageReadyToStopMessage():
                 break
 
@@ -385,14 +366,22 @@ async def transcribe_audio_bytes(payload: bytes) -> WLKMessageStatus | None:
 
     ping_interval = settings.TRANSCRIBE_WS_PING_INTERVAL_SECONDS or None
     ping_timeout = settings.TRANSCRIBE_WS_PING_TIMEOUT_SECONDS or None
+    backpressure = _Backpressure(
+        lead_budget_s=float(settings.TRANSCRIBE_WS_LEAD_BUDGET_SECONDS),
+        initial_grace_s=float(settings.TRANSCRIBE_WS_LEAD_INITIAL_GRACE_SECONDS),
+    )
 
     try:
         async with websockets.connect(
             ws_uri, ping_interval=ping_interval, ping_timeout=ping_timeout
         ) as websocket:
-            receive_task = asyncio.create_task(_receive_updates(websocket))
+            receive_task = asyncio.create_task(
+                _receive_updates(websocket, backpressure)
+            )
             try:
-                total_bytes = await _stream_audio_bytes(payload, websocket)
+                total_bytes = await _stream_audio_bytes(
+                    payload, websocket, backpressure
+                )
                 await websocket.send(b"")
                 logger.info("sent %s bytes to transcription service", total_bytes)
                 last_active_transcription = await receive_task
@@ -417,17 +406,16 @@ async def transcribe_audio_bytes(payload: bytes) -> WLKMessageStatus | None:
 async def transcribe_audio_bytes_stream(
     payload: bytes,
 ) -> AsyncGenerator[ASRStreamChunk, None]:
-    """
-    Stream transcription updates from the ASR WebSocket service.
+    """Stream transcription updates from the ASR WebSocket service.
 
-    Yields an :class:`ASRStreamChunk` for each intermediate active_transcription
+    Yields an ``ASRStreamChunk`` for each intermediate active_transcription
     update received from the upstream service. Each chunk contains a cumulative
     paragraph snapshot and progress information (current_time / total_time in
     seconds). The generator terminates when the service sends a ready_to_stop
     message or the connection closes normally.
 
     Args:
-        payload (bytes): The audio data to be transcribed.
+        payload: The audio data to be transcribed.
 
     Raises:
         RuntimeError: If TRANSCRIBE_WS_URI is not configured or the upstream
@@ -444,25 +432,23 @@ async def transcribe_audio_bytes_stream(
 
     logger.info("streaming audio for transcription (sse)")
 
-    total_time = await asyncio.to_thread(_audio_duration_seconds, payload)
     ping_interval = settings.TRANSCRIBE_WS_PING_INTERVAL_SECONDS or None
     ping_timeout = settings.TRANSCRIBE_WS_PING_TIMEOUT_SECONDS or None
 
-    # Adaptive backpressure: cap how far ahead of the server's progress we
-    # send, so we don't saturate uvicorn's WS frame queue and starve ping/pong
-    # handling (which causes 1011 "keepalive ping timeout" closes).
     backpressure = _Backpressure(
         lead_budget_s=float(settings.TRANSCRIBE_WS_LEAD_BUDGET_SECONDS),
         initial_grace_s=float(settings.TRANSCRIBE_WS_LEAD_INITIAL_GRACE_SECONDS),
     )
 
     streaming_task: asyncio.Task | None = None
+    decoded = await asyncio.to_thread(_decode_audio, payload)
+    total_time = decoded.duration_s
     try:
         async with websockets.connect(
             ws_uri, ping_interval=ping_interval, ping_timeout=ping_timeout
         ) as websocket:
             streaming_task = asyncio.create_task(
-                _stream_and_signal_end(payload, websocket, backpressure)
+                _stream_and_signal_end(decoded, websocket, backpressure)
             )
             while True:
                 try:
@@ -512,26 +498,11 @@ async def transcribe_audio_bytes_stream(
 
 
 async def _stream_and_signal_end(
-    payload: bytes,
-    websocket: "websockets.ClientConnection",
-    backpressure: "_Backpressure | None" = None,
+    payload: bytes | _DecodedAudio,
+    websocket: websockets.ClientConnection,
+    backpressure: _Backpressure | None = None,
 ) -> None:
     """Stream audio bytes then send the empty end-of-stream marker."""
     total_bytes = await _stream_audio_bytes(payload, websocket, backpressure)
     await websocket.send(b"")
     logger.info("sent %s bytes to transcription service", total_bytes)
-
-
-def transcribe_audio_path(path: Path) -> WLKMessageStatus | None:
-    """
-    Transcribes an audio file at the given path by reading its bytes and sending them to the transcription service.
-
-    Args:
-        path (Path): The path to the audio file to be transcribed.
-
-    Returns:
-        WLKMessageStatus | None: The last active transcription status received from the transcription service,
-            or None if no active transcription was received.
-    """
-    payload = path.read_bytes()
-    return asyncio.run(transcribe_audio_bytes(payload))
