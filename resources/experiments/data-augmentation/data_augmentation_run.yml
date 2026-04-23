@@ -1,7 +1,7 @@
 paths:
   odt_paths:
-    - "resources/data/restricted/data-augmentation/output/Resoluciones 2024.odt"
-    - "resources/data/restricted/data-augmentation/output/Resoluciones 2025.odt"
+    - "resources/data/public/output/Resoluciones 2024.odt"
+    - "resources/data/public/output/Resoluciones 2025.odt"
   less_frequent_labels_path: "notebooks/data-preparation/new-datasets/top-15-less-frequent-labels.txt"
   original_train_unique_labels_path: "notebooks/data-preparation/new-datasets/original-train-unique-labels.txt"
   output_dir: "resources/outputs/data-augmentation"
@@ -11,33 +11,50 @@ paths:
   alignments_dirname: "alignments"
 
 api:
-  base_url: "http://localhost:8000"
+  base_url: "https://aymurai.collectiveai.io"
   document_extract_path: "/misc/document-extract"
   timeout_s: 300
 
 ollama:
-  provider: "openai"
+  # provider: "openai"
   model: "qwen3:8b"
   keep_alive: "5m"
   num_ctx: 8192
   temperature: 0
   allow_missing_labels: true
   allow_non_faker_values: true
+  llm_only_labels:
+    - "TEXTO_ANONIMIZAR"
+    - "NUM"
+    - "OCUPACION"
+    - "OCUPACIÓN"
+    - "PROFESION"
+    - "PROFESIÓN"
+    - "OCUPACION/PROFESION"
+    - "OCUPACIÓN/PROFESIÓN"
 
-openai:
-  model: "gpt-4.1-mini"
-  api_key_env_var: "OPENAI_API_KEY"
-  base_url: null
-  temperature: 0
+# openai:
+#   model: "gpt-4.1-mini"
+#   api_key_env_var: "OPENAI_API_KEY"
+#   base_url: null
+#   temperature: 0
 
 generation:
   target_label_count: null
   candidates_per_label: 5
   max_attempts_per_label: 50
   max_paragraphs: 5000
+  deduplicate_candidate_paragraphs: true
   run_with_ollama: true
 
 normalization:
   fuzzy_threshold: 0.75
-  strict_require_all_raw_labels_mapped: true
+  strict_require_all_raw_labels_mapped: false
   exact_map: {}
+
+logging:
+  mlflow:
+    enabled: true
+    tracking_uri: "http://localhost:5000"
+    experiment_name: "data-augmentation"
+    enable_generation_traces: true

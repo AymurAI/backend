@@ -25,3 +25,9 @@ assembly:
   include_original_train: false
   shuffle_selected_candidates: true
   seed: 42
+
+logging:
+  mlflow:
+    enabled: true
+    tracking_uri: "http://localhost:5000"
+    experiment_name: "training-dataset-generation"

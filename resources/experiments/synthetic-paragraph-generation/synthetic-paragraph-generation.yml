@@ -4,10 +4,8 @@ experiment:
 
 data:
   source_paths:
-    - "resources/data/restricted/ner-flair-finetuning/old-data/train.txt"
-    - "resources/data/restricted/ner-flair-finetuning/old-data/dev.txt"
-    - "resources/data/restricted/ner-flair-finetuning/old-data/test.txt"
-    - "resources/data/restricted/ner-langextract-alignment/curated/train_candidates.jsonl"
+    - "resources/data/restricted/anonymization/train.txt"
+    - "resources/data/restricted/ner-langextract-alignment/curated/curated/train_candidates.jsonl"
   guidelines_path: null
   text_field: "text"
   labels_field: "final_entities"
@@ -33,24 +31,25 @@ faker:
     - "TEXTO_ANONIMIZAR"
 
 sampling:
-  target_total_synthetic: 1000
+  target_total_synthetic: 3
   desired_target_labels:
     - NUM_CAJA_AHORRO
-    - NOMBRE_ARCHIVO
-    - IP
-    - NUM_MATRICULA
-    - USUARIX
-    - CBU
-    - CUIT_CUIL
-    - TEXTO_ANONIMIZAR
-    - ESTUDIOS
-    - PATENTE_DOMINIO
-    - MARCA_AUTOMOVIL
-    - BANCO
-    - NACIONALIDAD
-    - CORREO_ELECTRONICO
-    - EDAD
-    - LINK
+    # - IP
+    # - NUM_MATRICULA
+    # - USUARIX
+    # - NOMBRE_ARCHIVO
+    # - CBU
+    # - ESTUDIOS
+    # - CUIT_CUIL
+    # - PATENTE_DOMINIO
+    # - MARCA_AUTOMOVIL
+    # - NACIONALIDAD
+    # - BANCO
+    # - CORREO_ELECTRONICO
+    # - LINK
+    # - EDAD
+    # - TELEFONO
+    # - TEXTO_ANONIMIZAR
   seed: 42
 
 similarity:
@@ -58,9 +57,9 @@ similarity:
   threshold: 95.0
   internal_enabled: true
   internal_threshold: 95.0
-  train_set_path: resources/data/restricted/ner-flair-finetuning/old-data/train.txt
-  dev_set_path: resources/data/restricted/ner-flair-finetuning/old-data/dev.txt
-  test_set_path: resources/data/restricted/ner-flair-finetuning/old-data/test.txt
+  train_set_path: resources/data/restricted/anonymization/train.txt
+  dev_set_path: resources/data/restricted/anonymization/dev.txt
+  test_set_path: resources/data/restricted/anonymization/test.txt
   extra_bio_paths: []
 
 outputs:
@@ -70,3 +69,10 @@ outputs:
   bio_txt: "synthetic_samples.txt"
   report_json: "report.json"
   prompts_jsonl: "llm_prompts.jsonl"
+  source_examples_jsonl: "source_examples.jsonl"
+
+logging:
+  mlflow:
+    enabled: true
+    tracking_uri: "http://localhost:5000"
+    experiment_name: "synthetic-paragraph-generation"
