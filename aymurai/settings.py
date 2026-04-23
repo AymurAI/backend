@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import ClassVar
 
 from dotenv import load_dotenv
-from pydantic import FilePath, field_validator
+from pydantic import Field, FilePath, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 import aymurai
@@ -74,24 +74,25 @@ class Settings(BaseSettings):
     # disable client-side pings entirely.
     TRANSCRIBE_WS_PING_INTERVAL_SECONDS: int = 20
     TRANSCRIBE_WS_PING_TIMEOUT_SECONDS: int = 60
-    # Lead-budget backpressure for the ASR WebSocket send loop.
-    #
-    # The upstream WhisperLiveKit server runs on uvicorn with a bounded
-    # WS frame queue (``ws_max_queue``, default 32) and consumes audio
-    # at real-time pace. Firehosing saturates the queue, blocks the
-    # frame reader, and causes ping/pong control frames to time out ->
-    # 1011 "keepalive ping timeout" close.
-    #
-    # We cap how far ahead of the server's progress we are allowed to
-    # send. Progress is the larger of:
-    #   - the server's last reported line-end timestamp, and
-    #   - ``wallclock_elapsed - INITIAL_GRACE`` (fallback while the
-    #     server is quiet, e.g. during silence stretches).
-    #
-    # ``LEAD_BUDGET_SECONDS`` is the allowed lead. ``INITIAL_GRACE``
-    # lets us get ahead at the start before wall-clock pacing kicks in.
-    TRANSCRIBE_WS_LEAD_BUDGET_SECONDS: float = 20.0
-    TRANSCRIBE_WS_LEAD_INITIAL_GRACE_SECONDS: float = 20.0
+    # Small sleep between audio chunks in the WebSocket send loop. Yields
+    # control to the event loop so the recv task can drain incoming frames
+    # and keepalive pings stay responsive.
+    TRANSCRIBE_WS_CHUNK_SLEEP_SECONDS: float = 0.01
+
+    TRANSCRIBE_WS_CHUNK_SECONDS: float = Field(
+        10.0,
+        gt=0.0,
+        description="Number of seconds of audio to send in each WebSocket chunk.",
+    )
+    TRANSCRIBE_WS_SAMPLE_RATE: int = Field(
+        16000,
+        gt=0,
+        description="Sample rate of the audio to be sent in each WebSocket chunk.",
+    )
+
+    @property
+    def TRANSCRIBE_WS_CHUNK_SAMPLES(self) -> int:
+        return int(self.TRANSCRIBE_WS_CHUNK_SECONDS * self.TRANSCRIBE_WS_SAMPLE_RATE)
 
     ##########################################################################
     # Disambiguation Config

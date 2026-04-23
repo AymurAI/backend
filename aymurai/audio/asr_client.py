@@ -23,110 +23,8 @@ from aymurai.settings import settings
 
 logger = get_logger(__name__)
 
-SAMPLE_RATE_HZ = 16000
-CHUNK_SECONDS = 1
-CHUNK_SAMPLES = SAMPLE_RATE_HZ * CHUNK_SECONDS
 MAX_WS_LOG_CHARS = 2000
 ASR_RAW_RESPONSE_ADAPTER = TypeAdapter(WLKMessageRawResponse)
-
-
-class _Backpressure:
-    """Lead-budget backpressure for the ASR send loop.
-
-    The upstream WhisperLiveKit server runs on uvicorn with a bounded
-    WebSocket frame queue (``ws_max_queue`` defaults to 32 frames). If
-    we push audio faster than the server consumes it, the queue fills,
-    the frame reader blocks, and PING control frames in the TCP buffer
-    never get processed in time — causing 1011 ``keepalive ping timeout``
-    closes.
-
-    We cap how far *ahead* of the server's progress we send.  Progress
-    is ``max(server_current_time, wallclock_elapsed - initial_grace)``.
-    The wall-clock fallback prevents deadlocking during silence stretches.
-
-    Attributes:
-        lead_budget_s: Max seconds of audio we're allowed to be ahead
-            of the server's effective progress.
-        initial_grace_s: Wall-clock headroom before pacing kicks in.
-            Also the catch-up factor during silence gaps.
-        wait_poll_s: Polling interval while paused.
-    """
-
-    def __init__(
-        self,
-        lead_budget_s: float,
-        initial_grace_s: float,
-        wait_poll_s: float = 0.25,
-    ) -> None:
-        self.lead_budget_s = lead_budget_s
-        self.initial_grace_s = initial_grace_s
-        self.wait_poll_s = wait_poll_s
-        self._audio_sent_s: float = 0.0
-        self._server_progress_s: float = 0.0
-        self._start_monotonic: float | None = None
-        self._update_event: asyncio.Event = asyncio.Event()
-
-    def mark_started(self) -> None:
-        """Record the wall-clock reference for pacing fallback."""
-        self._start_monotonic = asyncio.get_running_loop().time()
-
-    def record_sent(self, audio_seconds: float) -> None:
-        """Called by the send loop after streaming ``audio_seconds`` of audio."""
-        self._audio_sent_s += audio_seconds
-
-    def update_server_progress(self, current_time_s: float | None) -> None:
-        """Called by the recv loop with the server's last-line end timestamp."""
-        if current_time_s is None:
-            return
-        if current_time_s > self._server_progress_s:
-            self._server_progress_s = current_time_s
-        # Wake the send loop so it can recheck the budget.
-        self._update_event.set()
-
-    def _effective_progress(self) -> float:
-        start = self._start_monotonic
-        if start is None:
-            wallclock = 0.0
-        else:
-            elapsed = asyncio.get_running_loop().time() - start
-            wallclock = max(0.0, elapsed - self.initial_grace_s)
-        return max(self._server_progress_s, wallclock)
-
-    async def wait_if_needed(self) -> None:
-        """Block until our lead over the server's effective progress is OK."""
-        lead = self._audio_sent_s - self._effective_progress()
-        if lead <= self.lead_budget_s:
-            return
-
-        logger.debug(
-            "backpressure: pausing send lead=%.1fs > budget=%.1fs "
-            "(sent=%.1fs server=%.1fs)",
-            lead,
-            self.lead_budget_s,
-            self._audio_sent_s,
-            self._server_progress_s,
-        )
-        while True:
-            self._update_event.clear()
-            # Wait either for a server update or a short poll so the
-            # wall-clock fallback can re-advance the effective progress.
-            try:
-                await asyncio.wait_for(
-                    self._update_event.wait(), timeout=self.wait_poll_s
-                )
-            except asyncio.TimeoutError:
-                pass
-            lead = self._audio_sent_s - self._effective_progress()
-            if lead <= self.lead_budget_s:
-                logger.debug(
-                    "backpressure: resuming send lead=%.1fs <= budget=%.1fs "
-                    "(sent=%.1fs server=%.1fs)",
-                    lead,
-                    self.lead_budget_s,
-                    self._audio_sent_s,
-                    self._server_progress_s,
-                )
-                return
 
 
 def _describe_ws_exception(exc: BaseException) -> str:
@@ -177,15 +75,15 @@ class _DecodedAudio:
         self.duration_s = duration_s
 
 
-def _decode_audio(payload: bytes) -> _DecodedAudio:
-    """Decode an audio payload to a mono float32 array at SAMPLE_RATE_HZ.
+def _decode_audio(payload: bytes, sr: int = 16000) -> _DecodedAudio:
+    """Decode an audio payload to a mono float32 array at Sample Rate ``sr``.
 
     Pure CPU/IO work — call via ``asyncio.to_thread`` from async contexts
     to avoid blocking the event loop (which would starve WebSocket and SSE
     keepalives).
     """
-    audio, _ = librosa.load(io.BytesIO(payload), sr=SAMPLE_RATE_HZ, mono=True)
-    return _DecodedAudio(array=audio, duration_s=len(audio) / SAMPLE_RATE_HZ)
+    audio, _ = librosa.load(io.BytesIO(payload), sr=sr, mono=True)
+    return _DecodedAudio(array=audio, duration_s=len(audio) / sr)
 
 
 def _current_time_from_status(message: WLKMessageStatus) -> float | None:
@@ -220,21 +118,16 @@ def lines_to_paragraphs(
 async def _stream_audio_bytes(
     payload: bytes | _DecodedAudio,
     websocket: websockets.ClientConnection,
-    backpressure: _Backpressure | None = None,
 ) -> int:
     """Stream audio bytes to a WebSocket connection in chunks.
 
-    If ``backpressure`` is supplied, pause between chunks whenever the
-    upstream ASR service's transcription backlog grows past the configured
-    high-water mark. This prevents saturating the server's WebSocket frame
-    queue, which would otherwise starve control-frame handling and cause
-    1011 "keepalive ping timeout" closes.
+    Sleeps briefly between chunks (``TRANSCRIBE_WS_CHUNK_SLEEP_SECONDS``)
+    to yield control to the event loop so the recv task can drain incoming
+    frames and keepalive pings stay responsive.
 
     Args:
         payload: The audio data (raw bytes or pre-decoded ``_DecodedAudio``).
         websocket: The WebSocket connection to stream the audio data to.
-        backpressure: Optional adaptive pacer fed by the recv loop. When
-            ``None``, sends at maximum TCP-permitted rate (legacy behavior).
 
     Returns:
         The total number of bytes sent to the WebSocket.
@@ -242,28 +135,29 @@ async def _stream_audio_bytes(
     if isinstance(payload, _DecodedAudio):
         decoded = payload
     else:
-        decoded = await asyncio.to_thread(_decode_audio, payload)
+        decoded = await asyncio.to_thread(
+            _decode_audio,
+            payload,
+            sr=settings.TRANSCRIBE_WS_SAMPLE_RATE,
+        )
     audio = decoded.array
-    if backpressure is not None:
-        backpressure.mark_started()
+
     total_bytes = 0
-    for i in range(0, len(audio), CHUNK_SAMPLES):
-        chunk = audio[i : i + CHUNK_SAMPLES]
+    _CHUNK_SAMPLES = settings.TRANSCRIBE_WS_CHUNK_SAMPLES
+    for i in range(0, len(audio), _CHUNK_SAMPLES):
+        chunk = audio[i : i + _CHUNK_SAMPLES]
         if len(chunk) == 0:
             continue
         chunk_int16 = (chunk * 32768).astype(np.int16)
         data = chunk_int16.tobytes()
         total_bytes += len(data)
-        # chunk_seconds = len(chunk) / SAMPLE_RATE_HZ
 
         await websocket.send(data)
-        await asyncio.sleep(0.01)
 
-        # if backpressure is not None:
-        #     await backpressure.wait_if_needed()
-        # await websocket.send(data)
-        # if backpressure is not None:
-        #     backpressure.record_sent(chunk_seconds)
+        # add a small sleep after each chunk to yield control to the event loop and
+        # allow the receive task to process incoming messages
+        await asyncio.sleep(settings.TRANSCRIBE_WS_CHUNK_SLEEP_SECONDS)
+
     return total_bytes
 
 
@@ -305,19 +199,16 @@ def _parse_ws_message(message: str | bytes) -> WLKMessageRawResponse | None:
 
 async def _iter_ws_messages(
     websocket: websockets.ClientConnection,
-    backpressure: _Backpressure | None = None,
 ) -> AsyncGenerator[WLKMessageStatus, None]:
     """Yield ``active_transcription`` status messages from a WebSocket.
 
-    Handles recv errors, message parsing, and backpressure progress
-    updates internally.  Yields only ``WLKMessageStatus`` messages with
-    ``status="active_transcription"``; silently skips unparseable messages
-    and ``WLKMessageConfig`` messages.  Terminates on ``ConnectionClosedOK``
-    or ``WLKMessageReadyToStopMessage``.
+    Handles recv errors and message parsing internally. Yields only
+    ``WLKMessageStatus`` messages with ``status="active_transcription"``;
+    silently skips unparseable messages and ``WLKMessageConfig`` messages.
+    Terminates on ``ConnectionClosedOK`` or ``WLKMessageReadyToStopMessage``.
 
     Args:
         websocket: The WebSocket connection to receive from.
-        backpressure: Optional pacer to feed with server progress updates.
 
     Yields:
         Each active_transcription status received from the server.
@@ -343,10 +234,6 @@ async def _iter_ws_messages(
             case None:
                 continue
             case WLKMessageStatus(status="active_transcription") as message:
-                if backpressure is not None:
-                    backpressure.update_server_progress(
-                        _current_time_from_status(message)
-                    )
                 yield message
             case WLKMessageReadyToStopMessage():
                 return
@@ -354,19 +241,17 @@ async def _iter_ws_messages(
 
 async def _receive_updates(
     websocket: websockets.ClientConnection,
-    backpressure: _Backpressure | None = None,
 ) -> WLKMessageStatus | None:
     """Receive updates from the WebSocket connection.
 
     Args:
         websocket: The WebSocket connection to receive updates from.
-        backpressure: Optional pacer to feed with server progress updates.
 
     Returns:
         The last active transcription status, or None if none received.
     """
     last_active_transcription: WLKMessageStatus | None = None
-    async for message in _iter_ws_messages(websocket, backpressure):
+    async for message in _iter_ws_messages(websocket):
         last_active_transcription = message
     return last_active_transcription
 
@@ -392,22 +277,13 @@ async def transcribe_audio_bytes(payload: bytes) -> WLKMessageStatus | None:
 
     ping_interval = settings.TRANSCRIBE_WS_PING_INTERVAL_SECONDS or None
     ping_timeout = settings.TRANSCRIBE_WS_PING_TIMEOUT_SECONDS or None
-    backpressure = _Backpressure(
-        lead_budget_s=float(settings.TRANSCRIBE_WS_LEAD_BUDGET_SECONDS),
-        initial_grace_s=float(settings.TRANSCRIBE_WS_LEAD_INITIAL_GRACE_SECONDS),
-    )
-
     try:
         async with websockets.connect(
             ws_uri, ping_interval=ping_interval, ping_timeout=ping_timeout
         ) as websocket:
-            receive_task = asyncio.create_task(
-                _receive_updates(websocket, backpressure)
-            )
+            receive_task = asyncio.create_task(_receive_updates(websocket))
             try:
-                total_bytes = await _stream_audio_bytes(
-                    payload, websocket, backpressure
-                )
+                total_bytes = await _stream_audio_bytes(payload, websocket)
                 await websocket.send(b"")
                 logger.info("sent %s bytes to transcription service", total_bytes)
                 last_active_transcription = await receive_task
@@ -463,11 +339,6 @@ async def transcribe_audio_bytes_stream(
     ping_interval = settings.TRANSCRIBE_WS_PING_INTERVAL_SECONDS or None
     ping_timeout = settings.TRANSCRIBE_WS_PING_TIMEOUT_SECONDS or None
 
-    backpressure = _Backpressure(
-        lead_budget_s=float(settings.TRANSCRIBE_WS_LEAD_BUDGET_SECONDS),
-        initial_grace_s=float(settings.TRANSCRIBE_WS_LEAD_INITIAL_GRACE_SECONDS),
-    )
-
     streaming_task: asyncio.Task | None = None
     decoded = await asyncio.to_thread(_decode_audio, payload)
     total_time = decoded.duration_s
@@ -476,9 +347,9 @@ async def transcribe_audio_bytes_stream(
             ws_uri, ping_interval=ping_interval, ping_timeout=ping_timeout
         ) as websocket:
             streaming_task = asyncio.create_task(
-                _stream_and_signal_end(decoded, websocket, backpressure)
+                _stream_and_signal_end(decoded, websocket)
             )
-            async for message in _iter_ws_messages(websocket, backpressure):
+            async for message in _iter_ws_messages(websocket):
                 current_time = _current_time_from_status(message)
                 yield ASRStreamChunk(
                     paragraphs=lines_to_paragraphs(message.lines),
@@ -505,9 +376,8 @@ async def transcribe_audio_bytes_stream(
 async def _stream_and_signal_end(
     payload: bytes | _DecodedAudio,
     websocket: websockets.ClientConnection,
-    backpressure: _Backpressure | None = None,
 ) -> None:
     """Stream audio bytes then send the empty end-of-stream marker."""
-    total_bytes = await _stream_audio_bytes(payload, websocket, backpressure)
+    total_bytes = await _stream_audio_bytes(payload, websocket)
     await websocket.send(b"")
     logger.info("sent %s bytes to transcription service", total_bytes)

@@ -6,6 +6,10 @@ from uuid import UUID
 
 from sqlmodel import Session
 
+from aymurai.api.endpoints.routers.asr.transcribe import (
+    _format_error_event,
+    _format_sse_event,
+)
 from aymurai.api.meta.asr.websocket import (
     WLKMessageStatus,
     WLKMessageTranscriptionLine,
@@ -14,11 +18,6 @@ from aymurai.audio.asr_client import ASRStreamChunk
 from aymurai.database.meta.audio_transcription import AudioTranscription
 from aymurai.database.utils import data_to_uuid
 from aymurai.meta.api_interfaces import ASRDocument, ASRParagraph
-
-from aymurai.api.endpoints.routers.asr.transcribe import (
-    _format_error_event,
-    _format_sse_event,
-)
 
 
 # MARK: POST Transcribe
@@ -69,6 +68,58 @@ def test_should_transcribe_and_persist_document_when_service_returns_paragraphs(
         assert record.name == "sample.wav"
         first_item = cast(dict[str, Any], record.transcription[0])
         assert first_item["text"] == "Hola mundo"
+
+
+def test_should_exclude_empty_text_paragraphs_from_transcribe_response(
+    asr_test_client,
+    make_wav_bytes,
+):
+    client, _ = asr_test_client
+    audio_bytes = make_wav_bytes(freq_hz=110)
+
+    fake_status = WLKMessageStatus(
+        status="active_transcription",
+        lines=[
+            WLKMessageTranscriptionLine(
+                speaker=1,
+                text="Hola",
+                start=timedelta(seconds=0),
+                end=timedelta(seconds=1),
+            ),
+            WLKMessageTranscriptionLine(
+                speaker=1,
+                text="   ",
+                start=timedelta(seconds=1),
+                end=timedelta(seconds=2),
+            ),
+            WLKMessageTranscriptionLine(
+                speaker=2,
+                text="",
+                start=timedelta(seconds=2),
+                end=timedelta(seconds=3),
+            ),
+        ],
+        buffer_transcription="",
+        buffer_diarization="",
+        buffer_translation="",
+        remaining_time_transcription=0.0,
+        remaining_time_diarization=0.0,
+        speaker_ids={},
+    )
+
+    with patch(
+        "aymurai.api.endpoints.routers.asr.transcribe.transcribe_audio_bytes",
+        new=AsyncMock(return_value=fake_status),
+    ):
+        response = client.post(
+            "/asr/transcribe?use_cache=false",
+            files={"file": ("sample.wav", audio_bytes, "audio/wav")},
+        )
+
+    assert response.status_code == 200
+    payload = ASRDocument.model_validate(response.json())
+    assert len(payload.document) == 1
+    assert payload.document[0].text == "Hola"
 
 
 # MARK: GET Validation
