@@ -75,6 +75,8 @@ DEFAULT_LABEL_NORMALIZATION_MAP: dict[str, str] = {
     "LUGAR_DE_DETENCION": "LOC",
     "PASPORTE": "DNI",
     "PASAPORTE": "DNI",
+    "QUERY": "TEXTO_ANONIMIZAR",
+    "query": "TEXTO_ANONIMIZAR",
 }
 
 LABEL_RULES: list[tuple[re.Pattern[str], str]] = [
@@ -98,6 +100,7 @@ LABEL_RULES: list[tuple[re.Pattern[str], str]] = [
     (re.compile(r"^DIR(?:_|$)"), "DIRECCION"),
     (re.compile(r"DOMINIO(?:_PATENTE)?"), "PATENTE_DOMINIO"),
     (re.compile(r"MAIL"), "CORREO_ELECTRONICO"),
+    (re.compile(r"QUERY"), "TEXTO_ANONIMIZAR"),
     (re.compile(r"NUM_ANONIMIZAR|ANONIMIZAR"), "TEXTO_ANONIMIZAR"),
     (re.compile(r"ALIAS|IMEI|EMPRESA"), "TEXTO_ANONIMIZAR"),
     (re.compile(r"PASPORTE|PASAPORTE"), "DNI"),
@@ -628,9 +631,19 @@ def generate_label_candidates(
     else:
         augmentation_faker.seed_instance(random.randint(1, 1_000_000))
 
+    allowed_llm_only_labels = {
+        str(label).strip()
+        for label in (llm_only_labels or LLM_ONLY_LABELS)
+        if str(label).strip()
+    }
+
     candidate_map: dict[str, list[str]] = {}
     missing_labels: list[str] = []
     for label in sorted(set(distinct_labels)):
+        if label in allowed_llm_only_labels:
+            missing_labels.append(label)
+            continue
+
         generator = augmentation_functions.get(label)
         if generator is None:
             missing_labels.append(label)
@@ -654,11 +667,6 @@ def generate_label_candidates(
 
         candidate_map[label] = values
 
-    allowed_llm_only_labels = {
-        str(label).strip()
-        for label in (llm_only_labels or LLM_ONLY_LABELS)
-        if str(label).strip()
-    }
     unsupported_missing = [
         label for label in missing_labels if label not in allowed_llm_only_labels
     ]
