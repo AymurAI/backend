@@ -24,6 +24,16 @@ from aymurai.experiments.data_augmentation.config import (
     load_data_augmentation_config,
     render_run_dir_name,
 )
+from aymurai.experiments.mlflow_utils import (
+    configure_mlflow,
+    safe_end_run,
+    safe_log_artifacts,
+    safe_log_generation_trace,
+    safe_log_metrics,
+    safe_log_params,
+    safe_set_tags,
+    safe_start_run,
+)
 
 LABEL_PATTERN = re.compile(r"<([^<>\s]+)>")
 
@@ -35,7 +45,6 @@ DEFAULT_LABEL_NORMALIZATION_MAP: dict[str, str] = {
     "EMAIL": "CORREO_ELECTRONICO",
     "MAIL": "CORREO_ELECTRONICO",
     "FECHA_HECHO": "FECHA",
-    "NUM": "TELEFONO",
     "NUM_TEL": "TELEFONO",
     "CAUSA": "NUM_EXPEDIENTE",
     "NUM_CUIT": "CUIT_CUIL",
@@ -69,7 +78,7 @@ DEFAULT_LABEL_NORMALIZATION_MAP: dict[str, str] = {
 }
 
 LABEL_RULES: list[tuple[re.Pattern[str], str]] = [
-    (re.compile(r"^TEL(?:EFONO)?(?:_|$)|NUM_TEL|NUMERO_TELEFONO|^NUM$"), "TELEFONO"),
+    (re.compile(r"^TEL(?:EFONO)?(?:_|$)|NUM_TEL|NUMERO_TELEFONO"), "TELEFONO"),
     (re.compile(r"EDAD"), "EDAD"),
     (re.compile(r"A+C?S?U?S?AD(?:O|A|X|O_A|A_O)?"), "PER"),
     (re.compile(r"DENUNCIANTE"), "PER"),
@@ -81,8 +90,6 @@ LABEL_RULES: list[tuple[re.Pattern[str], str]] = [
     (re.compile(r"LOCALIDAD"), "LOC"),
     (re.compile(r"LUGAR_DE_DETENCION"), "LOC"),
     (re.compile(r"LUGAR_HECHO"), "LOC"),
-    (re.compile(r"OCUPACION"), "ESTUDIOS"),
-    (re.compile(r"PROFESION"), "ESTUDIOS"),
     (re.compile(r"FECHA_NUMERICA|FECHA_HECHO|FECHA_DEL_HECHO|PERIODO"), "FECHA"),
     (re.compile(r"NUM_CAUSA|^CAUSA$"), "NUM_EXPEDIENTE"),
     (re.compile(r"NUM_CUIT"), "CUIT_CUIL"),
@@ -447,7 +454,7 @@ def sort_label_mapping_by_normalized_label(label_map: dict[str, str]) -> dict[st
 
 
 def group_raw_labels_by_normalized_label(
-    label_map: dict[str, str]
+    label_map: dict[str, str],
 ) -> dict[str, list[str]]:
     grouped: dict[str, list[str]] = {}
     for raw_label, normalized_label in sorted(
@@ -614,6 +621,7 @@ def generate_label_candidates(
     n_options: int,
     max_attempts_per_label: int,
     seed: int | None = None,
+    llm_only_labels: Iterable[str] | None = None,
 ) -> tuple[dict[str, list[str]], list[str]]:
     if seed is not None:
         augmentation_faker.seed_instance(seed)
@@ -646,8 +654,13 @@ def generate_label_candidates(
 
         candidate_map[label] = values
 
+    allowed_llm_only_labels = {
+        str(label).strip()
+        for label in (llm_only_labels or LLM_ONLY_LABELS)
+        if str(label).strip()
+    }
     unsupported_missing = [
-        label for label in missing_labels if label not in LLM_ONLY_LABELS
+        label for label in missing_labels if label not in allowed_llm_only_labels
     ]
     if unsupported_missing:
         raise ValueError(
@@ -761,7 +774,7 @@ def build_token_offsets(text: str, tokens: list[str]) -> list[tuple[int, int]]:
         start = text.find(token, cursor)
         if start == -1:
             raise ValueError(
-                f"Could not align token '{token}' around '{text[cursor: cursor + 80]}'"
+                f"Could not align token '{token}' around '{text[cursor : cursor + 80]}'"
             )
         end = start + len(token)
         offsets.append((start, end))
@@ -1006,6 +1019,67 @@ def write_bio_txt(
             handle.write("\n")
 
 
+def log_augmentation_generation_trace(
+    record: dict[str, Any],
+    *,
+    enabled: bool,
+) -> None:
+    sample_id = str(record.get("sample_id") or "")
+    if not sample_id:
+        return
+
+    safe_log_generation_trace(
+        enabled=enabled,
+        name="data_augmentation.generate_sample",
+        sample_id=sample_id,
+        tags={
+            "experiment": "data-augmentation",
+            "sample_id": sample_id,
+            "status": str(record.get("status") or ""),
+        },
+        inputs={
+            "sample_id": sample_id,
+            "document_id": record.get("document_id"),
+            "paragraph_id": record.get("paragraph_id"),
+            "source_path": record.get("source_path"),
+            "source_text": record.get("source_text"),
+            "labels": record.get("labels"),
+            "target_labels": record.get("target_labels"),
+            "candidate_values": record.get("candidate_values"),
+            "missing_labels": record.get("missing_labels"),
+            "prompt": record.get("ollama_user_prompt"),
+        },
+        outputs={
+            "status": record.get("status"),
+            "resolved_text": record.get("resolved_text"),
+            "local_resolved_text": record.get("local_resolved_text"),
+            "resolved_text_matches_local": record.get("resolved_text_matches_local"),
+            "replacements": record.get("replacements"),
+            "entities": record.get("entities"),
+            "bio_lines": record.get("bio_lines"),
+            "alignment_path": record.get("alignment_path"),
+            "alignment_records": record.get("alignment_records"),
+            "raw_llm_output": record.get("ollama_raw_response_text"),
+        },
+        attributes={
+            "document_id": str(record.get("document_id") or ""),
+            "paragraph_id": int(record.get("paragraph_id") or 0),
+            "status": str(record.get("status") or ""),
+            "label_count": len(record.get("labels") or []),
+            "target_label_count": len(record.get("target_labels") or []),
+            "entity_count": len(record.get("entities") or []),
+            "replacement_count": len(record.get("replacements") or []),
+            "alignment_record_count": len(record.get("alignment_records") or []),
+            "contains_non_faker_values": bool(
+                record.get("contains_non_faker_values", False)
+            ),
+            "resolved_text_matches_local": bool(
+                record.get("resolved_text_matches_local", False)
+            ),
+        },
+    )
+
+
 def augment_paragraph(
     row: pd.Series,
     *,
@@ -1026,6 +1100,7 @@ def augment_paragraph(
         augmentation_faker=augmentation_faker,
         n_options=config.generation.candidates_per_label,
         max_attempts_per_label=config.generation.max_attempts_per_label,
+        llm_only_labels=config.ollama.llm_only_labels,
     )
 
     if missing_labels and not (
@@ -1114,6 +1189,34 @@ def run_pipeline(
     alignments_dir = output_dir / config.paths.alignments_dirname
     endpoint = f"{config.api.base_url}{config.api.document_extract_path}"
     llm_provider = get_llm_provider_name(config)
+    mlflow_enabled, mlflow_experiment_id = configure_mlflow(config.logging.mlflow)
+    if mlflow_enabled:
+        mlflow_enabled = safe_start_run(
+            run_name=run_dir_name, experiment_id=mlflow_experiment_id
+        )
+    if mlflow_enabled:
+        safe_set_tags(
+            {
+                "experiment": "data-augmentation",
+                "run_dir": str(output_dir),
+                "model": config.ollama.model,
+            }
+        )
+        safe_log_params(
+            {
+                "run_dir_name": run_dir_name,
+                "odt_count": len(config.paths.odt_paths),
+                "target_label_count": config.generation.target_label_count,
+                "max_paragraphs": config.generation.max_paragraphs,
+                "deduplicate_candidate_paragraphs": (
+                    config.generation.deduplicate_candidate_paragraphs
+                ),
+                "candidates_per_label": config.generation.candidates_per_label,
+                "run_with_ollama": config.generation.run_with_ollama,
+                "ollama_model": config.ollama.model,
+                "normalization_fuzzy_threshold": config.normalization.fuzzy_threshold,
+            }
+        )
 
     log_step(f"Starting run in {output_dir}")
     log_step(f"Using document extract endpoint: {endpoint}")
@@ -1237,6 +1340,19 @@ def run_pipeline(
         .sort_values(["source_path", "paragraph_id"])
         .reset_index(drop=True)
     )
+    duplicate_candidate_count = 0
+    if config.generation.deduplicate_candidate_paragraphs:
+        before_dedup_count = len(candidate_paragraphs_df)
+        candidate_paragraphs_df = (
+            candidate_paragraphs_df.drop_duplicates(subset=["text"])
+            .copy()
+            .reset_index(drop=True)
+        )
+        duplicate_candidate_count = before_dedup_count - len(candidate_paragraphs_df)
+        if duplicate_candidate_count:
+            log_step(
+                f"Removed {duplicate_candidate_count} duplicate candidate paragraphs by normalized text"
+            )
     if config.generation.max_paragraphs is not None:
         candidate_paragraphs_df = candidate_paragraphs_df.head(
             config.generation.max_paragraphs
@@ -1288,6 +1404,10 @@ def run_pipeline(
             alignments_dir=alignments_dir,
         )
         records.append(record)
+        log_augmentation_generation_trace(
+            record,
+            enabled=(mlflow_enabled and config.logging.mlflow.enable_generation_traces),
+        )
         progress.update(1)
     progress.close()
 
@@ -1296,6 +1416,20 @@ def run_pipeline(
     write_bio_txt(output_dir / config.paths.bio_filename, records, bio_key="bio_lines")
     ok_count = sum(record.get("status") == "ok" for record in records)
     skipped_count = len(records) - ok_count
+    if mlflow_enabled:
+        safe_log_metrics(
+            {
+                "raw_paragraph_count": float(len(raw_paragraphs_df)),
+                "raw_label_count": float(len(raw_label_inventory_df)),
+                "normalized_label_count": float(len(normalized_label_inventory_df)),
+                "candidate_paragraph_count": float(len(candidate_paragraphs_df)),
+                "duplicate_candidate_paragraph_count": float(duplicate_candidate_count),
+                "augmented_ok_count": float(ok_count),
+                "augmented_skipped_count": float(skipped_count),
+            }
+        )
+        safe_log_artifacts(output_dir, artifact_path="outputs")
+        safe_end_run()
     log_step(f"Run finished: {ok_count} ok, {skipped_count} skipped")
     return records
 

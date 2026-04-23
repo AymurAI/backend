@@ -5,6 +5,15 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
+from aymurai.experiments.mlflow_utils import (
+    configure_mlflow,
+    safe_end_run,
+    safe_log_artifacts,
+    safe_log_metrics,
+    safe_log_params,
+    safe_set_tags,
+    safe_start_run,
+)
 from aymurai.experiments.training_dataset_generation.config import (
     TrainingDatasetGenerationConfig,
     build_strategy_slug,
@@ -46,6 +55,38 @@ def prepare_run_directory(config: TrainingDatasetGenerationConfig) -> Path:
 
 def run_pipeline(config: TrainingDatasetGenerationConfig) -> dict:
     run_dir = prepare_run_directory(config)
+    mlflow_enabled, mlflow_experiment_id = configure_mlflow(config.logging.mlflow)
+
+    if mlflow_enabled:
+        mlflow_enabled = safe_start_run(
+            run_name=run_dir.name,
+            experiment_id=mlflow_experiment_id,
+        )
+
+        safe_set_tags(
+            {
+                "experiment": "training-dataset-generation",
+                "run_dir": str(run_dir),
+                "strategy": build_strategy_slug(config),
+            }
+        )
+
+        safe_log_params(
+            {
+                "run_dir_name": run_dir.name,
+                "strategy_slug": build_strategy_slug(config),
+                "label_selection_mode": config.label_selection.mode,
+                "low_frequency_top_k": config.label_selection.low_frequency_top_k,
+                "unlabeled_sampling_mode": config.unlabeled_sampling.mode,
+                "target_background_to_labeled_ratio": (
+                    config.unlabeled_sampling.target_background_to_labeled_ratio
+                ),
+                "include_original_train": config.assembly.include_original_train,
+                "internal_dedup_threshold": config.deduplication.internal_threshold,
+                "corpus_dedup_threshold": config.deduplication.corpus_threshold,
+            }
+        )
+
     log_step(f"Writing artifacts to {run_dir}")
 
     train_paragraphs = paragraphs_from_bio(config.paths.train_set_path)
@@ -182,6 +223,28 @@ def run_pipeline(config: TrainingDatasetGenerationConfig) -> dict:
     report_path.write_text(
         json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
     )
+    if mlflow_enabled:
+        safe_log_metrics(
+            {
+                "raw_candidates": float(len(new_candidates)),
+                "unique_candidates_after_internal_dedup": float(len(unique_candidates)),
+                "internal_duplicates": float(len(internal_duplicates)),
+                "clean_labeled": float(len(clean_labeled)),
+                "clean_unlabeled": float(len(clean_unlabeled)),
+                "duplicates_with_labels": float(len(duplicates_with_labels)),
+                "duplicates_without_labels": float(len(duplicates_without_labels)),
+                "discarded_noise": float(len(discarded_noise)),
+                "selected_labeled": float(len(selected_labeled)),
+                "selected_unlabeled": float(len(selected_unlabeled)),
+                "selected_total": float(len(selected_candidates)),
+                "bio_appended_candidates": float(
+                    bio_write_stats["appended_candidates"]
+                ),
+                "bio_skipped_candidates": float(bio_write_stats["skipped_candidates"]),
+            }
+        )
+        safe_log_artifacts(run_dir, artifact_path="outputs")
+        safe_end_run()
     log_step(f"Saved report to {report_path}")
     log_step(f"Saved final BIO dataset to {final_bio_path}")
     return report

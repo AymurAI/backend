@@ -5,6 +5,11 @@ from pathlib import Path
 
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
+from aymurai.experiments.mlflow_utils import (
+    LoggingConfig,
+    MLflowConfig,
+    resolve_tracking_uri,
+)
 from aymurai.utils.yaml_data import load_yaml
 
 
@@ -89,6 +94,7 @@ class OutputsConfig(BaseModel):
     bio_txt: str = "synthetic_samples.txt"
     report_json: str = "report.json"
     prompts_jsonl: str = "llm_prompts.jsonl"
+    source_examples_jsonl: str = "source_examples.jsonl"
 
 
 class SyntheticParagraphGenerationConfig(BaseModel):
@@ -101,6 +107,9 @@ class SyntheticParagraphGenerationConfig(BaseModel):
     sampling: SamplingConfig = SamplingConfig()
     similarity: SimilarityConfig = SimilarityConfig()
     outputs: OutputsConfig
+    logging: LoggingConfig = LoggingConfig(
+        mlflow=MLflowConfig(experiment_name="synthetic-paragraph-generation")
+    )
 
 
 def find_project_root(start: Path) -> Path:
@@ -178,5 +187,11 @@ def load_synthetic_paragraph_generation_config(
             resolve_config_path(path, project_root=project_root)
             for path in (similarity_payload.get("extra_bio_paths") or [])
         ]
+
+    mlflow_payload = payload.setdefault("logging", {}).setdefault("mlflow", {})
+    if "tracking_uri" in mlflow_payload:
+        mlflow_payload["tracking_uri"] = resolve_tracking_uri(
+            mlflow_payload["tracking_uri"], project_root=project_root
+        )
 
     return SyntheticParagraphGenerationConfig.model_validate(payload)

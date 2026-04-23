@@ -5,6 +5,11 @@ from pathlib import Path
 
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field, model_validator
 
+from aymurai.experiments.mlflow_utils import (
+    LoggingConfig,
+    MLflowConfig,
+    resolve_tracking_uri,
+)
 from aymurai.utils.yaml_data import load_yaml
 
 
@@ -100,6 +105,9 @@ class TrainingDatasetGenerationConfig(BaseModel):
     label_selection: LabelSelectionConfig = LabelSelectionConfig()
     unlabeled_sampling: UnlabeledSamplingConfig = UnlabeledSamplingConfig()
     assembly: AssemblyConfig = AssemblyConfig()
+    logging: LoggingConfig = LoggingConfig(
+        mlflow=MLflowConfig(experiment_name="training-dataset-generation")
+    )
 
 
 def find_project_root(start: Path) -> Path:
@@ -165,5 +173,11 @@ def load_training_dataset_generation_config(
             resolve_config_path(item, project_root=project_root)
             for item in paths_payload["candidate_input_paths"]
         ]
+
+    mlflow_payload = payload.setdefault("logging", {}).setdefault("mlflow", {})
+    if "tracking_uri" in mlflow_payload:
+        mlflow_payload["tracking_uri"] = resolve_tracking_uri(
+            mlflow_payload["tracking_uri"], project_root=project_root
+        )
 
     return TrainingDatasetGenerationConfig.model_validate(payload)

@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import random
+import re
 import uuid
 from collections import Counter
 from dataclasses import dataclass
@@ -11,7 +12,6 @@ from pathlib import Path
 from typing import Any, Iterable
 
 from pydantic import BaseModel
-import re
 from tqdm.auto import tqdm
 
 from aymurai.experiments.data_augmentation.runner import (
@@ -19,16 +19,26 @@ from aymurai.experiments.data_augmentation.runner import (
     generate_label_candidates,
     load_augmentation_registry,
 )
-from aymurai.experiments.training_dataset_generation.core import (
-    extract_one_match,
-    normalize_text_for_match,
-    parse_bio_paragraphs,
-    paragraphs_from_bio,
+from aymurai.experiments.mlflow_utils import (
+    configure_mlflow,
+    safe_end_run,
+    safe_log_artifacts,
+    safe_log_generation_trace,
+    safe_log_metrics,
+    safe_log_params,
+    safe_set_tags,
+    safe_start_run,
 )
 from aymurai.experiments.synthetic_paragraph_generation.config import (
     SyntheticParagraphGenerationConfig,
     load_synthetic_paragraph_generation_config,
     render_run_dir_name,
+)
+from aymurai.experiments.training_dataset_generation.core import (
+    extract_one_match,
+    normalize_text_for_match,
+    paragraphs_from_bio,
+    parse_bio_paragraphs,
 )
 
 
@@ -109,7 +119,70 @@ Rules:
 
 
 def log_step(message: str) -> None:
-    print(f"[synthetic-paragraph-generation] {message}\n")
+    print(f"[synthetic-paragraph-generation] {message}")
+
+
+def log_synthetic_generation_trace(
+    *,
+    enabled: bool,
+    desired_target_label: str | None,
+    example_structure_labels: list[str],
+    batch: PromptBatch,
+    attempt_count: int,
+    raw_response_text: str | None,
+    success_records: list[dict[str, Any]],
+    validation_results: list[dict[str, Any]],
+    last_error: str | None,
+    model: str,
+    temperature: float,
+) -> None:
+    safe_log_generation_trace(
+        enabled=enabled,
+        name="synthetic_paragraph_generation",
+        sample_id=(
+            success_records[0]["sample_id"]
+            if success_records
+            else f"failed-{desired_target_label or 'unknown'}"
+        ),
+        inputs={
+            "system_prompt": LLM_SYSTEM_PROMPT,
+            "user_prompt": batch.prompt,
+            "paragraph_jobs": batch.paragraph_jobs,
+            "desired_target_label": desired_target_label,
+            "example_structure_labels": example_structure_labels,
+            "batch_labels": batch.labels,
+            "llm_only_labels": batch.missing_labels,
+            "reference_examples": {
+                label: [
+                    {
+                        "sample_id": example.sample_id,
+                        "text": example.text,
+                        "labels": example.labels,
+                    }
+                    for example in examples
+                ]
+                for label, examples in batch.reference_examples.items()
+            },
+        },
+        outputs={
+            "raw_response_text": raw_response_text,
+            "success_records": success_records,
+            "validation_results": validation_results,
+            "last_error": last_error,
+        },
+        attributes={
+            "model": model,
+            "temperature": temperature,
+            "attempt_count": attempt_count,
+            "prompt_token_count": batch.prompt_token_count,
+            "success_count": len(success_records),
+            "status": "ok" if success_records else "failed",
+        },
+        tags={
+            "experiment": "synthetic-paragraph-generation",
+            "desired_target_label": desired_target_label or "unknown",
+        },
+    )
 
 
 def timestamp_now() -> str:
@@ -121,6 +194,28 @@ def write_jsonl(path: Path, records: list[dict[str, Any]]) -> None:
     with path.open("w", encoding="utf-8") as handle:
         for record in records:
             handle.write(json.dumps(record, ensure_ascii=False) + "\n")
+
+
+def serialize_source_examples(
+    label_example_pools: dict[str, list[ExampleRecord]],
+) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    seen: set[tuple[str, str]] = set()
+    for pool_label, examples in sorted(label_example_pools.items()):
+        for example in examples:
+            key = (pool_label, example.sample_id)
+            if key in seen:
+                continue
+            seen.add(key)
+            rows.append(
+                {
+                    "pool_label": pool_label,
+                    "sample_id": example.sample_id,
+                    "text": example.text,
+                    "labels": example.labels,
+                }
+            )
+    return rows
 
 
 def iter_jsonl_rows(path: Path) -> Iterable[dict[str, Any]]:
@@ -476,6 +571,7 @@ def build_candidate_map_for_labels(
         n_options=config.faker.candidates_per_label,
         max_attempts_per_label=config.faker.max_attempts_per_label,
         seed=rng.randint(1, 1_000_000),
+        llm_only_labels=config.faker.llm_only_labels,
     )
     chosen_values = {
         label: rng.choice(values) for label, values in candidate_map.items() if values
@@ -812,6 +908,39 @@ def append_internal_similarity_reference(
 
 def run_pipeline(config: SyntheticParagraphGenerationConfig) -> dict[str, Any]:
     run_dir = prepare_run_dir(config)
+    mlflow_enabled, mlflow_experiment_id = configure_mlflow(config.logging.mlflow)
+    if mlflow_enabled:
+        mlflow_enabled = safe_start_run(
+            run_name=config.experiment.run_name.format(
+                model=config.llm.model,
+                timestamp=run_dir.name,
+            ),
+            experiment_id=mlflow_experiment_id,
+        )
+    if mlflow_enabled:
+        safe_set_tags(
+            {
+                "experiment": config.experiment.name,
+                "run_dir": str(run_dir),
+                "model": config.llm.model,
+            }
+        )
+        safe_log_params(
+            {
+                "run_dir_name": run_dir.name,
+                "model": config.llm.model,
+                "target_total_synthetic": config.sampling.target_total_synthetic,
+                "desired_target_label_count": len(
+                    config.sampling.desired_target_labels or []
+                ),
+                "examples_per_label": config.data.examples_per_label,
+                "max_examples": config.data.max_examples,
+                "paragraphs_per_call": config.llm.paragraphs_per_call,
+                "temperature": config.llm.temperature,
+                "similarity_enabled": config.similarity.enabled,
+                "similarity_threshold": config.similarity.threshold,
+            }
+        )
     log_step(f"Writing artifacts to {run_dir}")
 
     rng = random.Random(config.sampling.seed)
@@ -832,6 +961,8 @@ def run_pipeline(config: SyntheticParagraphGenerationConfig) -> dict[str, Any]:
         config,
         rng=rng,
     )
+    source_examples_path = run_dir / config.outputs.source_examples_jsonl
+    write_jsonl(source_examples_path, serialize_source_examples(label_example_pools))
     (
         similarity_reference_texts,
         similarity_reference_kind,
@@ -976,15 +1107,15 @@ def run_pipeline(config: SyntheticParagraphGenerationConfig) -> dict[str, Any]:
                 fallback_labels=batch.labels,
             )
 
+            attempt_count = 0
             for _attempt in range(1, config.llm.max_retries_per_sample + 2):
+                attempt_count = _attempt
                 try:
                     log_step(
-                        f"LLM call request for attempt {_attempt}: "
+                        f"LLM call attempt {_attempt}: "
                         f"desired_target_label={desired_target_label}, "
-                        f"example_structure_labels={example_structure_labels}, "
                         f"batch_labels={batch.labels}, "
-                        f"jobs={len(batch.paragraph_jobs)}, "
-                        f"requested_values={[job['provided_values'] for job in batch.paragraph_jobs]}"
+                        f"jobs={len(batch.paragraph_jobs)}"
                     )
                     (
                         payload,
@@ -1007,18 +1138,9 @@ def run_pipeline(config: SyntheticParagraphGenerationConfig) -> dict[str, Any]:
 
                     for paragraph_item in parsed.paragraphs:
                         requested_job = job_lookup[paragraph_item.job_id]
-                        log_step(
-                            f"Validating paragraph for job_id={paragraph_item.job_id} with requested labels {batch.labels} and provided values {requested_job['provided_values']}"
-                        )
                         requested_values = requested_job["provided_values"]
                         clean_paragraph = strip_label_names_from_text(
                             paragraph_item.paragraph, normalized_labels
-                        )
-                        log_step(f"Raw paragraph: '{paragraph_item.paragraph}'.")
-                        log_step(f"Paragraph: '{clean_paragraph}'.")
-                        log_step("Started entity validation.")
-                        log_step(
-                            f"Expected entities based on request: {[entity.model_dump(mode='json') for entity in paragraph_item.entities]}"
                         )
                         entities = locate_entities(
                             clean_paragraph,
@@ -1027,7 +1149,6 @@ def run_pipeline(config: SyntheticParagraphGenerationConfig) -> dict[str, Any]:
                                 for entity in paragraph_item.entities
                             ],
                         )
-                        log_step(f"Located entities: {entities}")
                         expected_labels = Counter(batch.labels)
                         actual_labels = Counter(entity["label"] for entity in entities)
                         if expected_labels != actual_labels:
@@ -1150,11 +1271,15 @@ def run_pipeline(config: SyntheticParagraphGenerationConfig) -> dict[str, Any]:
                         )
                     log_step(
                         f"LLM call validation passed for batch_labels={batch.labels}: "
-                        f"{json.dumps(validation_results, ensure_ascii=False)}"
+                        f"{len(success_records)} paragraph(s)"
                     )
+                    last_error = None
                     break
                 except Exception as exc:  # noqa: BLE001
                     last_error = str(exc)
+                    log_step(
+                        f"LLM call attempt {_attempt} failed for batch_labels={batch.labels}: {last_error}"
+                    )
 
             prompt_records.append(
                 {
@@ -1176,6 +1301,22 @@ def run_pipeline(config: SyntheticParagraphGenerationConfig) -> dict[str, Any]:
                     "last_error": last_error,
                     "validation_results": validation_results,
                 }
+            )
+
+            log_synthetic_generation_trace(
+                enabled=(
+                    mlflow_enabled and config.logging.mlflow.enable_generation_traces
+                ),
+                desired_target_label=desired_target_label,
+                example_structure_labels=example_structure_labels,
+                batch=batch,
+                attempt_count=attempt_count,
+                raw_response_text=raw_response_text,
+                success_records=success_records,
+                validation_results=validation_results,
+                last_error=last_error,
+                model=config.llm.model,
+                temperature=config.llm.temperature,
             )
 
             if not success_records:
@@ -1268,6 +1409,7 @@ def run_pipeline(config: SyntheticParagraphGenerationConfig) -> dict[str, Any]:
             "samples_jsonl": str(samples_path),
             "bio_txt": str(bio_path),
             "prompts_jsonl": str(prompts_path),
+            "source_examples_jsonl": str(source_examples_path),
             "report_json": str(report_path),
         },
         "failures": failures,
@@ -1283,6 +1425,20 @@ def run_pipeline(config: SyntheticParagraphGenerationConfig) -> dict[str, Any]:
     else:
         log_step(f"Generated {len(records)} synthetic paragraphs")
     log_step(f"Saved samples to {samples_path}")
+    if mlflow_enabled:
+        safe_log_metrics(
+            {
+                "generated_samples": float(len(records)),
+                "failed_samples": float(len(failures)),
+                "available_labels": float(len(available_labels)),
+                "source_examples_loaded": float(total_loaded_examples),
+                "prompt_count": float(len(prompt_records)),
+                "attempt_cycles_used": float(total_attempt_cycles),
+                "target_total_synthetic": float(total_target_synthetic),
+            }
+        )
+        safe_log_artifacts(run_dir, artifact_path="outputs")
+        safe_end_run()
     return report
 
 
