@@ -148,6 +148,7 @@ async def transcribe(
             return cached_document
 
     transcription_items = await _transcribe_audio_bytes_with_error_handling(data)
+    transcription_items = [p for p in transcription_items if p.text.strip()]
     document = ASRDocument(document_id=document_id, document=transcription_items)
     audio_transcription_create_or_update(
         transcription_id=document_id,
