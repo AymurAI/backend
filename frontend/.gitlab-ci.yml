@@ -1,0 +1,18 @@
+---
+image: alpine:latest
+
+stages:
+  - analysis
+
+# This creates a temporary cache folder that prevents from
+# the node_modules, and .npm (also apply for .yarn)
+# to be recreated each CI run
+cache:
+  key: ${CI_COMMIT_REF_SLUG}
+  paths:
+    - node_modules
+    - .npm
+
+include:
+  - local: /.gitlab/analysis/lint.yml
+  - local: /.gitlab/analysis/audit.yml
