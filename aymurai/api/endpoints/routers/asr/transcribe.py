@@ -17,7 +17,11 @@ from aymurai.database.crud.audio_transcription import (
 from aymurai.database.session import get_session
 from aymurai.database.utils import data_to_uuid
 from aymurai.logger import get_logger
-from aymurai.meta.api_interfaces import ASRDocument, ASRParagraph, ASRParagraphRequest
+from aymurai.meta.api_interfaces import (
+    ASRDocument,
+    ASRParagraph,
+    ASRParagraphRequest,
+)
 from aymurai.settings import settings
 
 router = APIRouter()
@@ -74,7 +78,6 @@ async def _transcribe_audio_bytes_with_error_handling(
     return [
         ASRParagraph(
             speaker_no=line.speaker,
-            speaker_id=f"speaker-{line.speaker}",
             start=line.start,
             end=line.end,
             text=line.text,
@@ -170,7 +173,7 @@ async def asr_save_document_validation(
 
     Args:
         document_id (UUID5): The ID of the document to validate.
-        annotations (list[ASRParagraphRequest], optional): The list of annotations for the document. Defaults to Body(...).
+        annotations (list[ASRParagraphRequest]): The list of annotations for the document.
         session (Session, optional): The database session. Defaults to Depends(get_session).
 
     Raises:
