@@ -46,6 +46,7 @@ generation:
   max_paragraphs: 5000
   deduplicate_candidate_paragraphs: true
   run_with_ollama: true
+  dry_run_preflight_only: false
 
 normalization:
   fuzzy_threshold: 0.75

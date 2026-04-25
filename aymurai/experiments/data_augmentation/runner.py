@@ -77,9 +77,12 @@ DEFAULT_LABEL_NORMALIZATION_MAP: dict[str, str] = {
     "PASAPORTE": "DNI",
     "QUERY": "TEXTO_ANONIMIZAR",
     "query": "TEXTO_ANONIMIZAR",
+    "LOCS": "LOC",
+    "LOCs": "LOC",
 }
 
 LABEL_RULES: list[tuple[re.Pattern[str], str]] = [
+    (re.compile(r"^LOCS?$"), "LOC"),
     (re.compile(r"^TEL(?:EFONO)?(?:_|$)|NUM_TEL|NUMERO_TELEFONO"), "TELEFONO"),
     (re.compile(r"EDAD"), "EDAD"),
     (re.compile(r"A+C?S?U?S?AD(?:O|A|X|O_A|A_O)?"), "PER"),
@@ -323,6 +326,20 @@ def build_unique_label_inventory(
     )
 
 
+def collect_distinct_labels(
+    paragraphs_df: pd.DataFrame, label_column: str
+) -> list[str]:
+    if label_column not in paragraphs_df.columns:
+        return []
+    return sorted(
+        {
+            str(label).strip()
+            for label in paragraphs_df[label_column].explode().dropna().tolist()
+            if str(label).strip()
+        }
+    )
+
+
 def build_fuzzy_label_groups(
     train_labels: Iterable[str],
     odt_labels: Iterable[str],
@@ -487,6 +504,45 @@ def write_unmapped_label_report(
         lines.append(
             f"{row['label']} -> {row['mapped_label']} ({row['paragraph_count']})"
         )
+
+    report_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return report_path
+
+
+def write_unsupported_label_report(
+    output_dir: Path,
+    *,
+    unsupported_labels: list[str],
+    llm_only_without_ollama: list[str],
+    faker_supported_labels: set[str],
+    llm_only_labels: set[str],
+) -> Path:
+    output_dir.mkdir(parents=True, exist_ok=True)
+    report_path = output_dir / "unsupported_normalized_labels.txt"
+    lines = [
+        "# Normalized labels that cannot be augmented with current settings",
+        "# Add normalization mappings/rules or enable/adjust LLM handling.",
+        "",
+    ]
+    if unsupported_labels:
+        lines.append("# Missing Faker generators and not declared as LLM-only:")
+        for label in unsupported_labels:
+            lines.append(f"- {label}")
+        lines.append("")
+
+    if llm_only_without_ollama:
+        lines.append(
+            "# Declared LLM-only labels found while Ollama fallback is disabled:"
+        )
+        for label in llm_only_without_ollama:
+            lines.append(f"- {label}")
+        lines.append("")
+
+    lines.append("# Faker-supported labels snapshot:")
+    lines.append(", ".join(sorted(faker_supported_labels)))
+    lines.append("")
+    lines.append("# LLM-only labels snapshot:")
+    lines.append(", ".join(sorted(llm_only_labels)) or "(none)")
 
     report_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return report_path
@@ -1335,6 +1391,21 @@ def run_pipeline(
         timeout_s=config.api.timeout_s,
         label_map=effective_label_normalization_map,
     )
+    normalized_doc_labels = collect_distinct_labels(paragraphs_df, "labels")
+    unmapped_normalized_labels = [
+        label
+        for label in normalized_doc_labels
+        if label not in original_train_unique_labels
+    ]
+    if (
+        config.normalization.strict_require_all_raw_labels_mapped
+        and unmapped_normalized_labels
+    ):
+        raise ValueError(
+            "Some normalized labels extracted from ODT documents are not part of the canonical train labels.\n"
+            "Review label mappings/rules before augmentation.\n"
+            f"Unmapped normalized labels: {json.dumps(unmapped_normalized_labels, ensure_ascii=False)}"
+        )
     normalized_label_inventory_df = build_unique_label_inventory(
         paragraphs_df, "labels"
     )
@@ -1396,6 +1467,61 @@ def run_pipeline(
     augmentation_functions, augmentation_faker = load_augmentation_registry(
         project_root
     )
+    candidate_labels = collect_distinct_labels(candidate_paragraphs_df, "labels")
+    llm_only_labels = {
+        str(label).strip()
+        for label in config.ollama.llm_only_labels
+        if str(label).strip()
+    }
+    faker_supported_labels = set(augmentation_functions.keys())
+    unsupported_candidate_labels = sorted(
+        label
+        for label in candidate_labels
+        if label not in faker_supported_labels and label not in llm_only_labels
+    )
+    llm_only_without_ollama = sorted(
+        label
+        for label in candidate_labels
+        if label in llm_only_labels
+        and not (
+            config.generation.run_with_ollama and config.ollama.allow_missing_labels
+        )
+    )
+    if unsupported_candidate_labels or llm_only_without_ollama:
+        report_path = write_unsupported_label_report(
+            output_dir,
+            unsupported_labels=unsupported_candidate_labels,
+            llm_only_without_ollama=llm_only_without_ollama,
+            faker_supported_labels=faker_supported_labels,
+            llm_only_labels=llm_only_labels,
+        )
+        raise ValueError(
+            "Found normalized labels that cannot be augmented with the current pipeline configuration.\n"
+            f"Review {report_path} and adjust mappings/rules/config before rerunning.\n"
+            f"Unsupported labels: {json.dumps(unsupported_candidate_labels, ensure_ascii=False)}; "
+            f"LLM-only blocked labels: {json.dumps(llm_only_without_ollama, ensure_ascii=False)}"
+        )
+
+    if config.generation.dry_run_preflight_only:
+        log_step(
+            "Dry-run mode enabled: preflight checks passed; skipping augmentation generation"
+        )
+        if mlflow_enabled:
+            safe_log_metrics(
+                {
+                    "raw_paragraph_count": float(len(raw_paragraphs_df)),
+                    "raw_label_count": float(len(raw_label_inventory_df)),
+                    "normalized_label_count": float(len(normalized_label_inventory_df)),
+                    "candidate_paragraph_count": float(len(candidate_paragraphs_df)),
+                    "duplicate_candidate_paragraph_count": float(
+                        duplicate_candidate_count
+                    ),
+                    "dry_run_preflight_only": 1.0,
+                }
+            )
+            safe_log_artifacts(output_dir, artifact_path="outputs")
+            safe_end_run()
+        return []
 
     records: list[dict[str, Any]] = []
     log_step(
@@ -1449,6 +1575,14 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--config", required=True, help="Path to the YAML configuration file."
     )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help=(
+            "Run extraction, label mapping, normalization and augmentation preflight checks, "
+            "then exit before generating augmented samples."
+        ),
+    )
     return parser
 
 
@@ -1456,9 +1590,14 @@ def main() -> None:
     parser = build_arg_parser()
     args = parser.parse_args()
     config = load_data_augmentation_config(args.config)
+    if args.dry_run:
+        config.generation.dry_run_preflight_only = True
     run_dir_name = render_run_dir_name(config.paths.run_dir_name_template)
     records = run_pipeline(config, run_dir_name=run_dir_name)
     output_dir = Path(config.paths.output_dir) / run_dir_name
+    if config.generation.dry_run_preflight_only:
+        print(f"Dry run completed. Preflight artifacts saved under {output_dir}")
+        return
     print(
         f"Saved {len(records)} augmented samples to {output_dir / config.paths.jsonl_filename}"
     )

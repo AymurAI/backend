@@ -66,6 +66,7 @@ class GenerationConfig(BaseModel):
     max_paragraphs: int | None = None
     deduplicate_candidate_paragraphs: bool = True
     run_with_ollama: bool = True
+    dry_run_preflight_only: bool = False
 
 
 class NormalizationConfig(BaseModel):
