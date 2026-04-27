@@ -23,6 +23,7 @@ ollama:
   temperature: 0
   allow_missing_labels: true
   allow_non_faker_values: true
+  llm_call_retries: 1
   llm_only_labels:
     - "TEXTO_ANONIMIZAR"
     - "NUM"
@@ -47,6 +48,7 @@ generation:
   deduplicate_candidate_paragraphs: true
   run_with_ollama: true
   dry_run_preflight_only: false
+  random_seed: 42
 
 normalization:
   fuzzy_threshold: 0.75
@@ -56,6 +58,6 @@ normalization:
 logging:
   mlflow:
     enabled: true
-    tracking_uri: "http://localhost:5000"
+    tracking_uri: "http://localhost:5005"
     experiment_name: "data-augmentation"
     enable_generation_traces: true

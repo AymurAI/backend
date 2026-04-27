@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import importlib
 import json
 import mimetypes
 import os
-import random
 import re
 import time
 import uuid
@@ -548,6 +548,52 @@ def write_unsupported_label_report(
     return report_path
 
 
+def build_missing_label_inventory(
+    candidate_paragraphs_df: pd.DataFrame,
+    *,
+    faker_supported_labels: set[str],
+    llm_only_labels: set[str],
+) -> pd.DataFrame:
+    labels = (
+        candidate_paragraphs_df["labels"].explode().dropna().astype(str).str.strip()
+    )
+    labels = labels[labels.astype(bool)]
+    if labels.empty:
+        return pd.DataFrame(
+            columns=[
+                "label",
+                "paragraph_count",
+                "resolution_mode",
+                "has_faker_generator",
+                "is_llm_only",
+            ]
+        )
+
+    inventory_df = (
+        labels.value_counts()
+        .rename_axis("label")
+        .reset_index(name="paragraph_count")
+        .sort_values(["paragraph_count", "label"], ascending=[False, True])
+        .reset_index(drop=True)
+    )
+    inventory_df["has_faker_generator"] = inventory_df["label"].isin(
+        faker_supported_labels
+    )
+    inventory_df["is_llm_only"] = inventory_df["label"].isin(llm_only_labels)
+    inventory_df["resolution_mode"] = "llm_missing_label"
+    inventory_df.loc[
+        inventory_df["is_llm_only"], "resolution_mode"
+    ] = "llm_only_declared"
+    inventory_df.loc[
+        ~inventory_df["is_llm_only"] & inventory_df["has_faker_generator"],
+        "resolution_mode",
+    ] = "faker_supported"
+
+    return inventory_df.loc[
+        inventory_df["resolution_mode"] != "faker_supported"
+    ].reset_index(drop=True)
+
+
 def api_extract_document(
     document_path: Path,
     *,
@@ -685,7 +731,7 @@ def generate_label_candidates(
     if seed is not None:
         augmentation_faker.seed_instance(seed)
     else:
-        augmentation_faker.seed_instance(random.randint(1, 1_000_000))
+        augmentation_faker.seed_instance(0)
 
     allowed_llm_only_labels = {
         str(label).strip()
@@ -723,15 +769,22 @@ def generate_label_candidates(
 
         candidate_map[label] = values
 
-    unsupported_missing = [
-        label for label in missing_labels if label not in allowed_llm_only_labels
-    ]
-    if unsupported_missing:
-        raise ValueError(
-            "Unsupported labels without Faker generators: "
-            + ", ".join(sorted(unsupported_missing))
-        )
+    # Keep unknown labels in missing_labels so the LLM can still resolve them.
+    # This avoids hard failures when ODT sources introduce new/unmapped tags.
     return candidate_map, sorted(missing_labels)
+
+
+def derive_paragraph_seed(row: pd.Series, *, base_seed: int) -> int:
+    key = "|".join(
+        [
+            str(base_seed),
+            str(row.get("source_path", "")),
+            str(row.get("document_id", "")),
+            str(row.get("paragraph_id", "")),
+        ]
+    )
+    digest = hashlib.sha256(key.encode("utf-8")).hexdigest()
+    return int(digest[:8], 16)
 
 
 def build_ollama_user_prompt(
@@ -760,6 +813,12 @@ def normalize_candidate_text(value: str) -> str:
     value = str(value).strip().lower()
     value = re.sub(r"[\s_\-\.]+", "", value)
     return re.sub(r"[^0-9a-záéíóúüñ]", "", value)
+
+
+def fallback_missing_label_value(label: str) -> str:
+    canonical = canonicalize_label_for_matching(label).replace("_", " ").strip().lower()
+    descriptor = canonical if canonical else "dato"
+    return f"dato reservado ({descriptor})"
 
 
 def resolve_candidate_choice(
@@ -1023,15 +1082,13 @@ def choose_replacements_with_ollama(
                 candidate_map,
                 allow_non_faker_values=config.ollama.allow_non_faker_values,
             )
-        elif not (
-            config.ollama.allow_missing_labels
-            and label in missing_labels
-            and chosen_value.strip()
-        ):
+        elif not (config.ollama.allow_missing_labels and label in missing_labels):
             raise ValueError(
                 f"Label '{label}' has no Faker candidates and Ollama-generated replacements are disabled or empty."
             )
         else:
+            if not chosen_value.strip():
+                chosen_value = fallback_missing_label_value(label)
             used_non_faker_value = True
 
         seen_ids.add(occurrence_id)
@@ -1047,8 +1104,36 @@ def choose_replacements_with_ollama(
         )
 
     if seen_ids != expected_ids:
+        occurrence_by_id = {
+            occurrence.occurrence_id: occurrence for occurrence in occurrences
+        }
         missing = sorted(expected_ids - seen_ids)
-        raise ValueError(f"Missing replacements for occurrence_id values: {missing}")
+        for occurrence_id in missing:
+            occurrence = occurrence_by_id[occurrence_id]
+            label = occurrence.label
+            used_non_faker_value = False
+
+            if label in candidate_map and candidate_map[label]:
+                chosen_value = candidate_map[label][0]
+            elif config.ollama.allow_missing_labels and label in missing_labels:
+                chosen_value = fallback_missing_label_value(label)
+                used_non_faker_value = True
+            else:
+                raise ValueError(
+                    f"Missing replacements for occurrence_id values: {missing}. "
+                    f"Could not auto-fill occurrence_id={occurrence_id} for label '{label}'."
+                )
+
+            validated.append(
+                {
+                    "occurrence_id": occurrence_id,
+                    "label": label,
+                    "chosen_value": chosen_value,
+                    "used_non_faker_value": used_non_faker_value,
+                    "selection_mode": f"{provider_name}_autofill_missing_occurrence",
+                    "model": provider_model_name,
+                }
+            )
 
     return {
         "resolved_paragraph": resolved_paragraph,
@@ -1153,6 +1238,11 @@ def augment_paragraph(
     alignments_dir: Path,
 ) -> dict[str, Any]:
     source_text = str(row["text"])
+    sample_id = uuid.uuid4().hex
+    paragraph_seed = derive_paragraph_seed(
+        row,
+        base_seed=int(config.generation.random_seed),
+    )
     occurrences = extract_tag_occurrences(source_text)
     if not occurrences:
         raise ValueError("The paragraph does not contain anonymization tags.")
@@ -1164,6 +1254,7 @@ def augment_paragraph(
         augmentation_faker=augmentation_faker,
         n_options=config.generation.candidates_per_label,
         max_attempts_per_label=config.generation.max_attempts_per_label,
+        seed=paragraph_seed,
         llm_only_labels=config.ollama.llm_only_labels,
     )
 
@@ -1171,7 +1262,7 @@ def augment_paragraph(
         config.generation.run_with_ollama and config.ollama.allow_missing_labels
     ):
         return {
-            "sample_id": uuid.uuid4().hex,
+            "sample_id": sample_id,
             "document_id": row["document_id"],
             "paragraph_id": int(row["paragraph_id"]),
             "source_path": row["source_path"],
@@ -1180,6 +1271,7 @@ def augment_paragraph(
             "labels": distinct_labels,
             "target_labels": list(row["target_labels"]),
             "candidate_values": candidate_map,
+            "candidate_seed": paragraph_seed,
             "missing_labels": missing_labels,
             "status": "skipped_missing_candidate_generators",
             "replacements": [],
@@ -1190,13 +1282,52 @@ def augment_paragraph(
             "alignment_records": [],
         }
 
-    llm_resolution = choose_replacements_with_ollama(
-        paragraph=source_text,
-        occurrences=occurrences,
-        candidate_map=candidate_map,
-        missing_labels=missing_labels,
-        config=config,
-    )
+    llm_max_attempts = max(1, int(config.ollama.llm_call_retries) + 1)
+    llm_attempt_errors: list[str] = []
+    llm_resolution: dict[str, Any] | None = None
+    for attempt in range(1, llm_max_attempts + 1):
+        try:
+            llm_resolution = choose_replacements_with_ollama(
+                paragraph=source_text,
+                occurrences=occurrences,
+                candidate_map=candidate_map,
+                missing_labels=missing_labels,
+                config=config,
+            )
+            break
+        except Exception as exc:
+            llm_attempt_errors.append(str(exc))
+            if attempt < llm_max_attempts:
+                log_step(
+                    f"LLM replacement attempt {attempt}/{llm_max_attempts} failed "
+                    f"for document_id={row['document_id']}, paragraph_id={int(row['paragraph_id'])}; retrying"
+                )
+
+    if llm_resolution is None:
+        return {
+            "sample_id": sample_id,
+            "document_id": row["document_id"],
+            "paragraph_id": int(row["paragraph_id"]),
+            "source_path": row["source_path"],
+            "source_text": source_text,
+            "resolved_text": None,
+            "labels": distinct_labels,
+            "target_labels": list(row["target_labels"]),
+            "candidate_values": candidate_map,
+            "candidate_seed": paragraph_seed,
+            "missing_labels": missing_labels,
+            "status": "skipped_llm_resolution_failed",
+            "llm_attempt_count": llm_max_attempts,
+            "llm_error": llm_attempt_errors[-1] if llm_attempt_errors else None,
+            "llm_error_history": llm_attempt_errors,
+            "replacements": [],
+            "entities": [],
+            "bio_lines": [],
+            "alignment_bio_lines": [],
+            "alignment_path": None,
+            "alignment_records": [],
+        }
+
     local_resolved_text, entities = apply_replacements(
         paragraph=source_text,
         occurrences=occurrences,
@@ -1209,7 +1340,6 @@ def augment_paragraph(
     bio_lines = entities_to_bio_lines(resolved_text, entities)
     alignment_bio_lines = alignment_to_bio_lines(alignment_df)
 
-    sample_id = uuid.uuid4().hex
     alignments_dir.mkdir(parents=True, exist_ok=True)
     alignment_path = alignments_dir / f"{sample_id}.csv"
     alignment_df.to_csv(alignment_path, index=False)
@@ -1224,6 +1354,7 @@ def augment_paragraph(
         "labels": distinct_labels,
         "target_labels": list(row["target_labels"]),
         "candidate_values": candidate_map,
+        "candidate_seed": paragraph_seed,
         "missing_labels": missing_labels,
         "status": "ok",
         "replacements": llm_resolution["replacements"],
@@ -1270,6 +1401,7 @@ def run_pipeline(
             {
                 "run_dir_name": run_dir_name,
                 "odt_count": len(config.paths.odt_paths),
+                "generation_random_seed": config.generation.random_seed,
                 "target_label_count": config.generation.target_label_count,
                 "max_paragraphs": config.generation.max_paragraphs,
                 "deduplicate_candidate_paragraphs": (
@@ -1278,6 +1410,7 @@ def run_pipeline(
                 "candidates_per_label": config.generation.candidates_per_label,
                 "run_with_ollama": config.generation.run_with_ollama,
                 "ollama_model": config.ollama.model,
+                "llm_call_retries": config.ollama.llm_call_retries,
                 "normalization_fuzzy_threshold": config.normalization.fuzzy_threshold,
             }
         )
@@ -1474,33 +1607,54 @@ def run_pipeline(
         if str(label).strip()
     }
     faker_supported_labels = set(augmentation_functions.keys())
-    unsupported_candidate_labels = sorted(
-        label
-        for label in candidate_labels
-        if label not in faker_supported_labels and label not in llm_only_labels
+    llm_missing_resolution_enabled = (
+        config.generation.run_with_ollama and config.ollama.allow_missing_labels
     )
-    llm_only_without_ollama = sorted(
-        label
-        for label in candidate_labels
-        if label in llm_only_labels
-        and not (
-            config.generation.run_with_ollama and config.ollama.allow_missing_labels
+    missing_label_inventory_df = build_missing_label_inventory(
+        candidate_paragraphs_df,
+        faker_supported_labels=faker_supported_labels,
+        llm_only_labels=llm_only_labels,
+    )
+    if not missing_label_inventory_df.empty:
+        missing_inventory_path = output_dir / "missing_label_inventory.csv"
+        missing_label_inventory_df.to_csv(missing_inventory_path, index=False)
+        log_step(
+            f"Collected {len(missing_label_inventory_df)} labels requiring LLM/missing-label handling at {missing_inventory_path}"
+        )
+
+    blocked_missing_labels = (
+        []
+        if llm_missing_resolution_enabled
+        else sorted(
+            label
+            for label in candidate_labels
+            if label in llm_only_labels or label not in faker_supported_labels
         )
     )
-    if unsupported_candidate_labels or llm_only_without_ollama:
+    llm_only_without_ollama = (
+        []
+        if llm_missing_resolution_enabled
+        else sorted(label for label in candidate_labels if label in llm_only_labels)
+    )
+    if blocked_missing_labels:
         report_path = write_unsupported_label_report(
             output_dir,
-            unsupported_labels=unsupported_candidate_labels,
+            unsupported_labels=blocked_missing_labels,
             llm_only_without_ollama=llm_only_without_ollama,
             faker_supported_labels=faker_supported_labels,
             llm_only_labels=llm_only_labels,
         )
-        raise ValueError(
-            "Found normalized labels that cannot be augmented with the current pipeline configuration.\n"
-            f"Review {report_path} and adjust mappings/rules/config before rerunning.\n"
-            f"Unsupported labels: {json.dumps(unsupported_candidate_labels, ensure_ascii=False)}; "
-            f"LLM-only blocked labels: {json.dumps(llm_only_without_ollama, ensure_ascii=False)}"
-        )
+        if config.generation.dry_run_preflight_only:
+            log_step(
+                "Dry-run mode: detected labels that would block generation with current LLM settings; reports were saved."
+            )
+        else:
+            raise ValueError(
+                "Found normalized labels that cannot be augmented with the current pipeline configuration.\n"
+                f"Review {report_path} and adjust mappings/rules/config before rerunning.\n"
+                f"Blocked labels: {json.dumps(blocked_missing_labels, ensure_ascii=False)}; "
+                f"LLM-only blocked labels: {json.dumps(llm_only_without_ollama, ensure_ascii=False)}"
+            )
 
     if config.generation.dry_run_preflight_only:
         log_step(
@@ -1515,6 +1669,9 @@ def run_pipeline(
                     "candidate_paragraph_count": float(len(candidate_paragraphs_df)),
                     "duplicate_candidate_paragraph_count": float(
                         duplicate_candidate_count
+                    ),
+                    "missing_label_inventory_count": float(
+                        len(missing_label_inventory_df)
                     ),
                     "dry_run_preflight_only": 1.0,
                 }

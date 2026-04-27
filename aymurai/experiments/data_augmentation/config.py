@@ -43,6 +43,7 @@ class OllamaConfig(BaseModel):
     keep_alive: str = "5m"
     num_ctx: int = 8192
     temperature: float = 0.0
+    llm_call_retries: int = Field(default=2, ge=0)
     allow_missing_labels: bool = True
     allow_non_faker_values: bool = True
     llm_only_labels: list[str] = Field(default_factory=lambda: ["TEXTO_ANONIMIZAR"])
@@ -60,6 +61,7 @@ class OpenAIConfig(BaseModel):
 class GenerationConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    random_seed: int = Field(default=42, ge=0)
     target_label_count: int | None = None
     candidates_per_label: int = 5
     max_attempts_per_label: int = 50
