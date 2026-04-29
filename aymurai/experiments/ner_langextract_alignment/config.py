@@ -22,6 +22,15 @@ class DataConfig(BaseModel):
     input_documents_dir: str | None = None
     input_paragraphs_jsonl: str | None = None
     input_bio_txt: str | None = None
+    input_hf_dataset: str | None = None
+    input_hf_config_name: str | None = None
+    input_hf_split: str = "train"
+    input_hf_text_column: str = "text"
+    input_hf_sample_id_column: str | None = None
+    input_hf_document_id_column: str | None = None
+    input_hf_language_column: str | None = None
+    input_hf_language_value: str | None = None
+    input_hf_cache_dir: str | None = None
     include_extensions: list[str] = Field(default_factory=lambda: [".pdf", ".docx"])
     max_documents: int | None = None
     max_paragraphs: int | None = None
@@ -33,9 +42,14 @@ class DataConfig(BaseModel):
             not self.input_documents_dir
             and not self.input_paragraphs_jsonl
             and not self.input_bio_txt
+            and not self.input_hf_dataset
         ):
             raise ValueError(
-                "Set one input source: data.input_documents_dir, data.input_paragraphs_jsonl, or data.input_bio_txt."
+                "Set one input source: data.input_documents_dir, data.input_paragraphs_jsonl, data.input_bio_txt, or data.input_hf_dataset."
+            )
+        if self.input_hf_language_value and not self.input_hf_language_column:
+            raise ValueError(
+                "data.input_hf_language_column must be set when data.input_hf_language_value is provided."
             )
         return self
 

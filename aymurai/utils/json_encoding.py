@@ -5,6 +5,7 @@ import decimal
 import datetime
 
 import pandas as pd
+import numpy as np
 
 from aymurai.logger import get_logger
 
@@ -13,6 +14,10 @@ logger = get_logger(__name__)
 
 class EnhancedJSONEncoder(json.JSONEncoder):
     def default(self, obj):
+        if isinstance(obj, np.generic):
+            return obj.item()
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
         if isinstance(obj, datetime.datetime):
             ARGS = ("year", "month", "day", "hour", "minute", "second", "microsecond")
             return {
@@ -44,14 +49,18 @@ class EnhancedJSONEncoder(json.JSONEncoder):
                     str(obj),
                 ],
             }
-        elif pd.isna(obj):
-            return "null"
-        else:
-            try:
-                return super().default(obj)
-            except:
-                logger.error(f"Error trying to encode {obj}")
-                raise
+        try:
+            if pd.isna(obj):
+                return "null"
+        except Exception:
+            # Some container-like objects (e.g. arrays) are not valid for pd.isna checks.
+            pass
+
+        try:
+            return super().default(obj)
+        except:
+            logger.error(f"Error trying to encode {obj}")
+            raise
 
 
 class EnhancedJSONDecoder(json.JSONDecoder):

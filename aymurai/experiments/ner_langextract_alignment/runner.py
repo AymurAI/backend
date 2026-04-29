@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import os
 import time
 from contextlib import nullcontext
 from datetime import datetime, timezone
@@ -69,6 +70,54 @@ load_env()
 logger = get_logger(__name__)
 
 
+def _resolve_hf_cache_dir(config: NERLangExtractRunConfig) -> str:
+    if config.data.input_hf_cache_dir:
+        cache_dir = Path(config.data.input_hf_cache_dir)
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        return str(cache_dir)
+
+    configured = os.getenv("HF_DATASETS_CACHE") or os.getenv("HF_HOME")
+    if configured:
+        configured_path = Path(configured)
+        try:
+            configured_path.mkdir(parents=True, exist_ok=True)
+            test_file = configured_path / ".write_test"
+            test_file.write_text("ok", encoding="utf-8")
+            test_file.unlink()
+            return str(configured_path)
+        except OSError:
+            logger.warning(
+                "HF cache path is not writable (%s). Falling back to local .cache/huggingface.",
+                configured_path,
+            )
+
+    fallback = Path(".cache/huggingface")
+    fallback.mkdir(parents=True, exist_ok=True)
+    return str(fallback)
+
+
+def _configure_hf_cache_env(cache_dir: str) -> None:
+    """
+    Ensure both `datasets` and `huggingface_hub` write to a writable cache root.
+    """
+    root = Path(cache_dir)
+    datasets_cache = root / "datasets"
+    hub_cache = root / "hub"
+    assets_cache = root / "assets"
+    xet_cache = root / "xet"
+
+    datasets_cache.mkdir(parents=True, exist_ok=True)
+    hub_cache.mkdir(parents=True, exist_ok=True)
+    assets_cache.mkdir(parents=True, exist_ok=True)
+    xet_cache.mkdir(parents=True, exist_ok=True)
+
+    os.environ["HF_HOME"] = str(root)
+    os.environ["HF_DATASETS_CACHE"] = str(datasets_cache)
+    os.environ["HUGGINGFACE_HUB_CACHE"] = str(hub_cache)
+    os.environ["HF_ASSETS_CACHE"] = str(assets_cache)
+    os.environ["HF_XET_CACHE"] = str(xet_cache)
+
+
 def _ensure_dirs(config: NERLangExtractRunConfig, run_name: str) -> dict[str, Path]:
     base = Path(config.outputs.base_dir) / run_name
     base.mkdir(parents=True, exist_ok=True)
@@ -89,7 +138,14 @@ def _ensure_dirs(config: NERLangExtractRunConfig, run_name: str) -> dict[str, Pa
         paths[key].mkdir(parents=True, exist_ok=True)
 
     if config.labelstudio.enabled and config.labelstudio.export_dir:
-        paths["labelstudio"] = Path(config.labelstudio.export_dir) / run_name
+        labelstudio_root = Path(config.labelstudio.export_dir)
+        outputs_root = Path(config.outputs.base_dir)
+
+        if labelstudio_root.resolve() == outputs_root.resolve():
+            # Keep Label Studio exports grouped under each run directory.
+            paths["labelstudio"] = base / "labelstudio"
+        else:
+            paths["labelstudio"] = labelstudio_root / run_name
         paths["labelstudio"].mkdir(parents=True, exist_ok=True)
 
     return paths
@@ -232,6 +288,62 @@ def _load_input_bio_txt(config: NERLangExtractRunConfig) -> list[dict[str, Any]]
                 "paragraph_id": str(idx),
                 "source_path": str(source_path),
                 "text": str(sample.text or ""),
+            }
+        )
+
+    if config.data.max_paragraphs is not None:
+        out = out[: config.data.max_paragraphs]
+
+    return out
+
+
+def _load_input_hf_dataset(config: NERLangExtractRunConfig) -> list[dict[str, Any]]:
+    dataset_name = config.data.input_hf_dataset
+    if not dataset_name:
+        return []
+
+    cache_dir = _resolve_hf_cache_dir(config)
+    _configure_hf_cache_env(cache_dir)
+
+    try:
+        from datasets import load_dataset
+    except ImportError as exc:
+        raise ImportError(
+            "Hugging Face datasets support requires the `datasets` package."
+        ) from exc
+
+    ds = load_dataset(
+        dataset_name,
+        name=config.data.input_hf_config_name,
+        split=config.data.input_hf_split,
+        cache_dir=cache_dir,
+    )
+
+    language_column = config.data.input_hf_language_column
+    language_value = config.data.input_hf_language_value
+    text_column = config.data.input_hf_text_column
+    sample_id_column = config.data.input_hf_sample_id_column
+    document_id_column = config.data.input_hf_document_id_column
+
+    if language_column and language_value is not None:
+        ds = ds.filter(lambda row: row.get(language_column) == language_value)
+
+    out: list[dict[str, Any]] = []
+    for idx, row in enumerate(ds):
+        text = str(row.get(text_column) or "")
+        out.append(
+            {
+                "sample_id": str(
+                    row.get(sample_id_column)
+                    if sample_id_column
+                    else f"hf-{config.data.input_hf_split}-{idx}"
+                ),
+                "document_id": str(
+                    row.get(document_id_column) if document_id_column else dataset_name
+                ),
+                "paragraph_id": str(idx),
+                "source_path": f"hf://{dataset_name}/{config.data.input_hf_split}",
+                "text": text,
             }
         )
 
@@ -421,6 +533,9 @@ def run_experiment(config_path: str) -> None:
         session = requests.Session()
         if config.data.input_paragraphs_jsonl:
             samples_input = _load_input_paragraphs(config)
+            input_manifest = build_paragraph_manifest(samples_input)
+        elif config.data.input_hf_dataset:
+            samples_input = _load_input_hf_dataset(config)
             input_manifest = build_paragraph_manifest(samples_input)
         elif config.data.input_bio_txt:
             samples_input = _load_input_bio_txt(config)

@@ -62,7 +62,12 @@ def get_cache_key(item: Any, context: Any = "") -> str:
     if type(item) in [dict]:
         item = flatten_dict(item)
         item = sorted(tuple(item.items()))
-        item = json.dumps(item, cls=EnhancedJSONEncoder)
+        try:
+            item = json.dumps(item, cls=EnhancedJSONEncoder)
+        except TypeError:
+            # Last-resort safety: avoid crashing preprocessing if a value is still not
+            # serializable under the custom encoder.
+            item = json.dumps(item, default=str)
     item_hash = joblib.hash(item)
 
     context_hash = joblib.hash(context)
