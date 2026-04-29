@@ -10,6 +10,7 @@ LOG_LEVEL_MAP = {
     "warning": logging.WARNING,
     "error": logging.ERROR,
 }
+NOISY_THIRD_PARTY_LOGGERS = ("httpx", "httpcore")
 
 
 class PrefixFilter(logging.Filter):
@@ -30,5 +31,7 @@ def get_logger(name: str) -> logging.Logger:
         datefmt="[%X]",
         handlers=[RichHandler(markup=True)],
     )
+    for logger_name in NOISY_THIRD_PARTY_LOGGERS:
+        logging.getLogger(logger_name).setLevel(logging.WARNING)
 
     return logging.getLogger(name)

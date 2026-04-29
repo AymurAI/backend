@@ -27,10 +27,12 @@ from aymurai.experiments.data_augmentation.config import (
 from aymurai.experiments.mlflow_utils import (
     configure_mlflow,
     safe_end_run,
+    safe_generation_trace_context,
     safe_log_artifacts,
     safe_log_generation_trace,
     safe_log_metrics,
     safe_log_params,
+    safe_set_generation_trace_data,
     safe_set_tags,
     safe_start_run,
 )
@@ -1172,61 +1174,79 @@ def log_augmentation_generation_trace(
     record: dict[str, Any],
     *,
     enabled: bool,
+    span: Any | None = None,
 ) -> None:
     sample_id = str(record.get("sample_id") or "")
     if not sample_id:
         return
 
-    safe_log_generation_trace(
-        enabled=enabled,
-        name="data_augmentation.generate_sample",
-        sample_id=sample_id,
-        tags={
-            "experiment": "data-augmentation",
-            "sample_id": sample_id,
-            "status": str(record.get("status") or ""),
-        },
-        inputs={
-            "sample_id": sample_id,
-            "document_id": record.get("document_id"),
-            "paragraph_id": record.get("paragraph_id"),
-            "source_path": record.get("source_path"),
-            "source_text": record.get("source_text"),
-            "labels": record.get("labels"),
-            "target_labels": record.get("target_labels"),
-            "candidate_values": record.get("candidate_values"),
-            "missing_labels": record.get("missing_labels"),
-            "prompt": record.get("ollama_user_prompt"),
-        },
-        outputs={
-            "status": record.get("status"),
-            "resolved_text": record.get("resolved_text"),
-            "local_resolved_text": record.get("local_resolved_text"),
-            "resolved_text_matches_local": record.get("resolved_text_matches_local"),
-            "replacements": record.get("replacements"),
-            "entities": record.get("entities"),
-            "bio_lines": record.get("bio_lines"),
-            "alignment_path": record.get("alignment_path"),
-            "alignment_records": record.get("alignment_records"),
-            "raw_llm_output": record.get("ollama_raw_response_text"),
-        },
-        attributes={
-            "document_id": str(record.get("document_id") or ""),
-            "paragraph_id": int(record.get("paragraph_id") or 0),
-            "status": str(record.get("status") or ""),
-            "label_count": len(record.get("labels") or []),
-            "target_label_count": len(record.get("target_labels") or []),
-            "entity_count": len(record.get("entities") or []),
-            "replacement_count": len(record.get("replacements") or []),
-            "alignment_record_count": len(record.get("alignment_records") or []),
-            "contains_non_faker_values": bool(
-                record.get("contains_non_faker_values", False)
-            ),
-            "resolved_text_matches_local": bool(
-                record.get("resolved_text_matches_local", False)
-            ),
-        },
-    )
+    tags = {
+        "experiment": "data-augmentation",
+        "sample_id": sample_id,
+        "status": str(record.get("status") or ""),
+    }
+    inputs = {
+        "sample_id": sample_id,
+        "document_id": record.get("document_id"),
+        "paragraph_id": record.get("paragraph_id"),
+        "source_path": record.get("source_path"),
+        "source_text": record.get("source_text"),
+        "labels": record.get("labels"),
+        "target_labels": record.get("target_labels"),
+        "candidate_values": record.get("candidate_values"),
+        "missing_labels": record.get("missing_labels"),
+        "prompt": record.get("ollama_user_prompt"),
+    }
+    outputs = {
+        "status": record.get("status"),
+        "resolved_text": record.get("resolved_text"),
+        "local_resolved_text": record.get("local_resolved_text"),
+        "resolved_text_matches_local": record.get("resolved_text_matches_local"),
+        "replacements": record.get("replacements"),
+        "entities": record.get("entities"),
+        "bio_lines": record.get("bio_lines"),
+        "alignment_path": record.get("alignment_path"),
+        "alignment_records": record.get("alignment_records"),
+        "raw_llm_output": record.get("ollama_raw_response_text"),
+    }
+    attributes = {
+        "document_id": str(record.get("document_id") or ""),
+        "paragraph_id": int(record.get("paragraph_id") or 0),
+        "status": str(record.get("status") or ""),
+        "label_count": len(record.get("labels") or []),
+        "target_label_count": len(record.get("target_labels") or []),
+        "entity_count": len(record.get("entities") or []),
+        "replacement_count": len(record.get("replacements") or []),
+        "alignment_record_count": len(record.get("alignment_records") or []),
+        "contains_non_faker_values": bool(
+            record.get("contains_non_faker_values", False)
+        ),
+        "resolved_text_matches_local": bool(
+            record.get("resolved_text_matches_local", False)
+        ),
+    }
+
+    if span is None:
+        safe_log_generation_trace(
+            enabled=enabled,
+            name="data_augmentation.generate_sample",
+            sample_id=sample_id,
+            tags=tags,
+            inputs=inputs,
+            outputs=outputs,
+            attributes=attributes,
+        )
+        return
+
+    if enabled:
+        safe_set_generation_trace_data(
+            span,
+            sample_id=sample_id,
+            tags=tags,
+            inputs=inputs,
+            outputs=outputs,
+            attributes=attributes,
+        )
 
 
 def augment_paragraph(
@@ -1687,18 +1707,26 @@ def run_pipeline(
     )
     progress = tqdm(total=len(candidate_paragraphs_df), desc="Augmenting paragraphs")
     for _, row in candidate_paragraphs_df.iterrows():
-        record = augment_paragraph(
-            row=row,
-            config=config,
-            augmentation_functions=augmentation_functions,
-            augmentation_faker=augmentation_faker,
-            alignments_dir=alignments_dir,
+        trace_enabled = (
+            mlflow_enabled and config.logging.mlflow.enable_generation_traces
         )
+        with safe_generation_trace_context(
+            enabled=trace_enabled,
+            name="data_augmentation.generate_sample",
+        ) as generation_span:
+            record = augment_paragraph(
+                row=row,
+                config=config,
+                augmentation_functions=augmentation_functions,
+                augmentation_faker=augmentation_faker,
+                alignments_dir=alignments_dir,
+            )
+            log_augmentation_generation_trace(
+                record,
+                enabled=trace_enabled,
+                span=generation_span,
+            )
         records.append(record)
-        log_augmentation_generation_trace(
-            record,
-            enabled=(mlflow_enabled and config.logging.mlflow.enable_generation_traces),
-        )
         progress.update(1)
     progress.close()
 

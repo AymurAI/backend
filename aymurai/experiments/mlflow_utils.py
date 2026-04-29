@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+from contextlib import contextmanager
 import os
+import sys
 from pathlib import Path
+from typing import Any, Iterator
 
 from pydantic import BaseModel, ConfigDict
 
@@ -151,6 +154,84 @@ def safe_end_run() -> None:
         logger.warning("Skipping MLflow run end: %s", exc)
 
 
+@contextmanager
+def safe_generation_trace_context(
+    *,
+    enabled: bool,
+    name: str,
+) -> Iterator[Any | None]:
+    if not enabled:
+        yield None
+        return
+
+    try:
+        _prepare_mlflow_import_env()
+        import mlflow
+
+        if not hasattr(mlflow, "start_span"):
+            yield None
+            return
+
+        span_context = mlflow.start_span(name=name, span_type="LLM")
+        span = span_context.__enter__()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Skipping MLflow generation trace start: %s", exc)
+        yield None
+        return
+
+    try:
+        yield span
+    except BaseException:
+        should_suppress = span_context.__exit__(*sys.exc_info())
+        if not should_suppress:
+            raise
+    else:
+        try:
+            span_context.__exit__(None, None, None)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Skipping MLflow generation trace end: %s", exc)
+
+
+def safe_set_generation_trace_data(
+    span: Any | None,
+    *,
+    sample_id: str,
+    inputs: dict[str, object],
+    outputs: dict[str, object],
+    attributes: dict[str, object] | None = None,
+    tags: dict[str, str] | None = None,
+) -> None:
+    if span is None:
+        return
+
+    try:
+        _prepare_mlflow_import_env()
+        import mlflow
+
+        if tags and hasattr(mlflow, "update_current_trace"):
+            try:
+                mlflow.update_current_trace(tags=tags)
+            except Exception:  # noqa: BLE001
+                pass
+        if hasattr(span, "set_inputs"):
+            span.set_inputs(inputs)
+        if hasattr(span, "set_outputs"):
+            span.set_outputs(outputs)
+        if hasattr(span, "set_attributes"):
+            span.set_attributes(
+                {
+                    "sample_id": sample_id,
+                    **(attributes or {}),
+                }
+            )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "Skipping MLflow generation trace data logging for sample=%s: %s",
+            sample_id,
+            exc,
+        )
+
+
 def safe_log_generation_trace(
     *,
     enabled: bool,
@@ -164,34 +245,12 @@ def safe_log_generation_trace(
     if not enabled:
         return
 
-    try:
-        _prepare_mlflow_import_env()
-        import mlflow
-
-        if not hasattr(mlflow, "start_span"):
-            return
-
-        if tags and hasattr(mlflow, "update_current_trace"):
-            try:
-                mlflow.update_current_trace(tags=tags)
-            except Exception:  # noqa: BLE001
-                pass
-
-        with mlflow.start_span(name=name, span_type="LLM") as span:
-            if hasattr(span, "set_inputs"):
-                span.set_inputs(inputs)
-            if hasattr(span, "set_outputs"):
-                span.set_outputs(outputs)
-            if hasattr(span, "set_attributes"):
-                span.set_attributes(
-                    {
-                        "sample_id": sample_id,
-                        **(attributes or {}),
-                    }
-                )
-    except Exception as exc:  # noqa: BLE001
-        logger.warning(
-            "Skipping MLflow generation trace logging for sample=%s: %s",
-            sample_id,
-            exc,
+    with safe_generation_trace_context(enabled=enabled, name=name) as span:
+        safe_set_generation_trace_data(
+            span,
+            sample_id=sample_id,
+            inputs=inputs,
+            outputs=outputs,
+            attributes=attributes,
+            tags=tags,
         )
