@@ -3,7 +3,7 @@ experiment:
   run_name: "{model}-{timestamp}"
 
 data:
-  # input_documents_dir: "/resources/data/restricted/disambiguation-eval/docs"
+  # input_documents_dir: "resources/data/restricted/disambiguation-eval/docs"
   # input_paragraphs_jsonl: "/workspace/data/paragraphs.jsonl"
   # input_bio_txt: "resources/outputs/synthetic-paragraph-generation/your_run_name/synthetic_samples.txt"
   input_hf_dataset: "ai4privacy/pii-masking-400k"
@@ -15,10 +15,11 @@ data:
   input_hf_language_column: "language"
   input_hf_language_value: "es"
   input_hf_cache_dir: ".cache/huggingface"
-  # input_bio_txt: "resources/outputs/synthetic-paragraph-generation/your_run_name/synthetic_samples.txt"
+  input_hf_clean_text: true
+  input_hf_cleaning_mode: "collapse_lines"
   include_extensions: [".pdf", ".docx"]
   max_documents: 5
-  max_paragraphs: 50
+  max_paragraphs: 300
 
 api:
   base_url: "http://localhost:8000"
@@ -35,38 +36,9 @@ langextract:
   base_url: http://localhost:11434/v1
   api_key_env: OLLAMA_API_KEY
   api_key_fallback: ollama
-  prompt_description: "    Sos un asistente especializado en el análisis de documentos\
-    \ judiciales.\n    Tu tarea es identificar y extraer menciones de información\
-    \ sensible para su posterior anonimización.\n    Debés detectar fragmentos textuales\
-    \ que correspondan a cualquiera de las siguientes entidades:\n\n    - \"BANCO\"\
-    : Nombre de una entidad bancaria, pública o privada.\n    - \"CBU\": Código Bancario\
-    \ Uniforme (22 dígitos) de una cuenta.\n    - \"CORREO_ELECTRONICO\": Dirección\
-    \ de correo electrónico.\n    - \"CUIJ\": Código Único de Identificación Jurídica\
-    \ de causas judiciales.\n    - \"CUIT_CUIL\": Número de CUIT o CUIL de una persona\
-    \ física o jurídica.\n    - \"DIRECCION\": Dirección específica (calle, número,\
-    \ intersección de calles y/o avenidas, código postal, etc.).\n    - \"DNI\": Número\
-    \ de Documento Nacional de Identidad u otro documento identificatorio.\n    -\
-    \ \"EDAD\": Edad explícita de una persona.\n    - \"ESTUDIOS\": Nivel o institución\
-    \ educativa que permita identificar a la persona (ej. \"primario incompleto\"\
-    , \"secundario completo\", \"Licenciado en…\").\n    - \"FECHA\": Fecha completa\
-    \ o parcial (día, mes y/o año).\n    - \"IP\": Dirección IP (IPv4 o IPv6).\n \
-    \   - \"LINK\": Enlace o URL a una página web.\n    - \"LOC\": Localización geográfica\
-    \ específica (país, provincia, estado, ciudad, localidad, barrio, etc.).\n   \
-    \ - \"MARCA_AUTOMOVIL\": Marca de un vehículo (ej. Toyota, Ford, Suzuki, etc.).\n\
-    \    - \"NACIONALIDAD\": Nacionalidad de una persona (ej. \"argentino\", \"brasileña\"\
-    ).\n    - \"NOMBRE_ARCHIVO\": Nombre completo de un archivo digital (incluyendo\
-    \ extensión).\n    - \"NUM_ACTUACION\": Número identificatorio de una actuación\
-    \ administrativa o contravencional.\n    - \"NUM_CAJA_AHORRO\": Número completo\
-    \ de una caja de ahorro o cuenta bancaria.\n    - \"NUM_EXPEDIENTE\": Número de\
-    \ expediente judicial o administrativo.\n    - \"NUM_MATRICULA\": Número de matrícula\
-    \ profesional o académica.\n    - \"PATENTE_DOMINIO\": Patente o dominio de un\
-    \ vehículo.\n    - \"PER\": Nombre(s) y apellido(s) de una persona física. Los\
-    \ nombres inicializados (ej., \"M.T.G\") y los apodos (ej., \"el Gato\") también\
-    \ cuentan como información sensible a anonimizar.\n    - \"TELEFONO\": Número\
-    \ telefónico (fijo o celular).\n    - \"USUARIX\": Nombre de usuario o \"handle\"\
-    \ en redes sociales o plataformas digitales.\n    - \"TEXTO_ANONIMIZAR\": Comodín\
-    \ para fragmento sensible libre que deba anonimizarse si no encaja claramente\
-    \ en las clases anteriores."
+  prompt_description: |
+    Extrae entidades nombradas de textos judiciales en español usando las clases definidas en los ejemplos.
+    Devuelve solo entidades explícitas del texto.
   examples_yaml_path: resources/langextract/ner_alignment_examples.yml
   temperature: 0.0
   think: true

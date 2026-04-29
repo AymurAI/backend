@@ -2,9 +2,12 @@ from __future__ import annotations
 
 import argparse
 import csv
+import html
 import json
 import os
+import re
 import time
+import unicodedata
 from contextlib import nullcontext
 from datetime import datetime, timezone
 from pathlib import Path
@@ -68,6 +71,35 @@ from aymurai.utils.yaml_data import load_yaml
 load_env()
 
 logger = get_logger(__name__)
+
+TAG_RE = re.compile(r"(?is)<[^>]+>")
+SCRIPT_STYLE_RE = re.compile(r"(?is)<(script|style)[^>]*>.*?</\\1>")
+BREAK_TAG_RE = re.compile(r"(?is)<\\s*(br|/p|/div|/li|/tr)\\s*/?>")
+
+
+def _clean_hf_text(text: str, *, collapse_lines: bool = False) -> str:
+    value = str(text or "")
+    value = html.unescape(value)
+    value = SCRIPT_STYLE_RE.sub(" ", value)
+    value = BREAK_TAG_RE.sub("\n", value)
+    value = TAG_RE.sub(" ", value)
+    value = value.replace("\r\n", "\n").replace("\r", "\n")
+
+    value = "".join(
+        ch
+        for ch in value
+        if ch in {"\n", "\t", " "} or not unicodedata.category(ch).startswith("C")
+    )
+
+    value = re.sub(r"[ \t\f\v]+", " ", value)
+    value = re.sub(r"\n{2,}", "\n", value)
+    value = "\n".join(line.strip() for line in value.split("\n"))
+    value = "\n".join(line for line in value.split("\n") if line)
+    value = value.strip()
+
+    if collapse_lines:
+        value = re.sub(r"\s+", " ", value).strip()
+    return value
 
 
 def _resolve_hf_cache_dir(config: NERLangExtractRunConfig) -> str:
@@ -331,6 +363,11 @@ def _load_input_hf_dataset(config: NERLangExtractRunConfig) -> list[dict[str, An
     out: list[dict[str, Any]] = []
     for idx, row in enumerate(ds):
         text = str(row.get(text_column) or "")
+        if config.data.input_hf_clean_text:
+            text = _clean_hf_text(
+                text,
+                collapse_lines=config.data.input_hf_cleaning_mode == "collapse_lines",
+            )
         out.append(
             {
                 "sample_id": str(

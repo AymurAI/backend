@@ -31,10 +31,44 @@ class DataConfig(BaseModel):
     input_hf_language_column: str | None = None
     input_hf_language_value: str | None = None
     input_hf_cache_dir: str | None = None
+    input_hf_clean_text: bool = True
+    input_hf_cleaning_mode: Literal[
+        "preserve_lines", "collapse_lines"
+    ] = "preserve_lines"
     include_extensions: list[str] = Field(default_factory=lambda: [".pdf", ".docx"])
     max_documents: int | None = None
     max_paragraphs: int | None = None
     deduplicate_by_text: bool = True
+
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_nullable_inputs(cls, raw: object) -> object:
+        if not isinstance(raw, dict):
+            return raw
+
+        nullable_fields = (
+            "input_documents_dir",
+            "input_paragraphs_jsonl",
+            "input_bio_txt",
+            "input_hf_dataset",
+            "input_hf_config_name",
+            "input_hf_sample_id_column",
+            "input_hf_document_id_column",
+            "input_hf_language_column",
+            "input_hf_language_value",
+            "input_hf_cache_dir",
+        )
+
+        normalized = dict(raw)
+        for field in nullable_fields:
+            value = normalized.get(field)
+            if isinstance(value, str):
+                compact = value.strip()
+                if not compact or compact.lower() in {"none", "null"}:
+                    normalized[field] = None
+                else:
+                    normalized[field] = compact
+        return normalized
 
     @model_validator(mode="after")
     def validate_source(self) -> "DataConfig":
