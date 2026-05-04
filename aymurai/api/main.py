@@ -8,6 +8,7 @@ from alembic.config import Config
 from fastapi import FastAPI, Request
 from fastapi.responses import RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.formparsers import MultiPartParser
 
 from aymurai.api import core
 from aymurai.logger import get_logger
@@ -26,6 +27,22 @@ logger = get_logger(__name__)
 torch.set_num_threads = 100  # FIXME: polemic ?
 
 RESOURCES_BASEPATH = settings.RESOURCES_BASEPATH
+
+MULTIPART_MAX_PART_SIZE = 10 * 1024 * 1024  # 10 MB
+
+
+def _set_kwdefault(func, name: str, value: int) -> None:
+    kwdefaults = getattr(func, "__kwdefaults__", None)
+    if kwdefaults and name in kwdefaults:
+        kwdefaults[name] = value
+
+
+# FastAPI parses Form(...) before endpoint execution. Starlette defaults each
+# non-file multipart field to 1MB, which is too small for annotations JSON.
+MultiPartParser.max_part_size = MULTIPART_MAX_PART_SIZE
+_set_kwdefault(MultiPartParser.__init__, "max_part_size", MULTIPART_MAX_PART_SIZE)
+_set_kwdefault(Request.form, "max_part_size", MULTIPART_MAX_PART_SIZE)
+_set_kwdefault(Request._get_form, "max_part_size", MULTIPART_MAX_PART_SIZE)
 
 
 @asynccontextmanager
