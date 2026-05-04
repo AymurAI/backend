@@ -13,6 +13,9 @@ import {
   type RemovePrediction,
   type RemovePredictionsAction,
   type RemovePredictionsByText,
+  type RemovePredictionsByCanonicalId,
+  type RemovePredictionValueByCanonicalId,
+  type UpdatePredictionsByCanonicalId,
   type ReplaceFileAction,
   type ToggleSelectedAction,
   type UpdatePredictionLabel,
@@ -49,7 +52,10 @@ export type Action =
   | RemovePrediction
   | RemovePredictionsByText
   | UpdatePredictionLabel
-  | UpdatePredictionsByText;
+  | UpdatePredictionsByText
+  | RemovePredictionsByCanonicalId
+  | RemovePredictionValueByCanonicalId
+  | UpdatePredictionsByCanonicalId;
 
 /**
  * Reducer function for `DocFile[]` state
@@ -270,6 +276,48 @@ export default function reducer(state: State, action: Action): State {
           }),
         };
       });
+    }
+
+    // ----------------------------------------
+    // REMOVE PREDICTIONS BY CANONICAL ID
+    // ----------------------------------------
+    case ActionTypes.REMOVE_PREDICTIONS_BY_CANONICAL_ID: {
+      const { canonicalId } = action.payload;
+      return state.map((file) => ({
+        ...file,
+        predictions: file.predictions?.filter(
+          (p) => p.attrs.canonical_entity_id !== canonicalId,
+        ),
+      }));
+    }
+
+    // ------------------------------------------------
+    // REMOVE PREDICTION VALUE BY CANONICAL ID
+    // ------------------------------------------------
+    case ActionTypes.REMOVE_PREDICTION_VALUE_BY_CANONICAL_ID: {
+      const { canonicalId, value } = action.payload;
+      return state.map((file) => ({
+        ...file,
+        predictions: file.predictions?.filter(
+          (p) =>
+            !(p.attrs.canonical_entity_id === canonicalId && p.text === value),
+        ),
+      }));
+    }
+
+    // ----------------------------------------
+    // UPDATE PREDICTIONS BY CANONICAL ID
+    // ----------------------------------------
+    case ActionTypes.UPDATE_PREDICTIONS_BY_CANONICAL_ID: {
+      const { canonicalId, newLabel } = action.payload;
+      return state.map((file) => ({
+        ...file,
+        predictions: file.predictions?.map((p) =>
+          p.attrs.canonical_entity_id === canonicalId
+            ? { ...p, attrs: { ...p.attrs, aymurai_label: newLabel } }
+            : p,
+        ),
+      }));
     }
 
     // ----------------

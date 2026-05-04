@@ -30,15 +30,17 @@ export default function FileStepper({
   };
 
   return (
-    <Stack css={{ overflow: "scroll", p: "$s" }}>
+    <Stack css={{ overflow: "scroll" }}>
       {/* <- */}
-      <CaretButton
-        variant="tertiary"
-        disabled={isLeftDisabled || !canMoveLeft}
-        onClick={previousFile}
-      >
-        <Icons.ArrowLeft />
-      </CaretButton>
+      {canMoveLeft && (
+        <CaretButton
+          variant="tertiary"
+          disabled={isLeftDisabled}
+          onClick={previousFile}
+        >
+          <Icons.ArrowLeft />
+        </CaretButton>
+      )}
 
       {/* List of files */}
       <Carousel>
@@ -51,13 +53,15 @@ export default function FileStepper({
       </Carousel>
 
       {/* -> */}
-      <CaretButton
-        variant="tertiary"
-        disabled={isRightDisabled || !canMoveRight}
-        onClick={nextFile}
-      >
-        <Icons.ArrowRight />
-      </CaretButton>
+      {canMoveRight && (
+        <CaretButton
+          variant="tertiary"
+          disabled={isRightDisabled}
+          onClick={nextFile}
+        >
+          <Icons.ArrowRight />
+        </CaretButton>
+      )}
     </Stack>
   );
 }

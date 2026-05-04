@@ -1,4 +1,4 @@
-import type { SelectOption } from "@/components/select";
+import type { SelectOption } from "@/components/ui/select";
 
 // ------------
 // PREDICTION
@@ -12,6 +12,8 @@ type LabelAttributes = {
   aymurai_alt_text: string | null;
   aymurai_alt_start_char: number | null;
   aymurai_alt_end_char: number | null;
+  canonical_entity_id?: string | null;
+  aymurai_anonymize?: boolean | null;
 };
 
 export type PredictLabel = {
@@ -88,10 +90,10 @@ export enum LabelAnonimizer {
   USUARIX = "USUARIX",
 }
 
-export type AllLabels = LabelType | LabelDecisiones | LabelAnonimizer;
+export type AllLabels = LabelType | LabelDecisiones | LabelAnonimizer | AnonymizerLabels;
 export type AllLabelsWithSufix = `${AllLabels}_${number}`;
 
-export const anonymizerLabels: SelectOption[] = [
+export const anonymizerLabels = [
   { id: "DNI", text: "DNI" },
   { id: "PER", text: "Persona" },
   { id: "TEL", text: "Número de teléfono" },
@@ -100,7 +102,7 @@ export const anonymizerLabels: SelectOption[] = [
   { id: "DENUNCIANTE", text: "Denunciante" },
   { id: "ACUSADO/A", text: "Acusado/a" },
   { id: "TESTIGO/A", text: "Testigo/a" },
-  { id: "NINO/A_ADOLECENTE", text: "Niño/a adolecente" },
+  { id: "NINO/A_ADOSLECENTE", text: "Niño/a adolescente" },
   { id: "AFILIADO", text: "N° de afiliado" },
   { id: "CAUSA", text: "N° de causa" },
   { id: "INSTITUCION", text: "Nombre de institución" },
@@ -122,7 +124,9 @@ export const anonymizerLabels: SelectOption[] = [
   { id: "NUM_MATRICULA", text: "Número matrícula" },
   { id: "PATENTE_DOMINIO", text: "Patente dominio" },
   { id: "TEXTO_ANONIMIZAR", text: "Texto anonimizar" },
-];
+] as const satisfies SelectOption[];
+
+export type AnonymizerLabels = (typeof anonymizerLabels)[number]["id"];
 
 // --------------------
 // DOCUMENT EXTRACTION

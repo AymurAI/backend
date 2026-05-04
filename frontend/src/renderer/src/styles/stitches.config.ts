@@ -2,6 +2,7 @@ import { type CSS as CSSProp, createStitches } from "@stitches/react";
 
 import * as tokens from "./tokens";
 
+/** @deprecated Use Panda CSS instead. Import from `@/styled/css` or `@/styled/jsx`. */
 export const defaultTheme = createStitches({
   theme: {
     colors: {
@@ -115,7 +116,9 @@ export const defaultTheme = createStitches({
   },
 });
 
+/** @deprecated Use Panda CSS instead. Import from `@/styled/css` or `@/styled/jsx`. */
 export type CSS = CSSProp<typeof defaultTheme>;
 
+/** @deprecated Use `styled` from `@/styled/jsx`. */
 export const { styled, globalCss, createTheme, theme, keyframes } =
   defaultTheme;

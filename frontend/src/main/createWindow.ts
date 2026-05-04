@@ -33,12 +33,11 @@ function configureWindow(window: BrowserWindow | null) {
     window.show();
   });
 
-  window.webContents.on("new-window", (e, url) => {
-    // Check if the url is in the 'whitelist'
+  window.webContents.setWindowOpenHandler(({ url }) => {
     if (EXTERNAL_URLS.find((val) => url.includes(val))) {
-      e.preventDefault();
       shell.openExternal(url);
     }
+    return { action: "deny" };
   });
 
   // and handlers

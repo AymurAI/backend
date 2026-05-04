@@ -21,6 +21,7 @@ const labelToAnnotation = (labels: PredictLabel[]): Annotation[] => {
     type: "tag",
     tag: attrs.aymurai_label!,
     paragraphId,
+    canonical_entity_id: attrs.canonical_entity_id,
   }));
 };
 
@@ -76,7 +77,7 @@ const getSearchAnnotations = (
  * @param predictions List of labels predicted by AymurAI
  * @returns A map with the paragraph id as key and an array of predictions as value
  */
-const predictionsToMap = (
+export const predictionsToMap = (
   predictions: PredictLabel[],
 ): Map<string, PredictLabel[]> => {
   const map = new Map<string, PredictLabel[]>();
@@ -109,8 +110,7 @@ export const createAnnotationsWithSearch = (
   paragraph: Paragraph,
   searchLabel: AllLabels | AllLabelsWithSufix | null,
 ): Annotation[] => {
-  const matchingLabels = predictionsToMap(predictions).get(paragraph.id) ?? [];
-  const matchingAnnotations = labelToAnnotation(matchingLabels);
+  const matchingAnnotations = labelToAnnotation(predictions);
   const searchAnnotations = getSearchAnnotations(
     search,
     paragraph,

@@ -1,7 +1,6 @@
-import { useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useCallback } from "react";
 import api from "../api";
-import { useSchemedMutation } from "../utils";
 import { healthcheckSchema } from "./schema";
 
 interface UseRunLocalServerProps {
@@ -15,9 +14,12 @@ export const useRunLocalServer = ({ onSuccess }: UseRunLocalServerProps) => {
     mutateAsync: checkServerStatus,
     isPending: isRunning,
     isSuccess,
-  } = useSchemedMutation({
-    schema: healthcheckSchema,
-    mutationFn: () => api.get("/server/healthcheck").then((r) => r.data),
+  } = useMutation({
+    mutationFn: () =>
+      api
+        .get("/server/healthcheck")
+        .then((r) => r.data)
+        .then(healthcheckSchema.parse),
     retryDelay: 1000,
     retry: 10,
     onMutate: () => {

@@ -1,4 +1,5 @@
-import { Input, Select, ValidationForm } from "@/components";
+import { Input, ValidationForm } from "@/components";
+import Select from "@/components/ui/select";
 import { LabelType } from "@/types/aymurai";
 import type { FormProps } from "../FormGroup.types";
 import json from "./options.json";

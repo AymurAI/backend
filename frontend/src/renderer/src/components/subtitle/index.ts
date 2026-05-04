@@ -1,5 +1,8 @@
 import { styled } from "@/styles";
 
+/**
+ * @deprecated Use `textStyle` from PandaCSS instead.
+ */
 const Subtitle = styled("p", {
   variants: {
     size: {

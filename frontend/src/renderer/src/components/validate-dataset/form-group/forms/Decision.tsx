@@ -1,11 +1,5 @@
-import {
-  Input,
-  Radio,
-  RadioGroup,
-  Select,
-  Stack,
-  ValidationForm,
-} from "@/components";
+import { Input, Radio, RadioGroup, Stack, ValidationForm } from "@/components";
+import Select from "@/components/ui/select";
 import { LabelDecisiones } from "@/types/aymurai";
 import type { FormDecisionProps } from "../FormGroup.types";
 import json from "./options.json";
@@ -29,30 +23,28 @@ export default function Decision({
         {...suggester.select(LabelDecisiones.TIPO_DE_RESOLUCION)}
         label="Tipo de la resolución"
         options={json.TIPO_DE_RESOLUCION}
-        selected={defaultValue(LabelDecisiones.TIPO_DE_RESOLUCION) as string}
+        value={defaultValue(LabelDecisiones.TIPO_DE_RESOLUCION) as string}
       />
       <Select
         ref={prop(LabelDecisiones.OBJETO_DE_LA_RESOLUCION)}
         {...suggester.select(LabelDecisiones.OBJETO_DE_LA_RESOLUCION)}
         options={json.OBJETO_DE_LA_RESOLUCION}
         label="Objeto de resolución"
-        selected={
-          defaultValue(LabelDecisiones.OBJETO_DE_LA_RESOLUCION) as string
-        }
+        value={defaultValue(LabelDecisiones.OBJETO_DE_LA_RESOLUCION) as string}
       />
       <Select
         ref={prop(LabelDecisiones.DETALLE)}
         {...suggester.select(LabelDecisiones.DETALLE)}
         label="Detalle"
         options={json.DETALLE}
-        selected={defaultValue(LabelDecisiones.DETALLE) as string}
+        value={defaultValue(LabelDecisiones.DETALLE) as string}
       />
       <Select
         ref={prop(LabelDecisiones.DECISION)}
         {...suggester.decision()}
         options={json.DECISION}
         label="Decisión"
-        selected={defaultValue(LabelDecisiones.DECISION) as string}
+        value={defaultValue(LabelDecisiones.DECISION) as string}
       />
       <RadioGroup name="tipoAudiencia">
         <Radio

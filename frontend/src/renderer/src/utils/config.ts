@@ -1,12 +1,10 @@
+import { FeatureFlowEnum } from "@/types/features";
+import { Database, Detective, type Icon } from "phosphor-react";
+
 /**
  * AI Predict port
  */
 export const PREDICT_PORT = 8899;
-
-/**
- * Only allow these extensions to be analyzed
- */
-export const WHITELISTED_EXTENSIONS = ["doc", "docx", "pdf"];
 
 /**
  * Dataset Spreadsheet
@@ -18,3 +16,8 @@ export const DATASET_URL =
  * AymurAI API URL
  */
 export const AYMURAI_API_URL = `http://localhost:${PREDICT_PORT}`;
+
+export const FEATURE_ICON: Record<FeatureFlowEnum, Icon> = {
+  [FeatureFlowEnum.Dataset]: Database,
+  [FeatureFlowEnum.Anonymizer]: Detective,
+};
