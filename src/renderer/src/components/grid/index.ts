@@ -12,6 +12,9 @@ function rowRepeat(rows: number) {
   };
 }
 
+/**
+ * @deprecated
+ */
 const Grid = styled("div", {
   display: "grid",
 

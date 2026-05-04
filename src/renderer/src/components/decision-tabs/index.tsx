@@ -1,30 +1,38 @@
-import { Plus as Icon } from "phosphor-react";
-
-import { Stack, Tab, TabName } from "@/components";
+import { Tab, TabName } from "@/components";
+import { css } from "@/styled/css";
+import { Stack } from "@/styled/jsx";
 import nArray from "@/utils/nArray";
-import { PlusButton } from "./DecisionTabs.styles";
+import { Plus } from "phosphor-react";
+
+const button = css({
+  cursor: "pointer",
+  p: "2",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+
+  height: "full",
+  width: "12",
+});
 
 interface Props {
   selected: number;
   decisionAmount: number;
   addDecision: () => void;
   selectDecision: (n: number) => void;
-  // biome-ignore lint/suspicious/noExplicitAny: in the future this any will be removed
-  css?: any;
 }
 export default function DecisionTabs({
   selected,
   decisionAmount,
   addDecision,
   selectDecision,
-  css,
 }: Props) {
   const decisionArr = nArray(decisionAmount, undefined).map((_, i) => i);
 
   const selectDecisionHandler = (n: number) => () => selectDecision(n);
 
   return (
-    <Stack css={css}>
+    <Stack direction="row" gap="2">
       {decisionArr.map((dec) => (
         <Tab
           key={dec}
@@ -36,9 +44,9 @@ export default function DecisionTabs({
           <TabName css={{ cursor: "pointer" }}>Decisión {dec + 1}</TabName>
         </Tab>
       ))}
-      <PlusButton variant="secondary" onClick={addDecision}>
-        <Icon size={16} weight="light" />
-      </PlusButton>
+      <button onClick={addDecision} className={button} type="button">
+        <Plus size={16} weight="light" />
+      </button>
     </Stack>
   );
 }

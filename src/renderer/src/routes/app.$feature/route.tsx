@@ -1,14 +1,19 @@
-import { Outlet, createFileRoute, redirect } from "@tanstack/react-router";
+import {
+  Outlet,
+  createFileRoute,
+  redirect,
+  useParams,
+} from "@tanstack/react-router";
 import { z } from "zod";
 
-import { ProfileInfo, Stepper, Title } from "@/components";
 import FileProvider from "@/context/File";
-import { Header, Layout } from "@/layout/main";
-import { Feature } from "@/types/features";
+import APIProtected from "@/features/APIProtected";
+import { Stack } from "@/styled/jsx";
+import { FeatureFlowEnum } from "@/types/features";
 
 // Validation schema for feature parameter
 const featureParamSchema = z.object({
-  feature: z.enum([Feature.Dataset, Feature.Anonymizer]),
+  feature: z.enum([FeatureFlowEnum.Dataset, FeatureFlowEnum.Anonymizer]),
 });
 
 export const Route = createFileRoute("/app/$feature")({
@@ -27,26 +32,14 @@ export const Route = createFileRoute("/app/$feature")({
 });
 
 function AppLayoutRoute() {
-  const { feature } = Route.useParams();
-
-  // Determine title based on feature
-  const title = feature === Feature.Dataset ? "Set de datos" : "Anonimizador";
-
+  const { feature } = useParams({ from: "/app/$feature" });
   return (
-    <Layout>
-      <Header>
-        {/* Title & Profile picture & Logout */}
-        <Title weight="strong" css={{ fontSize: 24 }}>
-          AymurAI {title}
-        </Title>
-        <Stepper />
-        <ProfileInfo />
-      </Header>
-
-      <FileProvider>
-        {/* Child routes render here */}
-        <Outlet />
-      </FileProvider>
-    </Layout>
+    <APIProtected>
+      <Stack width="screen" height="screen" gap="0">
+        <FileProvider>
+          <Outlet key={feature} />
+        </FileProvider>
+      </Stack>
+    </APIProtected>
   );
 }

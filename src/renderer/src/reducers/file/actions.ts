@@ -28,6 +28,9 @@ export enum ActionTypes {
   REMOVE_PREDICTIONS_BY_TEXT = "REMOVE_PREDICTIONS_BY_TEXT",
   UPDATE_PREDICTION_LABEL = "UPDATE_PREDICTION_LABEL",
   UPDATE_PREDICTIONS_BY_TEXT = "UPDATE_PREDICTIONS_BY_TEXT",
+  REMOVE_PREDICTIONS_BY_CANONICAL_ID = "REMOVE_PREDICTIONS_BY_CANONICAL_ID",
+  REMOVE_PREDICTION_VALUE_BY_CANONICAL_ID = "REMOVE_PREDICTION_VALUE_BY_CANONICAL_ID",
+  UPDATE_PREDICTIONS_BY_CANONICAL_ID = "UPDATE_PREDICTIONS_BY_CANONICAL_ID",
 }
 
 /**
@@ -341,5 +344,60 @@ export function updatePredictionsByText(
   return {
     type: ActionTypes.UPDATE_PREDICTIONS_BY_TEXT,
     payload: { fileName, text, newLabel },
+  };
+}
+
+export type RemovePredictionsByCanonicalId = Action<
+  ActionTypes.REMOVE_PREDICTIONS_BY_CANONICAL_ID,
+  { canonicalId: string }
+>;
+/**
+ * Removes all predictions across all files that share the given canonical_entity_id
+ * @param canonicalId The canonical entity id to match
+ */
+export function removePredictionsByCanonicalId(
+  canonicalId: string,
+): RemovePredictionsByCanonicalId {
+  return {
+    type: ActionTypes.REMOVE_PREDICTIONS_BY_CANONICAL_ID,
+    payload: { canonicalId },
+  };
+}
+
+export type RemovePredictionValueByCanonicalId = Action<
+  ActionTypes.REMOVE_PREDICTION_VALUE_BY_CANONICAL_ID,
+  { canonicalId: string; value: string }
+>;
+/**
+ * Removes predictions across all files matching the given canonical_entity_id and text value
+ * @param canonicalId The canonical entity id to match
+ * @param value The prediction text to remove
+ */
+export function removePredictionValueByCanonicalId(
+  canonicalId: string,
+  value: string,
+): RemovePredictionValueByCanonicalId {
+  return {
+    type: ActionTypes.REMOVE_PREDICTION_VALUE_BY_CANONICAL_ID,
+    payload: { canonicalId, value },
+  };
+}
+
+export type UpdatePredictionsByCanonicalId = Action<
+  ActionTypes.UPDATE_PREDICTIONS_BY_CANONICAL_ID,
+  { canonicalId: string; newLabel: AllLabels | AllLabelsWithSufix }
+>;
+/**
+ * Updates the label of all predictions across all files sharing the given canonical_entity_id
+ * @param canonicalId The canonical entity id to match
+ * @param newLabel The new label to set
+ */
+export function updatePredictionsByCanonicalId(
+  canonicalId: string,
+  newLabel: AllLabels | AllLabelsWithSufix,
+): UpdatePredictionsByCanonicalId {
+  return {
+    type: ActionTypes.UPDATE_PREDICTIONS_BY_CANONICAL_ID,
+    payload: { canonicalId, newLabel },
   };
 }

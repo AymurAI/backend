@@ -1,7 +1,7 @@
 import z from "zod";
 
 export const documentExtractSchema = z.object({
-  document_id: z.string().uuid(),
+  document_id: z.uuid(),
   footer: z.string().nullable(),
   header: z.string().nullable(),
   document: z.array(z.string()),

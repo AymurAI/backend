@@ -1,18 +1,20 @@
 import api from "@/services/api";
 
 import z from "zod";
-import { useSchemedMutation } from "../utils";
+
+import { useMutation } from "@tanstack/react-query";
 
 export const useConnectToHost = () => {
-  return useSchemedMutation({
+  return useMutation({
     mutationKey: ["healthcheck"],
-    mutationFn: (host: string) => {
+    mutationFn: async (host: string) => {
       const url = new URL(host).toString().replace(/\/$/, "");
-      return api.get(`${url}/server/healthcheck`).then((r) => r.data);
+      const response = await api
+        .get(`${url}/server/healthcheck`)
+        .then((r) => r.data);
+
+      return z.object({ status: z.string() }).parse(response);
     },
-    schema: z.object({
-      status: z.string(),
-    }),
     onSuccess: (_data, host) => {
       api.defaults.baseURL = host;
     },

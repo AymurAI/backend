@@ -11,17 +11,19 @@ export const Tab = styled("div", {
 
   p: "$m",
 
+  fontSize: 16,
+
   variants: {
     status: {
       completed: {
-        "& label": {
+        "& label, & span": {
           color: "$textOnButtonAlternative",
         },
         bg: "$actionPressed",
         b: "none",
       },
       focus: {
-        "& label": {
+        "& label, & span": {
           color: "$textOnButtonDefault",
         },
         bg: "$actionFocus",
@@ -29,7 +31,7 @@ export const Tab = styled("div", {
         b: "1px solid $borderPrimaryAlt",
       },
       default: {
-        "& label": {
+        "& label, & span": {
           color: "$textOnButtonDefault",
         },
         bg: "$primaryAlt",

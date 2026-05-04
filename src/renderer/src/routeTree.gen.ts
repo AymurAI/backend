@@ -8,62 +8,48 @@
 // You should NOT make any changes in this file as it will be overwritten.
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
-import { createFileRoute } from '@tanstack/react-router'
-
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as HomeLayoutRouteRouteImport } from './routes/home._layout/route'
+import { Route as HomeIndexRouteImport } from './routes/home/index'
+import { Route as HomeHostRouteImport } from './routes/home/host'
+import { Route as HomeFeaturesRouteImport } from './routes/home/features'
 import { Route as AppFeatureRouteRouteImport } from './routes/app.$feature/route'
-import { Route as HomeLayoutIndexRouteImport } from './routes/home._layout/index'
 import { Route as AppFeatureIndexRouteImport } from './routes/app.$feature/index'
-import { Route as HomeLayoutHostRouteImport } from './routes/home._layout/host'
-import { Route as HomeLayoutFeaturesRouteImport } from './routes/home._layout/features'
 import { Route as AppFeatureValidationRouteImport } from './routes/app.$feature/validation'
 import { Route as AppFeatureProcessRouteImport } from './routes/app.$feature/process'
 import { Route as AppFeaturePreviewRouteImport } from './routes/app.$feature/preview'
 import { Route as AppFeatureOnboardingRouteImport } from './routes/app.$feature/onboarding'
 import { Route as AppFeatureFinishRouteImport } from './routes/app.$feature/finish'
 
-const HomeRouteImport = createFileRoute('/home')()
-
-const HomeRoute = HomeRouteImport.update({
-  id: '/home',
-  path: '/home',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const HomeLayoutRouteRoute = HomeLayoutRouteRouteImport.update({
-  id: '/_layout',
-  getParentRoute: () => HomeRoute,
+const HomeIndexRoute = HomeIndexRouteImport.update({
+  id: '/home/',
+  path: '/home/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HomeHostRoute = HomeHostRouteImport.update({
+  id: '/home/host',
+  path: '/home/host',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HomeFeaturesRoute = HomeFeaturesRouteImport.update({
+  id: '/home/features',
+  path: '/home/features',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const AppFeatureRouteRoute = AppFeatureRouteRouteImport.update({
   id: '/app/$feature',
   path: '/app/$feature',
   getParentRoute: () => rootRouteImport,
 } as any)
-const HomeLayoutIndexRoute = HomeLayoutIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => HomeLayoutRouteRoute,
-} as any)
 const AppFeatureIndexRoute = AppFeatureIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AppFeatureRouteRoute,
-} as any)
-const HomeLayoutHostRoute = HomeLayoutHostRouteImport.update({
-  id: '/host',
-  path: '/host',
-  getParentRoute: () => HomeLayoutRouteRoute,
-} as any)
-const HomeLayoutFeaturesRoute = HomeLayoutFeaturesRouteImport.update({
-  id: '/features',
-  path: '/features',
-  getParentRoute: () => HomeLayoutRouteRoute,
 } as any)
 const AppFeatureValidationRoute = AppFeatureValidationRouteImport.update({
   id: '/validation',
@@ -94,104 +80,93 @@ const AppFeatureFinishRoute = AppFeatureFinishRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/app/$feature': typeof AppFeatureRouteRouteWithChildren
-  '/home': typeof HomeLayoutRouteRouteWithChildren
+  '/home/features': typeof HomeFeaturesRoute
+  '/home/host': typeof HomeHostRoute
+  '/home': typeof HomeIndexRoute
   '/app/$feature/finish': typeof AppFeatureFinishRoute
   '/app/$feature/onboarding': typeof AppFeatureOnboardingRoute
   '/app/$feature/preview': typeof AppFeaturePreviewRoute
   '/app/$feature/process': typeof AppFeatureProcessRoute
   '/app/$feature/validation': typeof AppFeatureValidationRoute
-  '/home/features': typeof HomeLayoutFeaturesRoute
-  '/home/host': typeof HomeLayoutHostRoute
   '/app/$feature/': typeof AppFeatureIndexRoute
-  '/home/': typeof HomeLayoutIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/home': typeof HomeLayoutIndexRoute
+  '/home/features': typeof HomeFeaturesRoute
+  '/home/host': typeof HomeHostRoute
+  '/home': typeof HomeIndexRoute
   '/app/$feature/finish': typeof AppFeatureFinishRoute
   '/app/$feature/onboarding': typeof AppFeatureOnboardingRoute
   '/app/$feature/preview': typeof AppFeaturePreviewRoute
   '/app/$feature/process': typeof AppFeatureProcessRoute
   '/app/$feature/validation': typeof AppFeatureValidationRoute
-  '/home/features': typeof HomeLayoutFeaturesRoute
-  '/home/host': typeof HomeLayoutHostRoute
   '/app/$feature': typeof AppFeatureIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/app/$feature': typeof AppFeatureRouteRouteWithChildren
-  '/home': typeof HomeRouteWithChildren
-  '/home/_layout': typeof HomeLayoutRouteRouteWithChildren
+  '/home/features': typeof HomeFeaturesRoute
+  '/home/host': typeof HomeHostRoute
+  '/home/': typeof HomeIndexRoute
   '/app/$feature/finish': typeof AppFeatureFinishRoute
   '/app/$feature/onboarding': typeof AppFeatureOnboardingRoute
   '/app/$feature/preview': typeof AppFeaturePreviewRoute
   '/app/$feature/process': typeof AppFeatureProcessRoute
   '/app/$feature/validation': typeof AppFeatureValidationRoute
-  '/home/_layout/features': typeof HomeLayoutFeaturesRoute
-  '/home/_layout/host': typeof HomeLayoutHostRoute
   '/app/$feature/': typeof AppFeatureIndexRoute
-  '/home/_layout/': typeof HomeLayoutIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
     | '/app/$feature'
+    | '/home/features'
+    | '/home/host'
     | '/home'
     | '/app/$feature/finish'
     | '/app/$feature/onboarding'
     | '/app/$feature/preview'
     | '/app/$feature/process'
     | '/app/$feature/validation'
-    | '/home/features'
-    | '/home/host'
     | '/app/$feature/'
-    | '/home/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/home/features'
+    | '/home/host'
     | '/home'
     | '/app/$feature/finish'
     | '/app/$feature/onboarding'
     | '/app/$feature/preview'
     | '/app/$feature/process'
     | '/app/$feature/validation'
-    | '/home/features'
-    | '/home/host'
     | '/app/$feature'
   id:
     | '__root__'
     | '/'
     | '/app/$feature'
-    | '/home'
-    | '/home/_layout'
+    | '/home/features'
+    | '/home/host'
+    | '/home/'
     | '/app/$feature/finish'
     | '/app/$feature/onboarding'
     | '/app/$feature/preview'
     | '/app/$feature/process'
     | '/app/$feature/validation'
-    | '/home/_layout/features'
-    | '/home/_layout/host'
     | '/app/$feature/'
-    | '/home/_layout/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AppFeatureRouteRoute: typeof AppFeatureRouteRouteWithChildren
-  HomeRoute: typeof HomeRouteWithChildren
+  HomeFeaturesRoute: typeof HomeFeaturesRoute
+  HomeHostRoute: typeof HomeHostRoute
+  HomeIndexRoute: typeof HomeIndexRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/home': {
-      id: '/home'
-      path: '/home'
-      fullPath: '/home'
-      preLoaderRoute: typeof HomeRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/': {
       id: '/'
       path: '/'
@@ -199,12 +174,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/home/_layout': {
-      id: '/home/_layout'
+    '/home/': {
+      id: '/home/'
       path: '/home'
       fullPath: '/home'
-      preLoaderRoute: typeof HomeLayoutRouteRouteImport
-      parentRoute: typeof HomeRoute
+      preLoaderRoute: typeof HomeIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/home/host': {
+      id: '/home/host'
+      path: '/home/host'
+      fullPath: '/home/host'
+      preLoaderRoute: typeof HomeHostRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/home/features': {
+      id: '/home/features'
+      path: '/home/features'
+      fullPath: '/home/features'
+      preLoaderRoute: typeof HomeFeaturesRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/app/$feature': {
       id: '/app/$feature'
@@ -213,33 +202,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppFeatureRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/home/_layout/': {
-      id: '/home/_layout/'
-      path: '/'
-      fullPath: '/home/'
-      preLoaderRoute: typeof HomeLayoutIndexRouteImport
-      parentRoute: typeof HomeLayoutRouteRoute
-    }
     '/app/$feature/': {
       id: '/app/$feature/'
       path: '/'
       fullPath: '/app/$feature/'
       preLoaderRoute: typeof AppFeatureIndexRouteImport
       parentRoute: typeof AppFeatureRouteRoute
-    }
-    '/home/_layout/host': {
-      id: '/home/_layout/host'
-      path: '/host'
-      fullPath: '/home/host'
-      preLoaderRoute: typeof HomeLayoutHostRouteImport
-      parentRoute: typeof HomeLayoutRouteRoute
-    }
-    '/home/_layout/features': {
-      id: '/home/_layout/features'
-      path: '/features'
-      fullPath: '/home/features'
-      preLoaderRoute: typeof HomeLayoutFeaturesRouteImport
-      parentRoute: typeof HomeLayoutRouteRoute
     }
     '/app/$feature/validation': {
       id: '/app/$feature/validation'
@@ -301,36 +269,12 @@ const AppFeatureRouteRouteWithChildren = AppFeatureRouteRoute._addFileChildren(
   AppFeatureRouteRouteChildren,
 )
 
-interface HomeLayoutRouteRouteChildren {
-  HomeLayoutFeaturesRoute: typeof HomeLayoutFeaturesRoute
-  HomeLayoutHostRoute: typeof HomeLayoutHostRoute
-  HomeLayoutIndexRoute: typeof HomeLayoutIndexRoute
-}
-
-const HomeLayoutRouteRouteChildren: HomeLayoutRouteRouteChildren = {
-  HomeLayoutFeaturesRoute: HomeLayoutFeaturesRoute,
-  HomeLayoutHostRoute: HomeLayoutHostRoute,
-  HomeLayoutIndexRoute: HomeLayoutIndexRoute,
-}
-
-const HomeLayoutRouteRouteWithChildren = HomeLayoutRouteRoute._addFileChildren(
-  HomeLayoutRouteRouteChildren,
-)
-
-interface HomeRouteChildren {
-  HomeLayoutRouteRoute: typeof HomeLayoutRouteRouteWithChildren
-}
-
-const HomeRouteChildren: HomeRouteChildren = {
-  HomeLayoutRouteRoute: HomeLayoutRouteRouteWithChildren,
-}
-
-const HomeRouteWithChildren = HomeRoute._addFileChildren(HomeRouteChildren)
-
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AppFeatureRouteRoute: AppFeatureRouteRouteWithChildren,
-  HomeRoute: HomeRouteWithChildren,
+  HomeFeaturesRoute: HomeFeaturesRoute,
+  HomeHostRoute: HomeHostRoute,
+  HomeIndexRoute: HomeIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

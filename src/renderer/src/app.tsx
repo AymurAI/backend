@@ -3,8 +3,10 @@ import {
   createMemoryHistory,
   createRouter,
 } from "@tanstack/react-router";
+import { Toaster } from "react-hot-toast";
 
 import { ThemeProvider } from "@/components";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import * as TanstackReactQuery from "@/features/ReactQueryProvider";
 
 // Import the generated route tree
@@ -12,14 +14,15 @@ import { routeTree } from "./routeTree.gen";
 
 const TanStackQueryProviderContext = TanstackReactQuery.getContext();
 
-// Create a new router instance
-const memoryHistory = createMemoryHistory({
-  initialEntries: ["/home/host"], // Pass your initial url
-});
+const history =
+  import.meta.env.VITE_APP_MODE === "electron"
+    ? createMemoryHistory({ initialEntries: ["/"] })
+    : undefined;
 const router = createRouter({
   routeTree,
-  history: memoryHistory,
+  history,
   context: { ...TanStackQueryProviderContext },
+  defaultViewTransition: true,
 });
 
 declare module "@tanstack/react-router" {
@@ -33,7 +36,10 @@ export default function App() {
     <TanstackReactQuery.Provider {...TanStackQueryProviderContext}>
       {/* Stitches global styles */}
       <ThemeProvider>
-        <RouterProvider router={router} />
+        <TooltipProvider>
+          <RouterProvider router={router} />
+          <Toaster position="bottom-center" />
+        </TooltipProvider>
       </ThemeProvider>
     </TanstackReactQuery.Provider>
   );

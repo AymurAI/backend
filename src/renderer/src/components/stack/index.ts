@@ -1,5 +1,8 @@
 import { styled } from "@/styles";
 
+/**
+ * @deprecated Use `Stack` from `@/styled/jsx` instead.
+ */
 const Stack = styled("div", {
   display: "flex",
 

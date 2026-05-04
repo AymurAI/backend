@@ -1,4 +1,4 @@
-import type { Suggestion } from "@/components/select";
+import type { SelectSuggestion as Suggestion } from "@/components/ui/select";
 import type {
   AllLabels,
   AllLabelsWithSufix,

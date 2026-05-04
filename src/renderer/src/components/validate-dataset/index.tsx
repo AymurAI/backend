@@ -1,15 +1,12 @@
 import { useState } from "react";
 
-import {
-  Button,
-  FileAnnotator,
-  FileStepper,
-  Grid,
-  SectionTitle,
-} from "@/components";
+import { Button, FileAnnotator, FileStepper, Grid } from "@/components";
+import Footer from "@/components/layout/footer";
 import { useFileDispatch, useFiles } from "@/hooks";
-import { Footer, Section } from "@/layout/main";
+import { SectionTitle } from "@/layout/section-title";
 import { validate } from "@/reducers/file/actions";
+import { css } from "@/styled/css";
+import { HStack, Stack } from "@/styled/jsx";
 import { isFileValidated, isValidationCompleted } from "@/utils/file";
 import { useNavigate, useParams } from "@tanstack/react-router";
 import FormGroup from "./form-group";
@@ -62,52 +59,64 @@ export function ValidateDataset() {
   };
 
   return (
-    <>
+    <Stack gap="0" flex="1" minHeight="0">
       <Grid
         columns={2}
         spacing="none"
         justify="stretch"
         align="stretch"
-        css={{ overflow: "hidden" }}
+        css={{ overflow: "hidden", flex: 1, minHeight: 0 }}
       >
         <FileAnnotator
           key={selectedFile.data.name}
           file={selectedFile}
-          isAnnotable
+          isAnnotable={false}
         />
-        <Section css={{ px: 100, overflowY: "scroll" }} spacing="xxl">
-          <SectionTitle>3. Validación de datos</SectionTitle>
+        <Stack
+          px="[100px]"
+          pt="16"
+          pb="16"
+          overflowY="scroll"
+          gap="16"
+          bg="bg.primary"
+          minHeight="0"
+        >
+          <SectionTitle className={css({ whiteSpace: "nowrap" })}>
+            3. Validación de datos
+          </SectionTitle>
           <FormGroup
             key={selectedFile.data.name}
             file={selectedFile}
             onCheck={handleCheck}
           />
-        </Section>
+        </Stack>
       </Grid>
-      <Footer
-        css={{
-          justifyContent: hasStepper ? "space-between" : "flex-end",
-          gap: 150,
-        }}
-      >
-        {hasStepper && (
-          <FileStepper {...{ selected, nextFile, previousFile }} />
-        )}
+      <Footer>
+        <HStack
+          alignItems="center"
+          width="full"
+          justify={hasStepper ? "space-between" : "flex-end"}
+          gap="36"
+        >
+          {hasStepper && (
+            <FileStepper {...{ selected, nextFile, previousFile }} />
+          )}
 
-        {canContinue ? (
-          <Button size="l" onClick={handleContinue}>
-            Continuar
-          </Button>
-        ) : (
-          <Button
-            size="l"
-            onClick={handleValidate}
-            disabled={!checked && !canValidate}
-          >
-            Validar documento
-          </Button>
-        )}
+          {canContinue ? (
+            <Button size="md" onClick={handleContinue}>
+              Continuar
+            </Button>
+          ) : (
+            <Button
+              size="md"
+              onClick={handleValidate}
+              disabled={!checked && !canValidate}
+            >
+              Validar documento
+            </Button>
+          )}
+        </HStack>
       </Footer>
-    </>
+    </Stack>
   );
 }

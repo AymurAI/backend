@@ -9,6 +9,7 @@ export interface LabelAnnotation extends BaseAnnotation {
   type: "tag" | "search";
   paragraphId: string;
   tag?: AllLabels | AllLabelsWithSufix;
+  canonical_entity_id?: string | null;
 }
 export interface TextAnnotation extends BaseAnnotation {
   type: "text";

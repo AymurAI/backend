@@ -1,91 +1,60 @@
-import {
-  Button,
-  Card,
-  FileProcessing,
-  SectionTitle,
-  Stack,
-  Subtitle,
-  Text,
-  Toast,
-} from "@/components";
+import { Button, FileProcessing } from "@/components";
+import Stepper from "@/components/home/stepper";
+import Footer from "@/components/layout/footer";
+import Header from "@/components/layout/header";
+import MainContent from "@/components/layout/main-content";
+import BackButton from "@/components/ui/back-button";
+import Callout from "@/components/ui/callout";
+import Card from "@/components/ui/card";
+import RequireFile from "@/features/RequireFile";
 import { useFileDispatch, useFiles } from "@/hooks";
-import useNotify from "@/hooks/useNotify";
-import type { PredictStatus } from "@/hooks/usePredict";
-import { Footer, Section } from "@/layout/main";
-import {
-  filterUnprocessed,
-  removeAllPredictions,
-} from "@/reducers/file/actions";
-import { Feature } from "@/types/features";
-import { canContinue } from "@/utils/process/canContinue";
-import {
-  type ProcessState,
-  initProcessState,
-} from "@/utils/process/initProcessState";
+import { useDisambiguate } from "@/hooks/useDisambiguate";
+import { useFileParse } from "@/hooks/useFileParse";
+import { type PredictStatus, usePredict } from "@/hooks/usePredict";
+import { SectionTitle } from "@/layout/section-title";
+import { filterUnprocessed } from "@/reducers/file/actions";
+import { css } from "@/styled/css";
+import { HStack, Stack, styled } from "@/styled/jsx";
+import type { Workflows } from "@/types/aymurai";
+import { FeatureFlowEnum, featureNamespace } from "@/types/features";
+import type { DocFile } from "@/types/file";
+import taskbar from "@/services/taskbar";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   createFileRoute,
   useNavigate,
   useParams,
 } from "@tanstack/react-router";
-import { Bell } from "phosphor-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 export const Route = createFileRoute("/app/$feature/process")({
   component: RouteComponent,
 });
 
-/**
- * Updates the status of a file in the state
- * @param name Name of the file to be updated
- * @param newValue New `PredictStatus` value to be updated
- * @param state `ProcessState[]` state in `/process` page
- * @returns A new array with the status of the given file changed
- */
-function replace(
-  name: string,
-  value: Partial<ProcessState>,
-  state: ProcessState[],
-) {
-  return state.map((process) => {
-    if (process.name === name) return { ...process, ...value };
-    return process;
+function RouteComponent() {
+  const queryClient = useQueryClient();
+  const { feature } = useParams({
+    from: "/app/$feature/process",
   });
-}
+  const { t } = useTranslation(featureNamespace[feature]);
 
-interface GenericProcessProps {
-  title: string;
-  finishText: string;
-  supportMultipleFiles: boolean;
-}
-function GenericProcess({
-  title,
-  supportMultipleFiles,
-  finishText,
-}: GenericProcessProps) {
-  const { feature } = useParams({ from: "/app/$feature/process" });
-  const navigate = useNavigate();
   const dispatch = useFileDispatch();
+  const navigate = useNavigate();
   const files = useFiles();
-  const [process, setProcess] = useState(initProcessState(files));
-  const { isToastVisible, hideToast } = useNotify(process);
 
-  const handleStatusChange = (name: string) => (newValue: PredictStatus) => {
-    // Replace the newValue
-    setProcess((cur) => replace(name, { status: newValue }, cur));
-  };
-  const handleReplaceFile = (name: string) => (newName: string) => {
-    setProcess((cur) =>
-      replace(name, { name: newName, status: "processing" }, cur),
-    );
-  };
+  const [isDismissed, setIsDismissed] = useState(false);
+  const hasNotified = useRef(false);
 
-  const handlePrevious = () => {
-    navigate({
-      to: "/app/$feature/preview",
-      params: { feature },
-    });
-    dispatch(removeAllPredictions());
-  };
+  const workflow: Workflows =
+    feature === FeatureFlowEnum.Anonymizer ? "anonymizer" : "datapublic";
+  const parseStatuses = useFileParse(files);
+  const fileStatuses = usePredict(files, workflow);
+  const disambiguateStatuses = useDisambiguate(
+    files,
+    fileStatuses,
+    workflow === "anonymizer",
+  );
 
   const handleNext = () => {
     dispatch(filterUnprocessed());
@@ -95,64 +64,108 @@ function GenericProcess({
     });
   };
 
+  const isProcessing = files.some(
+    (f) =>
+      parseStatuses[f.data.name]?.status === "processing" ||
+      fileStatuses[f.data.name]?.status === "processing" ||
+      disambiguateStatuses[f.data.name]?.status === "processing",
+  );
+
+  useEffect(() => {
+    if (files.length > 0 && !isProcessing && !hasNotified.current) {
+      hasNotified.current = true;
+      taskbar.notify();
+    }
+  }, [isProcessing, files.length]);
+
+  // Weighted progress: 10% parse / 70% predict / 20% disambiguate (anonymizer)
+  // or 10% parse / 90% predict (datapublic).
+  const getProgress = (fileName: string): number => {
+    const parseDone = parseStatuses[fileName]?.status === "completed" ? 1 : 0;
+    const predictProgress = fileStatuses[fileName]?.progress ?? 0;
+
+    if (workflow !== "anonymizer") {
+      return parseDone * 0.1 + predictProgress * 0.9;
+    }
+    const disambiguateDone =
+      disambiguateStatuses[fileName]?.status === "completed" ? 1 : 0;
+    return parseDone * 0.1 + predictProgress * 0.7 + disambiguateDone * 0.2;
+  };
+
+  // Status accounts for all three stages so "completed" only shows at 100%.
+  const getCombinedStatus = (fileName: string): PredictStatus => {
+    const parseStatus = parseStatuses[fileName]?.status ?? "processing";
+    if (parseStatus !== "completed") return parseStatus;
+
+    const predictStatus = fileStatuses[fileName]?.status ?? "processing";
+    if (workflow !== "anonymizer" || predictStatus !== "completed")
+      return predictStatus;
+
+    return disambiguateStatuses[fileName]?.status ?? "processing";
+  };
+
+  const handleAbort = (file: DocFile) => () => {
+    queryClient.removeQueries({
+      queryKey: ["file-parser", file.data.name],
+      exact: false,
+    });
+    queryClient.removeQueries({
+      queryKey: ["predict", feature, file.data.name],
+      exact: false,
+    });
+    fileStatuses[file.data.name]?.abort?.();
+    parseStatuses[file.data.name]?.abort?.();
+  };
+
   return (
-    <>
-      <Section>
-        <Toast isVisible={isToastVisible} onClose={hideToast} icon={<Bell />}>
-          {finishText}
-        </Toast>
-        <SectionTitle onClick={handlePrevious}>{title}</SectionTitle>
-        <Card css={{ alignItems: "stretch" }}>
-          <Stack spacing="l" direction="column">
-            <Stack direction="column" spacing="xs">
-              {supportMultipleFiles ? (
-                <Text>AymurAI está extrayendo los datos de los archivos</Text>
-              ) : (
-                <Text>AymurAI está extrayendo los datos del archivo</Text>
+    <RequireFile>
+      <Header
+        title={t("title")}
+        feature={feature}
+        center={<Stepper currentStep={2} />}
+      />
+      <MainContent>
+        <Stack gap="10">
+          <HStack alignItems="center" gap="6">
+            <BackButton to="/app/$feature/preview" params={{ feature }} />
+            <SectionTitle>{t("process.sectionTitle")}</SectionTitle>
+          </HStack>
+          <Card className={css({ alignItems: "stretch" })}>
+            <Stack gap="6" direction="column">
+              <Stack direction="column" gap="1">
+                <styled.h2 textStyle="subtitle.md.default">
+                  {t("process.processingTitle")}
+                </styled.h2>
+                <styled.p textStyle="subtitle.sm.default" color="text.lighter">
+                  {t("process.processingSubtitle")}
+                </styled.p>
+              </Stack>
+              {!isProcessing && !isDismissed && (
+                <Callout
+                  message={t("process.finishText")}
+                  variant="info"
+                  noBorder
+                  onDismiss={() => setIsDismissed(true)}
+                />
               )}
-              <Subtitle size="s">
-                Este proceso puede tardar algunos minutos.
-              </Subtitle>
+              {files.map((f) => (
+                <FileProcessing
+                  key={f.data.name}
+                  fileName={f.data.name}
+                  status={getCombinedStatus(f.data.name)}
+                  progress={getProgress(f.data.name)}
+                  onAbort={handleAbort(f)}
+                />
+              ))}
             </Stack>
-            {files.map((f) => (
-              <FileProcessing
-                key={f.data.name}
-                file={f}
-                onStatusChange={handleStatusChange(f.data.name)}
-                onFileReplace={handleReplaceFile(f.data.name)}
-              />
-            ))}
-          </Stack>
-        </Card>
-      </Section>
-      <Footer>
-        <Button size="l" disabled={!canContinue(process)} onClick={handleNext}>
+          </Card>
+        </Stack>
+      </MainContent>
+      <Footer withBuiltBy>
+        <Button onClick={handleNext} disabled={isProcessing}>
           Siguiente
         </Button>
       </Footer>
-    </>
-  );
-}
-
-function RouteComponent() {
-  const { feature } = useParams({
-    from: "/app/$feature/process",
-  });
-
-  if (feature === Feature.Dataset)
-    return (
-      <GenericProcess
-        title="2. Procesamiento de los archivos"
-        finishText="Se finalizó el análisis de tus documentos."
-        supportMultipleFiles={true}
-      />
-    );
-
-  return (
-    <GenericProcess
-      title="2. Procesamiento del archivo"
-      supportMultipleFiles={false}
-      finishText="Se finalizó el análisis del documento."
-    />
+    </RequireFile>
   );
 }

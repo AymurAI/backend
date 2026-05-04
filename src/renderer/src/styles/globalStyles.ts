@@ -1,5 +1,6 @@
 import { globalCss } from "./stitches.config";
 
+/** @deprecated Global styles have been migrated to Panda CSS in `panda.config.ts`. */
 export const globalStyles = globalCss({
   "@import":
     'url("https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;800&display=swap")',

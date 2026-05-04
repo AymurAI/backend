@@ -1,5 +1,8 @@
 import { styled } from "@/styles";
 
+/**
+ * @deprecated use `textStyles` from PandaCSS instead.
+ */
 const Label = styled("label", {
   variants: {
     size: {

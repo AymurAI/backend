@@ -8,10 +8,11 @@ import {
   Input,
   Radio,
   RadioGroup,
-  Select,
   Stack,
   ValidationForm,
 } from "@/components";
+import Select from "@/components/ui/select";
+import { css } from "@/styled/css";
 import { LabelDecisiones } from "@/types/aymurai";
 import nArray from "@/utils/nArray";
 import type { FormDecisionProps } from "../FormGroup.types";
@@ -44,7 +45,7 @@ export default function DatosDenunciante({
         ref={prop(LabelDecisiones.MATERIA)}
         options={json.MATERIA}
         label="Materia"
-        selected={defaultValue(LabelDecisiones.MATERIA) as string}
+        value={defaultValue(LabelDecisiones.MATERIA) as string}
         {...suggester.select(LabelDecisiones.MATERIA)}
       />
       <Input
@@ -57,21 +58,21 @@ export default function DatosDenunciante({
         ref={prop(LabelDecisiones.CODIGO_O_LEY)}
         label="Código o ley"
         options={json.CODIGO_O_LEY}
-        selected={defaultValue(LabelDecisiones.CODIGO_O_LEY) as string}
+        value={defaultValue(LabelDecisiones.CODIGO_O_LEY) as string}
         {...suggester.codigo_o_ley()}
       />
       <Select
         ref={prop(LabelDecisiones.CONDUCTA)}
         label="Conducta"
         options={json.CONDUCTA}
-        selected={defaultValue(LabelDecisiones.CONDUCTA) as string}
+        value={defaultValue(LabelDecisiones.CONDUCTA) as string}
         {...suggester.select(LabelDecisiones.CONDUCTA)}
       />
       <Select
         ref={prop(LabelDecisiones.CONDUCTA_DESCRIPCION)}
         label="Descripción de la conducta"
         options={json.CONDUCTA_DESCRIPCION}
-        selected={defaultValue(LabelDecisiones.CONDUCTA_DESCRIPCION) as string}
+        value={defaultValue(LabelDecisiones.CONDUCTA_DESCRIPCION) as string}
         {...suggester.select(LabelDecisiones.CONDUCTA_DESCRIPCION)}
       />
       <RadioGroup name="violenciaGenero" label="Violencia de género">
@@ -157,7 +158,7 @@ export default function DatosDenunciante({
         ref={prop(LabelDecisiones.MODALIDAD_DE_LA_VIOLENCIA)}
         options={json.MODALIDAD_DE_LA_VIOLENCIA}
         label="Modalidad de la violencia"
-        selected={
+        value={
           defaultValue(LabelDecisiones.MODALIDAD_DE_LA_VIOLENCIA) as string
         }
         {...suggester.select(LabelDecisiones.MODALIDAD_DE_LA_VIOLENCIA)}
@@ -173,8 +174,8 @@ export default function DatosDenunciante({
           />
         ))}
         <Button
-          size="s"
-          css={{ alignSelf: "flex-start" }}
+          size="sm"
+          className={css({ alignSelf: "flex-start" })}
           variant="secondary"
           onClick={newFraseAgresion}
         >
@@ -186,7 +187,7 @@ export default function DatosDenunciante({
         ref={prop(LabelDecisiones.FRECUENCIA_EPISODIOS)}
         options={json.FRECUENCIA_EPISODIOS}
         label="Frecuencia del episodio"
-        selected={defaultValue(LabelDecisiones.FRECUENCIA_EPISODIOS) as string}
+        value={defaultValue(LabelDecisiones.FRECUENCIA_EPISODIOS) as string}
         {...suggester.select(LabelDecisiones.FRECUENCIA_EPISODIOS)}
       />
       <Select
@@ -195,7 +196,7 @@ export default function DatosDenunciante({
         )}
         options={json.RELACION_Y_TIPO_ENTRE_ACUSADO_Y_DENUNCIANTE}
         label="Relación y tipo entre acusada y denunciante"
-        selected={
+        value={
           defaultValue(
             LabelDecisiones["RELACION_Y_TIPO_ENTRE_ACUSADO/A_Y_DENUNCIANTE"],
           ) as string
@@ -208,7 +209,7 @@ export default function DatosDenunciante({
         ref={prop(LabelDecisiones.HIJOS_HIJAS_EN_COMUN)}
         options={json.HIJOS_HIJAS_EN_COMUN}
         label="Hijos/as en común"
-        selected={defaultValue(LabelDecisiones.HIJOS_HIJAS_EN_COMUN) as string}
+        value={defaultValue(LabelDecisiones.HIJOS_HIJAS_EN_COMUN) as string}
         {...suggester.select(LabelDecisiones.HIJOS_HIJAS_EN_COMUN)}
       />
       <Select
@@ -217,7 +218,7 @@ export default function DatosDenunciante({
         )}
         options={json.MEDIDAS_DE_PROTECCION_VIGENTES_AL_MOMENTO_DEL_HECHO}
         label="Medidas de protección vigentes al momento del hecho"
-        selected={
+        value={
           defaultValue(
             LabelDecisiones.MEDIDAS_DE_PROTECCION_VIGENTES_AL_MOMENTO_DEL_HECHO,
           ) as string
@@ -230,14 +231,14 @@ export default function DatosDenunciante({
         ref={prop(LabelDecisiones.ZONA_DEL_HECHO)}
         options={json.ZONA_DEL_HECHO}
         label="Zona del hecho"
-        selected={defaultValue(LabelDecisiones.ZONA_DEL_HECHO) as string}
+        value={defaultValue(LabelDecisiones.ZONA_DEL_HECHO) as string}
         {...suggester.select(LabelDecisiones.ZONA_DEL_HECHO)}
       />
       <Select
         ref={prop(LabelDecisiones.LUGAR_DEL_HECHO)}
         options={json.LUGAR_DEL_HECHO}
         label="Lugar del hecho"
-        selected={defaultValue(LabelDecisiones.LUGAR_DEL_HECHO) as string}
+        value={defaultValue(LabelDecisiones.LUGAR_DEL_HECHO) as string}
         {...suggester.select(LabelDecisiones.LUGAR_DEL_HECHO)}
       />
     </ValidationForm>
