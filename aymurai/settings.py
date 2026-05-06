@@ -99,6 +99,11 @@ class Settings(BaseSettings):
             return json.loads(v)
         return v
 
+    FRONTEND_DIST_DIR: str = Field(
+        default="frontend-dist",
+        validation_alias=AliasChoices("AYMURAI_FRONTEND_DIST_DIR", "FRONTEND_DIST_DIR"),
+    )
+
 
 load_env()
 settings = Settings()
