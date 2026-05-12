@@ -1,9 +1,9 @@
-import { Grid, Stack, styled } from "@/styled/jsx";
-import { FeatureFlowEnum, featureNamespace } from "@/types/features";
 import { useFileDispatch } from "@/hooks/useFiles";
 import { removeAllFiles } from "@/reducers/file/actions";
+import { Grid, Stack, styled } from "@/styled/jsx";
+import { FeatureFlowEnum, featureNamespace } from "@/types/features";
 import { Link } from "@tanstack/react-router";
-import { DotsNine } from "phosphor-react";
+import { DotsNine, Gear } from "phosphor-react";
 import { useTranslation } from "react-i18next";
 import FeatureIcon from "./feature-icon";
 import Button from "./ui/button";
@@ -45,6 +45,18 @@ export default function FeaturesMenu() {
               </Card>
             </Link>
           ))}
+          <styled.div gridColumn="span 2">
+            <Link to="/home/host" onClick={handleClearFiles}>
+              <Card size="sm" clickable>
+                <Stack gap="3" align="center">
+                  <FeatureIcon icon={Gear} size="sm" />
+                  <styled.p textStyle="label.md.strong">
+                    {t("settings")}
+                  </styled.p>
+                </Stack>
+              </Card>
+            </Link>
+          </styled.div>
         </Grid>
       </PopoverContent>
     </Popover>

@@ -2,14 +2,14 @@ import { useState } from "react";
 
 import { useFileDispatch } from "@/hooks";
 import {
-  removePredictionsByCanonicalId,
   removePredictionValueByCanonicalId,
+  removePredictionsByCanonicalId,
   updatePredictionsByCanonicalId,
 } from "@/reducers/file/actions";
-import type { AllLabels, AllLabelsWithSufix } from "@/types/aymurai";
 import { sva } from "@/styled/css";
 import { HStack } from "@/styled/jsx";
 import { stack } from "@/styled/patterns";
+import type { AllLabels, AllLabelsWithSufix } from "@/types/aymurai";
 import LabelConfigTab from "./config-tab";
 import LabelEntityTab from "./entity-tab";
 import LabelManagerTab from "./tab";
@@ -77,7 +77,7 @@ export default function LabelManager({ onClose }: LabelManagerProps) {
             isSelected={selectedTab === "config"}
             onClick={() => setSelectedTab("config")}
           >
-            Configuracion
+            Configuración
           </LabelManagerTab>
         </HStack>
         <button onClick={onClose} type="button" className={classes.close}>

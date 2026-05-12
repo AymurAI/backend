@@ -14,6 +14,13 @@ const card = css({
 
   px: "4",
   py: "6",
+
+  "& > img": {
+    width: "[200px]",
+    height: "[130px]",
+    objectFit: "contain",
+    flexShrink: "0",
+  },
 });
 
 const stepStyle = css({
@@ -38,7 +45,7 @@ interface CardProps {
 function Card({ img, imgAlt, step, title, subtitle }: CardProps) {
   return (
     <div className={card}>
-      <img src={img} alt={imgAlt} height="130" />
+      <img src={img} alt={imgAlt} />
       <Stack gap="4">
         <p className={stepStyle}>{step}</p>
         <Stack>
@@ -71,23 +78,23 @@ export default function HowItWorks({ title, feature }: HowItWorksProps) {
       <Grid columns={2}>
         <Card
           img={`${import.meta.env.BASE_URL}onboarding-steps/step1.png`}
-          imgAlt={t("howItWorksSteps.step1.alt")}
-          title={t("howItWorksSteps.step1.title")}
-          subtitle={t("howItWorksSteps.step1.subtitle")}
+          imgAlt={tFeature("howItWorks.step1.alt")}
+          title={tFeature("howItWorks.step1.title")}
+          subtitle={tFeature("howItWorks.step1.subtitle")}
           step={1}
         />
         <Card
           img={`${import.meta.env.BASE_URL}onboarding-steps/step2.png`}
-          imgAlt={t("howItWorksSteps.step2.alt")}
-          title={t("howItWorksSteps.step2.title")}
-          subtitle={t("howItWorksSteps.step2.subtitle")}
+          imgAlt={tFeature("howItWorks.step2.alt")}
+          title={tFeature("howItWorks.step2.title")}
+          subtitle={tFeature("howItWorks.step2.subtitle")}
           step={2}
         />
         <Card
           img={`${import.meta.env.BASE_URL}onboarding-steps/step3.png`}
-          imgAlt={t("howItWorksSteps.step3.alt")}
-          title={t("howItWorksSteps.step3.title")}
-          subtitle={t("howItWorksSteps.step3.subtitle")}
+          imgAlt={tFeature("howItWorks.step3.alt")}
+          title={tFeature("howItWorks.step3.title")}
+          subtitle={tFeature("howItWorks.step3.subtitle")}
           step={3}
         />
         <Card

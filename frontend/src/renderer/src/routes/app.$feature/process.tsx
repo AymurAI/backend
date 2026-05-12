@@ -2,6 +2,7 @@ import { Button, FileProcessing } from "@/components";
 import Stepper from "@/components/home/stepper";
 import Footer from "@/components/layout/footer";
 import Header from "@/components/layout/header";
+import HomeButton from "@/components/layout/home-button";
 import MainContent from "@/components/layout/main-content";
 import BackButton from "@/components/ui/back-button";
 import Callout from "@/components/ui/callout";
@@ -13,12 +14,12 @@ import { useFileParse } from "@/hooks/useFileParse";
 import { type PredictStatus, usePredict } from "@/hooks/usePredict";
 import { SectionTitle } from "@/layout/section-title";
 import { filterUnprocessed } from "@/reducers/file/actions";
+import taskbar from "@/services/taskbar";
 import { css } from "@/styled/css";
 import { HStack, Stack, styled } from "@/styled/jsx";
 import type { Workflows } from "@/types/aymurai";
 import { FeatureFlowEnum, featureNamespace } from "@/types/features";
 import type { DocFile } from "@/types/file";
-import taskbar from "@/services/taskbar";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   createFileRoute,
@@ -123,6 +124,7 @@ function RouteComponent() {
         title={t("title")}
         feature={feature}
         center={<Stepper currentStep={2} />}
+        right={<HomeButton />}
       />
       <MainContent>
         <Stack gap="10">

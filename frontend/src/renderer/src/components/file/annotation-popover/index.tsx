@@ -26,12 +26,16 @@ interface AnnotationPopoverProps {
   children: ReactNode;
   onClickOne: (label: AllLabels, suffix: number | null) => void;
   onClickAll: (label: AllLabels, suffix: number | null) => void;
+  onDeleteOne?: () => void;
+  onDeleteAll?: () => void;
 }
 
 export default function AnnotationPopover({
   children,
   onClickAll,
   onClickOne,
+  onDeleteOne,
+  onDeleteAll,
 }: AnnotationPopoverProps) {
   const [open, setOpen] = useState(false);
   const closeTimer = useRef<ReturnType<typeof setTimeout>>(null);
@@ -91,7 +95,7 @@ export default function AnnotationPopover({
         }}
         onBlur={handleBlur}
       >
-        <Tagger onClickOne={onClickOne} onClickAll={onClickAll} />
+        <Tagger onClickOne={onClickOne} onClickAll={onClickAll} onDeleteOne={onDeleteOne} onDeleteAll={onDeleteAll} />
       </PopoverContent>
     </Popover>
   );

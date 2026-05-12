@@ -25,7 +25,7 @@ const categoryConfig: Record<
       "DENUNCIANTE",
       "ACUSADO/A",
       "TESTIGO/A",
-      "NINO/A_ADOSLECENTE",
+      "NIÑO/A_ADOSLECENTE",
     ],
   },
   Lugares: {
@@ -261,144 +261,148 @@ export default function LabelEntityTab({
 
   return (
     <>
-    <RemoveDialog
-      isOpen={pendingRemoval !== null}
-      label={pendingRemoval?.label ?? ""}
-      onClose={(open) => { if (!open) setPendingRemoval(null); }}
-      onConfirm={confirmRemoval}
-    />
-    <Stack gap="6">
-      {categories.map((category, i) => {
-        const { labelIds, placeholder } = categoryConfig[category];
-        const options = anonymizerLabels.filter((l) => labelIds.includes(l.id));
-        const categoryDerived = derivedGroups[category];
-        const categoryManual = manualGroups[category];
+      <RemoveDialog
+        isOpen={pendingRemoval !== null}
+        label={pendingRemoval?.label ?? ""}
+        onClose={(open) => {
+          if (!open) setPendingRemoval(null);
+        }}
+        onConfirm={confirmRemoval}
+      />
+      <Stack gap="6">
+        {categories.map((category, i) => {
+          const { labelIds, placeholder } = categoryConfig[category];
+          const options = anonymizerLabels.filter((l) =>
+            labelIds.includes(l.id),
+          );
+          const categoryDerived = derivedGroups[category];
+          const categoryManual = manualGroups[category];
 
-        return (
-          <>
-            {i > 0 && (
-              <styled.hr borderColor="[#BCBAB8]" key={`hr-${category}`} />
-            )}
-            <LabelManagerSection key={category} title={category}>
-              <Stack gap="4">
-                {categoryDerived
-                  .filter((g) => !removedDerivedIds.includes(g.canonicalId))
-                  .map((group) => {
-                    const visibleValues = group.values.filter(
-                      (v) =>
-                        !(
-                          removedDerivedValues[group.canonicalId] ?? []
-                        ).includes(v),
-                    );
-                    const selectedLabel =
-                      overriddenDerivedLabels[group.canonicalId] ??
-                      group.labelId;
-                    return (
-                      <Stack key={group.canonicalId} gap="2">
-                        <HStack gap="2" alignItems="center">
-                          <Select
-                            options={options}
-                            placeholder={placeholder}
-                            value={selectedLabel}
-                            onChange={(opt) =>
-                              changeDerivedLabel(group.canonicalId, opt.id)
-                            }
-                          />
-                          <button
-                            type="button"
-                            className={iconButton}
-                            onClick={() =>
-                              setPendingRemoval({
-                                kind: "derived",
-                                canonicalId: group.canonicalId,
-                                label: selectedLabel,
-                              })
-                            }
-                            aria-label="Eliminar grupo"
-                          >
-                            <Trash size={20} />
-                          </button>
-                        </HStack>
-                        <Stack
-                          gap="1"
-                          align="stretch"
-                          bg="white"
-                          p="1"
-                          rounded="sm"
-                        >
-                          {visibleValues.map((value) => (
-                            <Label
-                              key={value}
-                              onRemove={() =>
-                                removeDerivedValue(group.canonicalId, value)
+          return (
+            <>
+              {i > 0 && (
+                <styled.hr borderColor="[#BCBAB8]" key={`hr-${category}`} />
+              )}
+              <LabelManagerSection key={category} title={category}>
+                <Stack gap="4">
+                  {categoryDerived
+                    .filter((g) => !removedDerivedIds.includes(g.canonicalId))
+                    .map((group) => {
+                      const visibleValues = group.values.filter(
+                        (v) =>
+                          !(
+                            removedDerivedValues[group.canonicalId] ?? []
+                          ).includes(v),
+                      );
+                      const selectedLabel =
+                        overriddenDerivedLabels[group.canonicalId] ??
+                        group.labelId;
+                      return (
+                        <Stack key={group.canonicalId} gap="2">
+                          <HStack gap="2" alignItems="center">
+                            <Select
+                              options={options}
+                              placeholder={placeholder}
+                              value={selectedLabel}
+                              onChange={(opt) =>
+                                changeDerivedLabel(group.canonicalId, opt.id)
                               }
+                            />
+                            <button
+                              type="button"
+                              className={iconButton}
+                              onClick={() =>
+                                setPendingRemoval({
+                                  kind: "derived",
+                                  canonicalId: group.canonicalId,
+                                  label: selectedLabel,
+                                })
+                              }
+                              aria-label="Eliminar grupo"
                             >
-                              {value}
-                            </Label>
-                          ))}
+                              <Trash size={20} />
+                            </button>
+                          </HStack>
+                          <Stack
+                            gap="1"
+                            align="stretch"
+                            bg="white"
+                            p="1"
+                            rounded="sm"
+                          >
+                            {visibleValues.map((value) => (
+                              <Label
+                                key={value}
+                                onRemove={() =>
+                                  removeDerivedValue(group.canonicalId, value)
+                                }
+                              >
+                                {value}
+                              </Label>
+                            ))}
+                          </Stack>
                         </Stack>
-                      </Stack>
-                    );
-                  })}
+                      );
+                    })}
 
-                {categoryManual.map((group) => (
-                  <Stack key={group.id} gap="2">
-                    <HStack gap="2" alignItems="center">
-                      <Select
-                        options={options}
-                        placeholder={placeholder}
-                        value={group.selectedLabelId}
-                        onChange={(opt) =>
-                          setManualGroupLabel(category, group.id, opt.id)
-                        }
-                      />
-                      <button
-                        type="button"
-                        className={iconButton}
-                        onClick={() =>
-                          setPendingRemoval({
-                            kind: "manual",
-                            category,
-                            groupId: group.id,
-                            label: group.selectedLabelId ?? placeholder,
-                          })
-                        }
-                        aria-label="Eliminar grupo"
-                      >
-                        <Trash size={20} />
-                      </button>
-                    </HStack>
-
-                    {group.values.map((value) => (
-                      <div key={value} className={valueItem}>
-                        <span>{value}</span>
+                  {categoryManual.map((group) => (
+                    <Stack key={group.id} gap="2">
+                      <HStack gap="2" alignItems="center">
+                        <Select
+                          options={options}
+                          placeholder={placeholder}
+                          value={group.selectedLabelId}
+                          onChange={(opt) =>
+                            setManualGroupLabel(category, group.id, opt.id)
+                          }
+                        />
                         <button
                           type="button"
                           className={iconButton}
                           onClick={() =>
-                            removeManualValue(category, group.id, value)
+                            setPendingRemoval({
+                              kind: "manual",
+                              category,
+                              groupId: group.id,
+                              label: group.selectedLabelId ?? placeholder,
+                            })
                           }
-                          aria-label={`Eliminar ${value}`}
+                          aria-label="Eliminar grupo"
                         >
-                          <XCircle size={18} />
+                          <Trash size={20} />
                         </button>
-                      </div>
-                    ))}
-                  </Stack>
-                ))}
+                      </HStack>
 
-                <Button
-                  variant="secondary"
-                  onClick={() => addManualGroup(category)}
-                >
-                  Añadir
-                </Button>
-              </Stack>
-            </LabelManagerSection>
-          </>
-        );
-      })}
-    </Stack>
+                      {group.values.map((value) => (
+                        <div key={value} className={valueItem}>
+                          <span>{value}</span>
+                          <button
+                            type="button"
+                            className={iconButton}
+                            onClick={() =>
+                              removeManualValue(category, group.id, value)
+                            }
+                            aria-label={`Eliminar ${value}`}
+                          >
+                            <XCircle size={18} />
+                          </button>
+                        </div>
+                      ))}
+                    </Stack>
+                  ))}
+
+                  <Button
+                    variant="secondary"
+                    onClick={() => addManualGroup(category)}
+                  >
+                    Añadir
+                  </Button>
+                </Stack>
+              </LabelManagerSection>
+            </>
+          );
+        })}
+      </Stack>
     </>
   );
 }

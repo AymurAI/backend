@@ -179,3 +179,25 @@ export const odtToPdf = () =>
       return response.data;
     },
   });
+
+export const pdfToOdt = () =>
+  mutationOptions({
+    mutationFn: async (file: Blob) => {
+      const formData = new FormData();
+      formData.append("file", file, "document.pdf");
+
+      const response = await api.post<Blob>(
+        "/convert/pdf/odt",
+        formData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+            Accept: "application/octet-stream",
+          },
+          responseType: "blob",
+        },
+      );
+
+      return response.data;
+    },
+  });

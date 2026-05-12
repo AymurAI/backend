@@ -17,7 +17,7 @@ export default function FinishMainContent({
   const { t } = useTranslation(featureNamespace[feature]);
   return (
     <MainContent>
-      <Stack gap="10">
+      <Stack gap={{ base: "4", xl: "10" }}>
         <Stack gap="4">
           <SectionTitle>{t("finish.sectionTitle")}</SectionTitle>
           <styled.h2 textStyle="paragraph.md.default" maxW="8/12">
@@ -25,7 +25,7 @@ export default function FinishMainContent({
           </styled.h2>
         </Stack>
         <Card>
-          <Stack gap="8">
+          <Stack gap={{ base: "4", xl: "8" }}>
             <styled.h3>{t("finish.subtitle")}</styled.h3>
             <Grid columns={4} gap="8" justifyContent="center" width="full">
               {children}

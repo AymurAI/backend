@@ -9,6 +9,7 @@ import HiddenInput from "@/components/hidden-input";
 import HowItWorks from "@/components/how-it-works";
 import Footer from "@/components/layout/footer";
 import Header from "@/components/layout/header";
+import HomeButton from "@/components/layout/home-button";
 import MainContent from "@/components/layout/main-content";
 import BackButton from "@/components/ui/back-button";
 import Button from "@/components/ui/button";
@@ -66,7 +67,7 @@ function RouteComponent() {
 
   return (
     <>
-      <Header title={t("title")} feature={feature} />
+      <Header title={t("title")} feature={feature} right={<HomeButton />} />
       <MainContent>
         {tutorialSeen ? (
           <Stack gap="8">

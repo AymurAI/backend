@@ -8,6 +8,26 @@ import type { Workflows } from "@/types/aymurai";
 import type { DocFile } from "@/types/file";
 import { useQueries, useQueryClient } from "@tanstack/react-query";
 
+// Limit concurrent in-flight predict requests to avoid browser connection exhaustion
+const MAX_CONCURRENT = 100;
+const semaphore = (() => {
+  let running = 0;
+  const queue: Array<() => void> = [];
+  return {
+    acquire(): Promise<void> {
+      return new Promise((resolve) => {
+        if (running < MAX_CONCURRENT) { running++; resolve(); }
+        else queue.push(resolve);
+      });
+    },
+    release() {
+      const next = queue.shift();
+      if (next) next();
+      else running = Math.max(0, running - 1);
+    },
+  };
+})();
+
 export type PredictStatus = "processing" | "error" | "stopped" | "completed";
 
 type FilePredict = {
@@ -47,9 +67,17 @@ export function usePredict(
       queryFn: async ({ signal }: { signal?: AbortSignal }) => {
         const controller = new AbortController();
         signal?.addEventListener("abort", () => controller.abort());
-        const predictions = await predict(paragraph, controller, workflow);
-        dispatch(addPredictions(file.data.name, predictions));
-        return predictions;
+        await semaphore.acquire();
+        try {
+          if (!controller.signal.aborted) {
+            const predictions = await predict(paragraph, controller, workflow);
+            dispatch(addPredictions(file.data.name, predictions));
+            return predictions;
+          }
+          return [];
+        } finally {
+          semaphore.release();
+        }
       },
     })),
   });

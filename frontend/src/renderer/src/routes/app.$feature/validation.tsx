@@ -2,6 +2,7 @@ import { Button, FileAnnotator, ValidateDataset } from "@/components";
 import Stepper from "@/components/home/stepper";
 import Footer from "@/components/layout/footer";
 import Header from "@/components/layout/header";
+import HomeButton from "@/components/layout/home-button";
 import RequireFile from "@/features/RequireFile";
 import { useFiles } from "@/hooks";
 import { Grid, Stack } from "@/styled/jsx";
@@ -37,6 +38,7 @@ function RouteComponent() {
           title={t("title")}
           center={<Stepper currentStep={3} />}
           feature={feature}
+          right={<HomeButton />}
         />
         <Grid
           columns={1}

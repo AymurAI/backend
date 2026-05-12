@@ -62,7 +62,7 @@ export default function LabelConfigTab() {
 
   return (
     <Stack gap="6" align="stretch">
-      <LabelManagerSection title="Categorias incluidas">
+      <LabelManagerSection title="Categorías incluidas">
         <Stack>
           {anonymizerLabels.map((label) => (
             <Switch
@@ -79,14 +79,14 @@ export default function LabelConfigTab() {
         <Stack align="stretch" gap="6">
           <Stack align="stretch" gap="2">
             <Input
-              label="Terminos excluidos"
-              placeholder="Ingresa un termino"
+              label="Términos excluidos"
+              placeholder="Ingresa un término"
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleAddWord()}
             />
             <Button variant="secondary" size="sm" onClick={handleAddWord}>
-              Agregar termino
+              Agregar término
             </Button>
           </Stack>
           {excludedWords.length > 0 && (

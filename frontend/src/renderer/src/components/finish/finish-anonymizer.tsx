@@ -3,6 +3,7 @@ import { aymuraiService } from "@/services/aymurai";
 import { useExcludedTagsConfig } from "@/store/useLocal";
 import { HStack } from "@/styled/jsx";
 import { FeatureFlowEnum } from "@/types/features";
+import { showToast } from "@/features/showToast";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import FileCheck from "../file-check";
@@ -13,6 +14,7 @@ import FinishMainContent from "./finish-main-content";
 interface FinishAnonymizerProps {
   onRestart: () => void;
 }
+
 export default function FinishAnonymizer({ onRestart }: FinishAnonymizerProps) {
   const { t } = useTranslation("anonymizer");
   const file = useFiles().at(0);
@@ -20,8 +22,10 @@ export default function FinishAnonymizer({ onRestart }: FinishAnonymizerProps) {
 
   if (!file) throw new Error("Reached /finish but there's no file to read");
 
+  const isPdfInput = getExtension(file.data.name) === "pdf";
+
   const {
-    data: odtFile,
+    data: anonymizedFile,
     isLoading,
     isError,
   } = useQuery(aymuraiService.anonymize(file, tags, words));
@@ -30,25 +34,49 @@ export default function FinishAnonymizer({ onRestart }: FinishAnonymizerProps) {
     aymuraiService.odtToPdf(),
   );
 
+  const { mutate: convertToOdt, isPending: isOdtPending } = useMutation(
+    aymuraiService.pdfToOdt(),
+  );
+
+  const onConversionError = (error: Error) => {
+    console.error("Conversion failed:", error);
+    showToast(t("finish.downloadError"), "error");
+  };
+
   const downloadDocument = () => {
-    if (!odtFile) {
+    if (!anonymizedFile) {
       console.error("Tried to download a file that is not ready.");
       return;
     }
-    triggerDownload(odtFile, changeExtension(file.data.name));
+
+    if (isPdfInput) {
+      convertToOdt(anonymizedFile, {
+        onSuccess: (odtBlob) => {
+          triggerDownload(odtBlob, changeExtension(file.data.name));
+        },
+        onError: onConversionError,
+      });
+    } else {
+      triggerDownload(anonymizedFile, changeExtension(file.data.name));
+    }
   };
 
   const downloadPdf = () => {
-    if (!odtFile) {
+    if (!anonymizedFile) {
       console.error("Tried to download a file that is not ready.");
       return;
     }
 
-    convertToPdf(odtFile, {
-      onSuccess: (pdfBlob) => {
-        triggerDownload(pdfBlob, changeExtension(file.data.name, "pdf"));
-      },
-    });
+    if (isPdfInput) {
+      triggerDownload(anonymizedFile, changeExtension(file.data.name, "pdf"));
+    } else {
+      convertToPdf(anonymizedFile, {
+        onSuccess: (pdfBlob) => {
+          triggerDownload(pdfBlob, changeExtension(file.data.name, "pdf"));
+        },
+        onError: onConversionError,
+      });
+    }
   };
 
   return (
@@ -68,7 +96,7 @@ export default function FinishAnonymizer({ onRestart }: FinishAnonymizerProps) {
           <Button
             onClick={downloadDocument}
             disabled={isError}
-            isLoading={isLoading}
+            isLoading={isLoading || isOdtPending}
           >
             {t("finish.viewResult")}
           </Button>
@@ -83,6 +111,10 @@ export default function FinishAnonymizer({ onRestart }: FinishAnonymizerProps) {
       </Footer>
     </>
   );
+}
+
+function getExtension(name: string) {
+  return name.split(".").pop()?.toLowerCase() ?? "";
 }
 
 function triggerDownload(blob: Blob, fileName: string) {

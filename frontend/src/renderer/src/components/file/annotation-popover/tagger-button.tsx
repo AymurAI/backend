@@ -8,7 +8,7 @@ import { sva } from "@/styled/css";
 import { styled } from "@/styled/jsx";
 
 const button = sva({
-  slots: ["button", "tooltip_content"],
+  slots: ["button", "tooltipContent"],
   base: {
     button: {
       p: "0.5",
@@ -19,7 +19,7 @@ const button = sva({
         bg: "action.hover",
       },
     },
-    tooltip_content: {
+    tooltipContent: {
       bg: "action.hover",
       color: "white",
       px: "1",
@@ -69,7 +69,7 @@ export default function TaggerButton({
           </button>
         </TooltipTrigger>
         <TooltipContent showArrow={false} sideOffset={12}>
-          <div className={classes.tooltip_content}>
+          <div className={classes.tooltipContent}>
             <styled.p textStyle="label.sm.default">{tooltip}</styled.p>
           </div>
         </TooltipContent>
