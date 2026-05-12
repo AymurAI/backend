@@ -2,6 +2,7 @@ import { useTutorialSeen } from "@/store/useLocal";
 import { css } from "@/styled/css";
 import { Divider, HStack, Stack, styled } from "@/styled/jsx";
 import type { FeatureFlowEnum } from "@/types/features";
+import { Link } from "@tanstack/react-router";
 import FeaturesMenu from "../features-menu";
 import HowItWorksModal from "../how-it-works-modal";
 
@@ -24,14 +25,12 @@ const centerSlot = css({
   transform: "translateX(-50%)",
 });
 
-type HeaderProps = {
+interface HeaderProps {
   title?: string;
   center?: React.ReactNode;
-} & (
-  | { feature: FeatureFlowEnum; right?: never }
-  | { right: React.ReactNode; feature?: never }
-  | { right?: never; feature?: never }
-);
+  feature?: FeatureFlowEnum;
+  right?: React.ReactNode;
+}
 
 export default function Header({ title, center, feature, right }: HeaderProps) {
   const tutorialSeen = useTutorialSeen(feature!);
@@ -40,33 +39,30 @@ export default function Header({ title, center, feature, right }: HeaderProps) {
     ? `${import.meta.env.BASE_URL}brand/aymurai-iso-darkpurple.svg`
     : `${import.meta.env.BASE_URL}brand/aymurai-hor-darkpurple.svg`;
 
-  const rightSlot = feature ? (
-    <HStack>
-      {tutorialSeen && <HowItWorksModal feature={feature} />}
-      <FeaturesMenu />
-    </HStack>
-  ) : (
-    right
-  );
-
   return (
     <header className={header}>
-      <Stack gap="4" align="center" direction="row">
-        <img height={40} src={img} alt="AymurAI logo" />
-        {title && (
-          <>
-            <Divider
-              orientation="vertical"
-              thickness="[2px]"
-              color="text.default"
-              height="4"
-            />
-            <styled.span textStyle="subtitle.md.strong">{title}</styled.span>
-          </>
-        )}
-      </Stack>
+      <Link to="/home/features">
+        <Stack gap="4" align="center" direction="row">
+          <img height={40} src={img} alt="AymurAI logo" />
+          {title && (
+            <>
+              <Divider
+                orientation="vertical"
+                thickness="[2px]"
+                color="text.default"
+                height="4"
+              />
+              <styled.span textStyle="subtitle.md.strong">{title}</styled.span>
+            </>
+          )}
+        </Stack>
+      </Link>
       {center && <div className={centerSlot}>{center}</div>}
-      {rightSlot}
+      <HStack>
+        {tutorialSeen && feature && <HowItWorksModal feature={feature} />}
+        {right}
+        <FeaturesMenu />
+      </HStack>
     </header>
   );
 }

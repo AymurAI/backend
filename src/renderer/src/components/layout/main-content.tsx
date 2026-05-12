@@ -15,7 +15,7 @@ const content = cva({
       false: {
         ...stack.raw({ align: "center", gap: "0" }),
 
-        pt: "16",
+        pt: { base: "6", xl: "16" },
         px: "8",
 
         "& > div.spacing": {

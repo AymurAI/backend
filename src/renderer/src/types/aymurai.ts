@@ -90,7 +90,11 @@ export enum LabelAnonimizer {
   USUARIX = "USUARIX",
 }
 
-export type AllLabels = LabelType | LabelDecisiones | LabelAnonimizer | AnonymizerLabels;
+export type AllLabels =
+  | LabelType
+  | LabelDecisiones
+  | LabelAnonimizer
+  | AnonymizerLabels;
 export type AllLabelsWithSufix = `${AllLabels}_${number}`;
 
 export const anonymizerLabels = [
@@ -102,7 +106,7 @@ export const anonymizerLabels = [
   { id: "DENUNCIANTE", text: "Denunciante" },
   { id: "ACUSADO/A", text: "Acusado/a" },
   { id: "TESTIGO/A", text: "Testigo/a" },
-  { id: "NINO/A_ADOSLECENTE", text: "Niño/a adolescente" },
+  { id: "NIÑO/A_ADOSLECENTE", text: "Niño/a adolescente" },
   { id: "AFILIADO", text: "N° de afiliado" },
   { id: "CAUSA", text: "N° de causa" },
   { id: "INSTITUCION", text: "Nombre de institución" },

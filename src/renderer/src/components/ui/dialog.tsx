@@ -34,8 +34,8 @@ const contentStyles = css({
   boxShadow: "[0px 4px 8px rgba(0, 0, 0, 0.1)]",
 
   width: "[90vw]",
-  minW: "[300px]",
-  maxW: "[700px]",
+  minWidth: "[300px]",
+  maxWidth: "[80%]",
   h: "[fit-content]",
 
   "&[data-state='open']": {

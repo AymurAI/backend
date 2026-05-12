@@ -23,6 +23,7 @@ interface SelectProps {
   label?: string;
   value?: string;
   onChange?: (value: SelectOption) => void;
+  onOpenChange?: (open: boolean) => void;
   prefix?: string;
   suffix?: string;
   suggestion?: SelectSuggestion;
@@ -108,7 +109,7 @@ const select = sva({
       color: "text.default",
       transition: "[transform 0.15s ease]",
 
-      "[data-state='open'] &": {
+      "[data-state='open'] > &": {
         transform: "[rotate(180deg)]",
       },
     },
@@ -184,6 +185,7 @@ export default function Select({
   label,
   value,
   onChange,
+  onOpenChange,
   prefix,
   suffix,
   suggestion,
@@ -233,6 +235,7 @@ export default function Select({
       <RadixSelect.Root
         value={value}
         onValueChange={handleChange}
+        onOpenChange={onOpenChange}
         disabled={disabled}
       >
         <RadixSelect.Trigger id={triggerId} asChild>

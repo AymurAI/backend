@@ -12,6 +12,7 @@ import { showToast } from "@/features/showToast";
 import type { AllLabels, AllLabelsWithSufix } from "@/types/aymurai";
 import AnnotationPopover from "../annotation-popover";
 import SuggestionLabel from "../suggestion-label";
+import RemoveDialog from "./remove-dialog";
 import ReplaceDialog from "./replace-dialog";
 
 interface TagAnnotationProps {
@@ -27,13 +28,14 @@ export default function TagAnnotation({
       `Annotation of type "tag" expected but got: ${annotation.type}`,
     );
 
-  const { updateLabel, updateByText, updateByCanonicalId, isAnnotable } = useAnnotation();
+  const { updateLabel, updateByText, remove, removeByText, isAnnotable } = useAnnotation();
+  const [removeAllOpen, setRemoveAllOpen] = useState(false);
   const [replaceAllLabelWithSuffix, setReplaceAllLabelWithSuffix] = useState<
     AllLabels | AllLabelsWithSufix | null
   >(null);
   const tag = annotation.tag;
 
-  const { start, end, paragraphId, canonical_entity_id } = annotation as LabelAnnotation;
+  const { start, end, paragraphId } = annotation as LabelAnnotation;
   const annotationData = annotation.tag
     ? {
         text: children,
@@ -68,6 +70,8 @@ export default function TagAnnotation({
       <AnnotationPopover
         onClickOne={handleReplaceOne}
         onClickAll={handleReplaceAll}
+        onDeleteOne={handleDeleteOne}
+        onDeleteAll={handleDeleteAll}
       >
         <SuggestionLabel isClickable label={tag} {...metadata}>
           {children}
@@ -75,9 +79,16 @@ export default function TagAnnotation({
       </AnnotationPopover>
       <ReplaceDialog
         isOpen={!!replaceAllLabelWithSuffix}
+        text={children}
         label={replaceAllLabelWithSuffix ?? ""}
         onClose={(open) => !open && setReplaceAllLabelWithSuffix(null)}
         onConfirm={confirmReplaceAll}
+      />
+      <RemoveDialog
+        isOpen={removeAllOpen}
+        text={children}
+        onClose={(open) => !open && setRemoveAllOpen(false)}
+        onConfirm={confirmRemoveAll}
       />
     </>
   );
@@ -96,14 +107,26 @@ export default function TagAnnotation({
     setReplaceAllLabelWithSuffix(labelWithSuffix);
   }
 
+  function handleDeleteOne() {
+    if (!annotationData) return;
+    remove(annotationData);
+    showToast("Se eliminó la anotación.", "success", Check);
+  }
+
+  function handleDeleteAll() {
+    setRemoveAllOpen(true);
+  }
+
+  function confirmRemoveAll() {
+    if (!annotationData) return;
+    removeByText(annotationData);
+    setRemoveAllOpen(false);
+    showToast("Se eliminaron todas las ocurrencias.", "success", Check);
+  }
+
   function confirmReplaceAll() {
     if (!annotationData || !replaceAllLabelWithSuffix) return;
-
-    if (canonical_entity_id) {
-      updateByCanonicalId(canonical_entity_id, replaceAllLabelWithSuffix);
-    } else {
-      updateByText(annotationData, replaceAllLabelWithSuffix);
-    }
+    updateByText(annotationData, replaceAllLabelWithSuffix);
     setReplaceAllLabelWithSuffix(null);
     showToast(
       "Se reemplazó la etiqueta en todas las ocurrencias.",

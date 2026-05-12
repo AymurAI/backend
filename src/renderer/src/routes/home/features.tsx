@@ -1,6 +1,5 @@
 import BuiltBy from "@/components/brand/built-by";
 import FeatureIcon from "@/components/feature-icon";
-import FeaturesMenu from "@/components/features-menu";
 import Header from "@/components/layout/header";
 import MainContent from "@/components/layout/main-content";
 import Card from "@/components/ui/card";
@@ -64,14 +63,13 @@ function RouteComponent() {
   return (
     <APIProtected>
       <Stack width="screen" height="screen" gap="0">
-        <Header right={<FeaturesMenu />} />
+        <Header />
         <MainContent>
           <Stack gap="6">
             <styled.h1 textStyle="title.md.strong">
               {t("home.features.greeting")}
             </styled.h1>
             <Grid columns={2} rowGap="6" columnGap="6">
-              {/* FIXME: fix the text wrapping on smaller screens */}
               <CardTool
                 to="/app/$feature"
                 params={{ feature: FeatureFlowEnum.Dataset }}

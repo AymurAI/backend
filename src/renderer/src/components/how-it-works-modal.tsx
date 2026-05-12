@@ -34,7 +34,9 @@ const closeButton = css({
 });
 
 const content = css({
-  minWidth: "[900px]",
+  overflowY: "auto",
+  maxH: "[90vh]",
+  maxW: "5xl!",  
 });
 
 interface HowItWorksModalProps {
@@ -59,7 +61,7 @@ export default function HowItWorksModal({ feature }: HowItWorksModalProps) {
         </TooltipTrigger>
         <TooltipContent className={tooltip}>{t("howItWorks")}</TooltipContent>
       </Tooltip>
-      <DialogContent className={content}>
+      <DialogContent className={content} style={{ width: "90vw" }}>
         <Stack gap="0">
           <HowItWorks
             title={

@@ -12,7 +12,7 @@ export interface Paragraph {
  */
 export type DocFile = {
   /**
-   * .docx file contents
+   * File contents
    */
   data: File;
   /**
