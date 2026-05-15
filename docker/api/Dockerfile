@@ -1,3 +1,20 @@
+# syntax=docker/dockerfile:1.7
+
+# -------------------
+# Frontend Build Stage
+# -------------------
+FROM node:lts-bookworm AS frontend-builder
+
+WORKDIR /frontend
+
+COPY frontend/ ./
+
+RUN --mount=type=cache,target=/root/.npm \
+    npm install
+
+RUN npm run build:web
+
+
 # -------------------
 # Build Stage
 # -------------------
@@ -74,9 +91,12 @@ COPY --from=builder --chown=app:app /app/.venv /app/.venv
 
 # Copy static resources
 COPY resources/pipelines /resources/pipelines
+COPY --from=frontend-builder /frontend/out/renderer /app/frontend-dist
 
 # Set working directory
 WORKDIR /app
+
+ENV FRONTEND_DIST_DIR=/app/frontend-dist
 
 # Define start command
 CMD uv run fastapi run --port 8899 .venv/lib/python3.10/site-packages/aymurai/api/main.py
