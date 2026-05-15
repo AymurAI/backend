@@ -5,30 +5,30 @@ This document describes the currently mounted public API in `aymurai/api/main.py
 
 ## Base URL and OpenAPI
 - Local base URL: `http://localhost:8899`
-- Swagger UI: `http://localhost:8899/docs`
-- OpenAPI JSON: `http://localhost:8899/openapi.json`
+- Swagger UI: `http://localhost:8899/api/docs`
+- OpenAPI JSON: `http://localhost:8899/api/openapi.json`
 
 ## Public Endpoints (Mounted)
 
 | Method | Path | Purpose |
 |---|---|---|
-| `GET` | `/server/healthcheck` | Service liveness check |
-| `GET` | `/server/stats/summary` | Runtime CPU/memory stats |
-| `POST` | `/document-extract` | Deprecated alias of `/misc/document-extract` |
-| `POST` | `/misc/document-extract` | Extract normalized paragraphs from uploaded document |
-| `POST` | `/anonymizer/predict` | NER prediction for a paragraph |
-| `POST` | `/anonymizer/disambiguate` | Canonical entity disambiguation + policy merge |
-| `POST` | `/anonymizer/validation` | Fetch paragraph-level manual validation |
-| `POST` | `/anonymizer/anonymize-document` | Compile and export anonymized document |
-| `POST` | `/datapublic/predict/{document_id}` | Predict entities for data-public flow |
-| `GET` | `/datapublic/validation/document/{document_id}` | Read document-level validation |
-| `POST` | `/datapublic/validation/document/{document_id}` | Save document-level validation |
-| `POST` | `/convert/pdf/odt` | Convert PDF to ODT |
-| `POST` | `/convert/pdf/docx` | Convert PDF to DOCX |
-| `POST` | `/convert/docx/odt` | Convert DOCX to ODT |
-| `POST` | `/convert/docx/pdf` | Convert DOCX to PDF |
-| `POST` | `/convert/odt/pdf` | Convert ODT to PDF |
-| `POST` | `/convert/odt/docx` | Convert ODT to DOCX |
+| `GET` | `/api/server/healthcheck` | Service liveness check |
+| `GET` | `/api/server/stats/summary` | Runtime CPU/memory stats |
+| `POST` | `/api/document-extract` | Deprecated alias of `/api/misc/document-extract` |
+| `POST` | `/api/misc/document-extract` | Extract normalized paragraphs from uploaded document |
+| `POST` | `/api/anonymizer/predict` | NER prediction for a paragraph |
+| `POST` | `/api/anonymizer/disambiguate` | Canonical entity disambiguation + policy merge |
+| `POST` | `/api/anonymizer/validation` | Fetch paragraph-level manual validation |
+| `POST` | `/api/anonymizer/anonymize-document` | Compile and export anonymized document |
+| `POST` | `/api/datapublic/predict/{document_id}` | Predict entities for data-public flow |
+| `GET` | `/api/datapublic/validation/document/{document_id}` | Read document-level validation |
+| `POST` | `/api/datapublic/validation/document/{document_id}` | Save document-level validation |
+| `POST` | `/api/convert/pdf/odt` | Convert PDF to ODT |
+| `POST` | `/api/convert/pdf/docx` | Convert PDF to DOCX |
+| `POST` | `/api/convert/docx/odt` | Convert DOCX to ODT |
+| `POST` | `/api/convert/docx/pdf` | Convert DOCX to PDF |
+| `POST` | `/api/convert/odt/pdf` | Convert ODT to PDF |
+| `POST` | `/api/convert/odt/docx` | Convert ODT to DOCX |
 
 ## Core Data Contracts
 
@@ -136,7 +136,7 @@ Note: the JSON snippets below are minimal valid examples. Real payloads may incl
 ```
 
 ```bash
-curl -s http://localhost:8899/server/healthcheck
+curl -s http://localhost:8899/api/server/healthcheck
 ```
 
 #### `GET /server/stats/summary`
@@ -153,7 +153,7 @@ curl -s http://localhost:8899/server/healthcheck
 ```
 
 ```bash
-curl -s http://localhost:8899/server/stats/summary
+curl -s http://localhost:8899/api/server/stats/summary
 ```
 
 ### Document Extraction
@@ -174,7 +174,7 @@ curl -s http://localhost:8899/server/stats/summary
 ```bash
 curl -s -X POST \
   -F "file=@/resources/data/sample/document-01.docx" \
-  http://localhost:8899/misc/document-extract
+  http://localhost:8899/api/misc/document-extract
 ```
 
 Common errors:
@@ -189,7 +189,7 @@ Common errors:
 - Response `200`: `DocumentInformation`
 
 ```bash
-curl -s -X POST "http://localhost:8899/anonymizer/predict?use_cache=true" \
+curl -s -X POST "http://localhost:8899/api/anonymizer/predict?use_cache=true" \
   -H "Content-Type: application/json" \
   -d '{"text":"Acusado: Ramiro Marrón DNI 34.555.666."}'
 ```
@@ -218,7 +218,7 @@ curl -s -X POST "http://localhost:8899/anonymizer/predict?use_cache=true" \
 - Response `200`: `DocumentAnnotations` (with `data` and effective `label_policies`)
 
 ```bash
-curl -s -X POST http://localhost:8899/anonymizer/disambiguate \
+curl -s -X POST http://localhost:8899/api/anonymizer/disambiguate \
   -H "Content-Type: application/json" \
   -d '{"paragraphs":[{"document":"Acusado: Ramiro Marrón DNI 34.555.666.","labels":[]}],"label_policies":{"PER":{"anonymize":true,"disambiguation":"fuzzy"}}}'
 ```
@@ -228,7 +228,7 @@ curl -s -X POST http://localhost:8899/anonymizer/disambiguate \
 - Response `200`: `list[DocLabel] | null`
 
 ```bash
-curl -s -X POST http://localhost:8899/anonymizer/validation \
+curl -s -X POST http://localhost:8899/api/anonymizer/validation \
   -H "Content-Type: application/json" \
   -d '{"text":"Acusado: Ramiro Marrón DNI 34.555.666."}'
 ```
@@ -240,7 +240,7 @@ curl -s -X POST http://localhost:8899/anonymizer/validation \
 - Response `200`: binary anonymized `.odt` file
 
 ```bash
-curl -X POST http://localhost:8899/anonymizer/anonymize-document \
+curl -X POST http://localhost:8899/api/anonymizer/anonymize-document \
   -F "file=@/resources/data/sample/document-01.docx" \
   -F 'annotations={"data":[{"document":"Acusado: Ramiro Marrón DNI 34.555.666.","labels":[]}],"label_policies":{"PER":{"anonymize":true,"disambiguation":"fuzzy"}},"render_policy":{"suffix_mode":"auto","suffix_threshold":1}}'
 ```
@@ -258,7 +258,7 @@ Common errors:
 - Response `200`: `DocumentInformation`
 
 ```bash
-curl -s -X POST "http://localhost:8899/datapublic/predict/7e6b6f35-2f29-58f7-9f8e-fd1d9026a6bc?use_cache=true" \
+curl -s -X POST "http://localhost:8899/api/datapublic/predict/7e6b6f35-2f29-58f7-9f8e-fd1d9026a6bc?use_cache=true" \
   -H "Content-Type: application/json" \
   -d '{"text":"Buenos Aires, 17 de noviembre de 2024"}'
 ```
@@ -268,7 +268,7 @@ curl -s -X POST "http://localhost:8899/datapublic/predict/7e6b6f35-2f29-58f7-9f8
 - Response `404`: document not found
 
 ```bash
-curl -s http://localhost:8899/datapublic/validation/document/7e6b6f35-2f29-58f7-9f8e-fd1d9026a6bc
+curl -s http://localhost:8899/api/datapublic/validation/document/7e6b6f35-2f29-58f7-9f8e-fd1d9026a6bc
 ```
 
 #### `POST /datapublic/validation/document/{document_id}`
@@ -276,7 +276,7 @@ curl -s http://localhost:8899/datapublic/validation/document/7e6b6f35-2f29-58f7-
 - Response `200`: empty body
 
 ```bash
-curl -s -X POST http://localhost:8899/datapublic/validation/document/7e6b6f35-2f29-58f7-9f8e-fd1d9026a6bc \
+curl -s -X POST http://localhost:8899/api/datapublic/validation/document/7e6b6f35-2f29-58f7-9f8e-fd1d9026a6bc \
   -H "Content-Type: application/json" \
   -d '{"materia":"penal","violencia_de_genero":"si"}'
 ```
@@ -287,12 +287,12 @@ All conversion endpoints use `multipart/form-data` with a `file` field.
 
 | Method | Path | Input | Output |
 |---|---|---|---|
-| `POST` | `/convert/pdf/odt` | `.pdf` | `.odt` |
-| `POST` | `/convert/pdf/docx` | `.pdf` | `.docx` |
-| `POST` | `/convert/docx/odt` | `.docx` | `.odt` |
-| `POST` | `/convert/docx/pdf` | `.docx` | `.pdf` |
-| `POST` | `/convert/odt/pdf` | `.odt` | `.pdf` |
-| `POST` | `/convert/odt/docx` | `.odt` | `.docx` |
+| `POST` | `/api/convert/pdf/odt` | `.pdf` | `.odt` |
+| `POST` | `/api/convert/pdf/docx` | `.pdf` | `.docx` |
+| `POST` | `/api/convert/docx/odt` | `.docx` | `.odt` |
+| `POST` | `/api/convert/docx/pdf` | `.docx` | `.pdf` |
+| `POST` | `/api/convert/odt/pdf` | `.odt` | `.pdf` |
+| `POST` | `/api/convert/odt/docx` | `.odt` | `.docx` |
 
 For PDF input endpoints, optional query param:
 - `backend=libreoffice|pandoc` (default: `libreoffice`)
@@ -312,9 +312,9 @@ Common errors:
 The following route modules exist in code but are not included in `core.router` at runtime:
 
 - `aymurai/api/endpoints/routers/datapublic/dataset.py`
-  - includes `/datapublic/dataset/*` CRUD/batch routes, but router is not mounted.
+  - includes `/api/datapublic/dataset/*` CRUD/batch routes, but router is not mounted.
 - `aymurai/api/endpoints/routers/anonymizer/database.py`
-  - `/anonymizer/database/*` routes exist, include is commented out.
+  - `/api/anonymizer/database/*` routes exist, include is commented out.
 - `aymurai/api/endpoints/routers/database/*`
   - additional DB admin routes exist, but no mounting in `core.router`.
 
