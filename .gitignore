@@ -135,3 +135,6 @@ aymurai/version.py
 notebooks/**
 !notebooks/**/
 !notebooks/**/*.ipynb
+
+# Frontend build output
+frontend-dist/
