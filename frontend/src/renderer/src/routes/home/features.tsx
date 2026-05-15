@@ -71,14 +71,14 @@ function RouteComponent() {
             </styled.h1>
             <Grid columns={2} rowGap="6" columnGap="6">
               <CardTool
-                to="/app/$feature"
+                to="/$feature"
                 params={{ feature: FeatureFlowEnum.Dataset }}
                 title={t("dataset:title")}
                 subtitle={t("dataset:subtitle")}
                 icon={FEATURE_ICON.DATA_SET}
               />
               <CardTool
-                to="/app/$feature"
+                to="/$feature"
                 params={{ feature: FeatureFlowEnum.Anonymizer }}
                 title={t("anonymizer:title")}
                 subtitle={t("anonymizer:subtitle")}

@@ -31,7 +31,7 @@ export default function FeaturesMenu() {
           {features.map((feature) => (
             <Link
               key={feature}
-              to="/app/$feature"
+              to="/$feature"
               params={{ feature }}
               onClick={handleClearFiles}
             >

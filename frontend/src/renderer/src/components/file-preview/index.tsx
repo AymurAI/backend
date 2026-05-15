@@ -16,7 +16,7 @@ interface Props {
   status: PredictStatus;
 }
 export default function FilePreview({ file, status }: Props) {
-  const { feature } = useParams({ from: "/app/$feature/preview" });
+  const { feature } = useParams({ from: "/$feature/preview" });
   const { t } = useTranslation();
   const dispatch = useFileDispatch();
 

@@ -9,18 +9,23 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as FeatureRouteRouteImport } from './routes/$feature/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as HomeIndexRouteImport } from './routes/home/index'
+import { Route as FeatureIndexRouteImport } from './routes/$feature/index'
 import { Route as HomeHostRouteImport } from './routes/home/host'
 import { Route as HomeFeaturesRouteImport } from './routes/home/features'
-import { Route as AppFeatureRouteRouteImport } from './routes/app.$feature/route'
-import { Route as AppFeatureIndexRouteImport } from './routes/app.$feature/index'
-import { Route as AppFeatureValidationRouteImport } from './routes/app.$feature/validation'
-import { Route as AppFeatureProcessRouteImport } from './routes/app.$feature/process'
-import { Route as AppFeaturePreviewRouteImport } from './routes/app.$feature/preview'
-import { Route as AppFeatureOnboardingRouteImport } from './routes/app.$feature/onboarding'
-import { Route as AppFeatureFinishRouteImport } from './routes/app.$feature/finish'
+import { Route as FeatureValidationRouteImport } from './routes/$feature/validation'
+import { Route as FeatureProcessRouteImport } from './routes/$feature/process'
+import { Route as FeaturePreviewRouteImport } from './routes/$feature/preview'
+import { Route as FeatureOnboardingRouteImport } from './routes/$feature/onboarding'
+import { Route as FeatureFinishRouteImport } from './routes/$feature/finish'
 
+const FeatureRouteRoute = FeatureRouteRouteImport.update({
+  id: '/$feature',
+  path: '/$feature',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -30,6 +35,11 @@ const HomeIndexRoute = HomeIndexRouteImport.update({
   id: '/home/',
   path: '/home/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const FeatureIndexRoute = FeatureIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => FeatureRouteRoute,
 } as any)
 const HomeHostRoute = HomeHostRouteImport.update({
   id: '/home/host',
@@ -41,125 +51,115 @@ const HomeFeaturesRoute = HomeFeaturesRouteImport.update({
   path: '/home/features',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AppFeatureRouteRoute = AppFeatureRouteRouteImport.update({
-  id: '/app/$feature',
-  path: '/app/$feature',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AppFeatureIndexRoute = AppFeatureIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => AppFeatureRouteRoute,
-} as any)
-const AppFeatureValidationRoute = AppFeatureValidationRouteImport.update({
+const FeatureValidationRoute = FeatureValidationRouteImport.update({
   id: '/validation',
   path: '/validation',
-  getParentRoute: () => AppFeatureRouteRoute,
+  getParentRoute: () => FeatureRouteRoute,
 } as any)
-const AppFeatureProcessRoute = AppFeatureProcessRouteImport.update({
+const FeatureProcessRoute = FeatureProcessRouteImport.update({
   id: '/process',
   path: '/process',
-  getParentRoute: () => AppFeatureRouteRoute,
+  getParentRoute: () => FeatureRouteRoute,
 } as any)
-const AppFeaturePreviewRoute = AppFeaturePreviewRouteImport.update({
+const FeaturePreviewRoute = FeaturePreviewRouteImport.update({
   id: '/preview',
   path: '/preview',
-  getParentRoute: () => AppFeatureRouteRoute,
+  getParentRoute: () => FeatureRouteRoute,
 } as any)
-const AppFeatureOnboardingRoute = AppFeatureOnboardingRouteImport.update({
+const FeatureOnboardingRoute = FeatureOnboardingRouteImport.update({
   id: '/onboarding',
   path: '/onboarding',
-  getParentRoute: () => AppFeatureRouteRoute,
+  getParentRoute: () => FeatureRouteRoute,
 } as any)
-const AppFeatureFinishRoute = AppFeatureFinishRouteImport.update({
+const FeatureFinishRoute = FeatureFinishRouteImport.update({
   id: '/finish',
   path: '/finish',
-  getParentRoute: () => AppFeatureRouteRoute,
+  getParentRoute: () => FeatureRouteRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/app/$feature': typeof AppFeatureRouteRouteWithChildren
+  '/$feature': typeof FeatureRouteRouteWithChildren
+  '/$feature/finish': typeof FeatureFinishRoute
+  '/$feature/onboarding': typeof FeatureOnboardingRoute
+  '/$feature/preview': typeof FeaturePreviewRoute
+  '/$feature/process': typeof FeatureProcessRoute
+  '/$feature/validation': typeof FeatureValidationRoute
   '/home/features': typeof HomeFeaturesRoute
   '/home/host': typeof HomeHostRoute
-  '/home': typeof HomeIndexRoute
-  '/app/$feature/finish': typeof AppFeatureFinishRoute
-  '/app/$feature/onboarding': typeof AppFeatureOnboardingRoute
-  '/app/$feature/preview': typeof AppFeaturePreviewRoute
-  '/app/$feature/process': typeof AppFeatureProcessRoute
-  '/app/$feature/validation': typeof AppFeatureValidationRoute
-  '/app/$feature/': typeof AppFeatureIndexRoute
+  '/$feature/': typeof FeatureIndexRoute
+  '/home/': typeof HomeIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/$feature/finish': typeof FeatureFinishRoute
+  '/$feature/onboarding': typeof FeatureOnboardingRoute
+  '/$feature/preview': typeof FeaturePreviewRoute
+  '/$feature/process': typeof FeatureProcessRoute
+  '/$feature/validation': typeof FeatureValidationRoute
   '/home/features': typeof HomeFeaturesRoute
   '/home/host': typeof HomeHostRoute
+  '/$feature': typeof FeatureIndexRoute
   '/home': typeof HomeIndexRoute
-  '/app/$feature/finish': typeof AppFeatureFinishRoute
-  '/app/$feature/onboarding': typeof AppFeatureOnboardingRoute
-  '/app/$feature/preview': typeof AppFeaturePreviewRoute
-  '/app/$feature/process': typeof AppFeatureProcessRoute
-  '/app/$feature/validation': typeof AppFeatureValidationRoute
-  '/app/$feature': typeof AppFeatureIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/app/$feature': typeof AppFeatureRouteRouteWithChildren
+  '/$feature': typeof FeatureRouteRouteWithChildren
+  '/$feature/finish': typeof FeatureFinishRoute
+  '/$feature/onboarding': typeof FeatureOnboardingRoute
+  '/$feature/preview': typeof FeaturePreviewRoute
+  '/$feature/process': typeof FeatureProcessRoute
+  '/$feature/validation': typeof FeatureValidationRoute
   '/home/features': typeof HomeFeaturesRoute
   '/home/host': typeof HomeHostRoute
+  '/$feature/': typeof FeatureIndexRoute
   '/home/': typeof HomeIndexRoute
-  '/app/$feature/finish': typeof AppFeatureFinishRoute
-  '/app/$feature/onboarding': typeof AppFeatureOnboardingRoute
-  '/app/$feature/preview': typeof AppFeaturePreviewRoute
-  '/app/$feature/process': typeof AppFeatureProcessRoute
-  '/app/$feature/validation': typeof AppFeatureValidationRoute
-  '/app/$feature/': typeof AppFeatureIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/app/$feature'
+    | '/$feature'
+    | '/$feature/finish'
+    | '/$feature/onboarding'
+    | '/$feature/preview'
+    | '/$feature/process'
+    | '/$feature/validation'
     | '/home/features'
     | '/home/host'
-    | '/home'
-    | '/app/$feature/finish'
-    | '/app/$feature/onboarding'
-    | '/app/$feature/preview'
-    | '/app/$feature/process'
-    | '/app/$feature/validation'
-    | '/app/$feature/'
+    | '/$feature/'
+    | '/home/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/$feature/finish'
+    | '/$feature/onboarding'
+    | '/$feature/preview'
+    | '/$feature/process'
+    | '/$feature/validation'
     | '/home/features'
     | '/home/host'
+    | '/$feature'
     | '/home'
-    | '/app/$feature/finish'
-    | '/app/$feature/onboarding'
-    | '/app/$feature/preview'
-    | '/app/$feature/process'
-    | '/app/$feature/validation'
-    | '/app/$feature'
   id:
     | '__root__'
     | '/'
-    | '/app/$feature'
+    | '/$feature'
+    | '/$feature/finish'
+    | '/$feature/onboarding'
+    | '/$feature/preview'
+    | '/$feature/process'
+    | '/$feature/validation'
     | '/home/features'
     | '/home/host'
+    | '/$feature/'
     | '/home/'
-    | '/app/$feature/finish'
-    | '/app/$feature/onboarding'
-    | '/app/$feature/preview'
-    | '/app/$feature/process'
-    | '/app/$feature/validation'
-    | '/app/$feature/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  AppFeatureRouteRoute: typeof AppFeatureRouteRouteWithChildren
+  FeatureRouteRoute: typeof FeatureRouteRouteWithChildren
   HomeFeaturesRoute: typeof HomeFeaturesRoute
   HomeHostRoute: typeof HomeHostRoute
   HomeIndexRoute: typeof HomeIndexRoute
@@ -167,6 +167,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/$feature': {
+      id: '/$feature'
+      path: '/$feature'
+      fullPath: '/$feature'
+      preLoaderRoute: typeof FeatureRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -177,9 +184,16 @@ declare module '@tanstack/react-router' {
     '/home/': {
       id: '/home/'
       path: '/home'
-      fullPath: '/home'
+      fullPath: '/home/'
       preLoaderRoute: typeof HomeIndexRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/$feature/': {
+      id: '/$feature/'
+      path: '/'
+      fullPath: '/$feature/'
+      preLoaderRoute: typeof FeatureIndexRouteImport
+      parentRoute: typeof FeatureRouteRoute
     }
     '/home/host': {
       id: '/home/host'
@@ -195,83 +209,69 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof HomeFeaturesRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/app/$feature': {
-      id: '/app/$feature'
-      path: '/app/$feature'
-      fullPath: '/app/$feature'
-      preLoaderRoute: typeof AppFeatureRouteRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/app/$feature/': {
-      id: '/app/$feature/'
-      path: '/'
-      fullPath: '/app/$feature/'
-      preLoaderRoute: typeof AppFeatureIndexRouteImport
-      parentRoute: typeof AppFeatureRouteRoute
-    }
-    '/app/$feature/validation': {
-      id: '/app/$feature/validation'
+    '/$feature/validation': {
+      id: '/$feature/validation'
       path: '/validation'
-      fullPath: '/app/$feature/validation'
-      preLoaderRoute: typeof AppFeatureValidationRouteImport
-      parentRoute: typeof AppFeatureRouteRoute
+      fullPath: '/$feature/validation'
+      preLoaderRoute: typeof FeatureValidationRouteImport
+      parentRoute: typeof FeatureRouteRoute
     }
-    '/app/$feature/process': {
-      id: '/app/$feature/process'
+    '/$feature/process': {
+      id: '/$feature/process'
       path: '/process'
-      fullPath: '/app/$feature/process'
-      preLoaderRoute: typeof AppFeatureProcessRouteImport
-      parentRoute: typeof AppFeatureRouteRoute
+      fullPath: '/$feature/process'
+      preLoaderRoute: typeof FeatureProcessRouteImport
+      parentRoute: typeof FeatureRouteRoute
     }
-    '/app/$feature/preview': {
-      id: '/app/$feature/preview'
+    '/$feature/preview': {
+      id: '/$feature/preview'
       path: '/preview'
-      fullPath: '/app/$feature/preview'
-      preLoaderRoute: typeof AppFeaturePreviewRouteImport
-      parentRoute: typeof AppFeatureRouteRoute
+      fullPath: '/$feature/preview'
+      preLoaderRoute: typeof FeaturePreviewRouteImport
+      parentRoute: typeof FeatureRouteRoute
     }
-    '/app/$feature/onboarding': {
-      id: '/app/$feature/onboarding'
+    '/$feature/onboarding': {
+      id: '/$feature/onboarding'
       path: '/onboarding'
-      fullPath: '/app/$feature/onboarding'
-      preLoaderRoute: typeof AppFeatureOnboardingRouteImport
-      parentRoute: typeof AppFeatureRouteRoute
+      fullPath: '/$feature/onboarding'
+      preLoaderRoute: typeof FeatureOnboardingRouteImport
+      parentRoute: typeof FeatureRouteRoute
     }
-    '/app/$feature/finish': {
-      id: '/app/$feature/finish'
+    '/$feature/finish': {
+      id: '/$feature/finish'
       path: '/finish'
-      fullPath: '/app/$feature/finish'
-      preLoaderRoute: typeof AppFeatureFinishRouteImport
-      parentRoute: typeof AppFeatureRouteRoute
+      fullPath: '/$feature/finish'
+      preLoaderRoute: typeof FeatureFinishRouteImport
+      parentRoute: typeof FeatureRouteRoute
     }
   }
 }
 
-interface AppFeatureRouteRouteChildren {
-  AppFeatureFinishRoute: typeof AppFeatureFinishRoute
-  AppFeatureOnboardingRoute: typeof AppFeatureOnboardingRoute
-  AppFeaturePreviewRoute: typeof AppFeaturePreviewRoute
-  AppFeatureProcessRoute: typeof AppFeatureProcessRoute
-  AppFeatureValidationRoute: typeof AppFeatureValidationRoute
-  AppFeatureIndexRoute: typeof AppFeatureIndexRoute
+interface FeatureRouteRouteChildren {
+  FeatureFinishRoute: typeof FeatureFinishRoute
+  FeatureOnboardingRoute: typeof FeatureOnboardingRoute
+  FeaturePreviewRoute: typeof FeaturePreviewRoute
+  FeatureProcessRoute: typeof FeatureProcessRoute
+  FeatureValidationRoute: typeof FeatureValidationRoute
+  FeatureIndexRoute: typeof FeatureIndexRoute
 }
 
-const AppFeatureRouteRouteChildren: AppFeatureRouteRouteChildren = {
-  AppFeatureFinishRoute: AppFeatureFinishRoute,
-  AppFeatureOnboardingRoute: AppFeatureOnboardingRoute,
-  AppFeaturePreviewRoute: AppFeaturePreviewRoute,
-  AppFeatureProcessRoute: AppFeatureProcessRoute,
-  AppFeatureValidationRoute: AppFeatureValidationRoute,
-  AppFeatureIndexRoute: AppFeatureIndexRoute,
+const FeatureRouteRouteChildren: FeatureRouteRouteChildren = {
+  FeatureFinishRoute: FeatureFinishRoute,
+  FeatureOnboardingRoute: FeatureOnboardingRoute,
+  FeaturePreviewRoute: FeaturePreviewRoute,
+  FeatureProcessRoute: FeatureProcessRoute,
+  FeatureValidationRoute: FeatureValidationRoute,
+  FeatureIndexRoute: FeatureIndexRoute,
 }
 
-const AppFeatureRouteRouteWithChildren = AppFeatureRouteRoute._addFileChildren(
-  AppFeatureRouteRouteChildren,
+const FeatureRouteRouteWithChildren = FeatureRouteRoute._addFileChildren(
+  FeatureRouteRouteChildren,
 )
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  AppFeatureRouteRoute: AppFeatureRouteRouteWithChildren,
+  FeatureRouteRoute: FeatureRouteRouteWithChildren,
   HomeFeaturesRoute: HomeFeaturesRoute,
   HomeHostRoute: HomeHostRoute,
   HomeIndexRoute: HomeIndexRoute,

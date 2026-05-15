@@ -8,10 +8,10 @@ interface Props {
 
 export default function RequireFile({ children }: Props) {
   const files = useFiles();
-  const { feature } = useParams({ from: "/app/$feature" });
+  const { feature } = useParams({ from: "/$feature" });
 
   if (!files.length) {
-    return <Navigate to="/app/$feature/onboarding" params={{ feature }} />;
+    return <Navigate to="/$feature/onboarding" params={{ feature }} />;
   }
 
   return children;

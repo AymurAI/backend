@@ -1,4 +1,4 @@
-import api from "@/services/api";
+import api, { getApiBaseUrl, setApiBaseUrl } from "@/services/api";
 
 import z from "zod";
 
@@ -8,7 +8,7 @@ export const useConnectToHost = () => {
   return useMutation({
     mutationKey: ["healthcheck"],
     mutationFn: async (host: string) => {
-      const url = new URL(host).toString().replace(/\/$/, "");
+      const url = getApiBaseUrl(host);
       const response = await api
         .get(`${url}/server/healthcheck`)
         .then((r) => r.data);
@@ -16,7 +16,7 @@ export const useConnectToHost = () => {
       return z.object({ status: z.string() }).parse(response);
     },
     onSuccess: (_data, host) => {
-      api.defaults.baseURL = host;
+      setApiBaseUrl(host);
     },
   });
 };

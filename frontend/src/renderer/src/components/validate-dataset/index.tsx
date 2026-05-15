@@ -14,7 +14,7 @@ import { moveNext, movePrevious } from "./utils";
 
 export function ValidateDataset() {
   // HOOKS
-  const { feature } = useParams({ from: "/app/$feature/validation" });
+  const { feature } = useParams({ from: "/$feature/validation" });
   const files = useFiles();
   const [checked, setChecked] = useState(false);
   const [selected, setSelected] = useState(0);
@@ -38,7 +38,7 @@ export function ValidateDataset() {
 
   const handleContinue = () => {
     navigate({
-      to: "/app/$feature/finish",
+      to: "/$feature/finish",
       params: { feature },
     });
   };

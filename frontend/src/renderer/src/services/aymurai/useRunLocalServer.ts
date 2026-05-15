@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useCallback } from "react";
-import api from "../api";
+import api, { setApiBaseUrl } from "../api";
 import { healthcheckSchema } from "./schema";
 
 interface UseRunLocalServerProps {
@@ -32,6 +32,7 @@ export const useRunLocalServer = ({ onSuccess }: UseRunLocalServerProps) => {
   });
 
   const run = useCallback(async () => {
+    setApiBaseUrl();
     if (serverStatus === undefined) {
       console.log("Running local server");
       if (!window.electronAPI)
