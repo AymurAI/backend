@@ -57,7 +57,7 @@ def test_should_run_anonymizer_flow_end_to_end(
     mock_check_output.side_effect = _fake_libreoffice_convert
 
     extract_response = client.post(
-        "/misc/document-extract",
+        "/api/misc/document-extract",
         files={
             "file": (
                 "sample.docx",
@@ -72,12 +72,14 @@ def test_should_run_anonymizer_flow_end_to_end(
 
     predictions = []
     for paragraph in paragraphs:
-        predict_response = client.post("/anonymizer/predict", json={"text": paragraph})
+        predict_response = client.post(
+            "/api/anonymizer/predict", json={"text": paragraph}
+        )
         assert predict_response.status_code == 200
         predictions.append(predict_response.json())
 
     disambiguate_response = client.post(
-        "/anonymizer/disambiguate",
+        "/api/anonymizer/disambiguate",
         json={
             "paragraphs": predictions,
             "label_policies": {
@@ -90,7 +92,7 @@ def test_should_run_anonymizer_flow_end_to_end(
     assert len(annotations["data"]) == len(paragraphs)
 
     compile_response = client.post(
-        "/anonymizer/anonymize-document",
+        "/api/anonymizer/anonymize-document",
         data={"annotations": json.dumps(annotations)},
         files={
             "file": (
@@ -104,7 +106,7 @@ def test_should_run_anonymizer_flow_end_to_end(
     assert compile_response.headers["content-type"] == "application/octet-stream"
 
     validation_response = client.post(
-        "/anonymizer/validation",
+        "/api/anonymizer/validation",
         json={"text": paragraphs[0]},
     )
     assert validation_response.status_code == 200
@@ -124,7 +126,7 @@ def test_should_run_datapublic_flow_end_to_end(
     mock_load_pipeline.return_value = build_mock_pipeline()
 
     extract_response = client.post(
-        "/misc/document-extract",
+        "/api/misc/document-extract",
         files={
             "file": (
                 "sample.docx",
@@ -140,7 +142,7 @@ def test_should_run_datapublic_flow_end_to_end(
     document_id = uuid.uuid5(uuid.NAMESPACE_URL, "datapublic-e2e-flow")
     for paragraph in paragraphs:
         predict_response = client.post(
-            f"/datapublic/predict/{document_id}",
+            f"/api/datapublic/predict/{document_id}",
             json={"text": paragraph},
         )
         assert predict_response.status_code == 200
@@ -154,12 +156,12 @@ def test_should_run_datapublic_flow_end_to_end(
 
     validation_payload = {"materia": "penal", "violencia_de_genero": "si"}
     save_response = client.post(
-        f"/datapublic/validation/document/{document_id}",
+        f"/api/datapublic/validation/document/{document_id}",
         json=validation_payload,
     )
     assert save_response.status_code == 200
 
-    read_response = client.get(f"/datapublic/validation/document/{document_id}")
+    read_response = client.get(f"/api/datapublic/validation/document/{document_id}")
     assert read_response.status_code == 200
     assert read_response.json() == validation_payload
 
@@ -186,7 +188,7 @@ def test_should_compile_anonymized_document_with_real_libreoffice_when_available
     docx_bytes = buf.getvalue()
 
     response = client.post(
-        "/anonymizer/anonymize-document",
+        "/api/anonymizer/anonymize-document",
         data={"annotations": json.dumps(annotations)},
         files={
             "file": (

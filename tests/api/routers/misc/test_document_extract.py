@@ -62,7 +62,7 @@ def test_should_extract_real_text_from_sample_docx_without_mocking(client):
         )
     }
 
-    response = client.post("/document-extract", files=files)
+    response = client.post("/api/document-extract", files=files)
 
     assert response.status_code == 200
     data = response.json()
@@ -96,7 +96,7 @@ def test_should_extract_real_text_from_pdf_without_mocking(client):
         )
     }
 
-    response = client.post("/document-extract", files=files)
+    response = client.post("/api/document-extract", files=files)
 
     assert response.status_code == 200
     data = response.json()
@@ -122,7 +122,7 @@ def test_should_return_document_with_paragraphs_when_uploading_docx(
             "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         )
     }
-    response = client.post("/document-extract", files=files)
+    response = client.post("/api/document-extract", files=files)
 
     assert response.status_code == 200
     data = response.json()
@@ -146,7 +146,7 @@ def test_should_return_document_via_misc_prefix_when_uploading(mock_extraction, 
             "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         )
     }
-    response = client.post("/misc/document-extract", files=files)
+    response = client.post("/api/misc/document-extract", files=files)
 
     assert response.status_code == 200
     data = response.json()
@@ -168,7 +168,7 @@ def test_should_return_document_via_deprecated_alias_when_uploading(
             "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         )
     }
-    response = client.post("/document-extract", files=files)
+    response = client.post("/api/document-extract", files=files)
 
     assert response.status_code == 200
     assert response.json()["document"] == ["Alias text"]
@@ -191,11 +191,11 @@ def test_should_return_deterministic_id_when_uploading_same_file_twice(
         )
     }
 
-    response1 = client.post("/document-extract", files=files)
+    response1 = client.post("/api/document-extract", files=files)
     data1 = response1.json()
 
     # Reset mock and upload same file again
-    response2 = client.post("/document-extract", files=files)
+    response2 = client.post("/api/document-extract", files=files)
     data2 = response2.json()
 
     assert response1.status_code == 200
@@ -206,7 +206,7 @@ def test_should_return_deterministic_id_when_uploading_same_file_twice(
 @pytest.mark.integration
 def test_should_return_422_when_no_file_provided(client):
     """Test that missing file returns 422 Unprocessable Entity."""
-    response = client.post("/document-extract", files={})
+    response = client.post("/api/document-extract", files={})
 
     assert response.status_code == 422
 
@@ -224,7 +224,7 @@ def test_should_return_empty_document_when_file_is_empty(mock_extraction, client
             "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         )
     }
-    response = client.post("/document-extract", files=files)
+    response = client.post("/api/document-extract", files=files)
 
     assert response.status_code == 200
     data = response.json()
@@ -246,7 +246,7 @@ def test_should_collapse_consecutive_duplicates_when_extracting(
             "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         )
     }
-    response = client.post("/document-extract", files=files)
+    response = client.post("/api/document-extract", files=files)
 
     assert response.status_code == 200
     data = response.json()
@@ -266,7 +266,7 @@ def test_should_normalize_whitespace_when_extracting(mock_extraction, client):
             "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         )
     }
-    response = client.post("/document-extract", files=files)
+    response = client.post("/api/document-extract", files=files)
 
     assert response.status_code == 200
     data = response.json()
@@ -286,7 +286,7 @@ def test_should_return_504_when_extraction_times_out(mock_extraction, client):
             "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         )
     }
-    response = client.post("/document-extract", files=files)
+    response = client.post("/api/document-extract", files=files)
 
     assert response.status_code == 504
 
@@ -304,6 +304,6 @@ def test_should_return_500_when_extraction_fails(mock_extraction, client):
             "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         )
     }
-    response = client.post("/document-extract", files=files)
+    response = client.post("/api/document-extract", files=files)
 
     assert response.status_code == 500
