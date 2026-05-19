@@ -7,11 +7,13 @@ interface Props {
   fileName: string;
   hasError?: boolean;
   isLoading?: boolean;
+  errorMessage?: string;
 }
 export default function FileCheck({
   fileName,
   hasError = false,
   isLoading = false,
+  errorMessage = "Error de guardado\nVolvé a cargar el archivo",
 }: Props) {
   return (
     <Wrapper>
@@ -19,11 +21,7 @@ export default function FileCheck({
         <Icon {...{ hasError, isLoading }} />
       </Card>
       <Text>{fileName}</Text>
-      {hasError && (
-        <ErrorText>
-          Error de guardado <br /> Volvé a cargar el archivo
-        </ErrorText>
-      )}
+      {hasError && <ErrorText>{errorMessage}</ErrorText>}
     </Wrapper>
   );
 }

@@ -20,11 +20,18 @@ interface Props {
   next: () => void;
   previous: () => void;
   clear: () => void;
+  isSearching: boolean;
 }
 
-export const Counter = ({ count, previous, next, cursor, clear }: Props) => {
-  // Only return the counter if there is a match
-  if (count === 0) return null;
+export const Counter = ({
+  count,
+  previous,
+  next,
+  cursor,
+  clear,
+  isSearching,
+}: Props) => {
+  if (!isSearching) return null;
 
   return (
     <div className={counterClass}>
@@ -36,15 +43,21 @@ export const Counter = ({ count, previous, next, cursor, clear }: Props) => {
         color="text.lighter"
         whiteSpace="nowrap"
       >
-        {cursor} de {count}
+        {count === 0 ? "0 ocurrencias" : `${cursor} de ${count}`}
       </styled.span>
-      {/* <styled.span textStyle="label.md.default" color="text.lighter">
-      </styled.span> */}
       <Stack direction="row" flexWrap="nowrap" gap="1">
-        <Button onClick={previous} variant="none" disabled={cursor === 1}>
+        <Button
+          onClick={previous}
+          variant="none"
+          disabled={count === 0 || cursor === 1}
+        >
           <PreviousIcon size={24} />
         </Button>
-        <Button onClick={next} variant="none" disabled={cursor === count}>
+        <Button
+          onClick={next}
+          variant="none"
+          disabled={count === 0 || cursor === count}
+        >
           <NextIcon size={24} />
         </Button>
       </Stack>

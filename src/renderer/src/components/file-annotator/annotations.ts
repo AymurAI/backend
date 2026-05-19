@@ -9,20 +9,31 @@ import type { Annotation } from "./types";
 
 export const SEARCH_MIN_LENGTH = 3;
 
+export interface SearchMatch {
+  id: string;
+  paragraphId: string;
+  start: number;
+  end: number;
+  index: number;
+}
+
 /**
  * Converts a predict label to an annotation
  * @param labels List of predict labels from the API
  * @returns List of annotations
  */
 const labelToAnnotation = (labels: PredictLabel[]): Annotation[] => {
-  return labels.map(({ start_char, end_char, attrs, paragraphId }) => ({
-    start: start_char,
-    end: end_char,
-    type: "tag",
-    tag: attrs.aymurai_label!,
-    paragraphId,
-    canonical_entity_id: attrs.canonical_entity_id,
-  }));
+  return labels.map(
+    ({ start_char, end_char, attrs, paragraphId, mentionId }) => ({
+      start: start_char,
+      end: end_char,
+      type: "tag",
+      tag: attrs.aymurai_label,
+      paragraphId,
+      canonical_entity_id: attrs.canonical_entity_id,
+      mentionId,
+    }),
+  );
 };
 
 /**
@@ -53,21 +64,21 @@ const findSearchIndexes = (paragraph: string, search: string) => {
  * @returns List of annotations with search annotations appended
  */
 const getSearchAnnotations = (
-  search: string,
-  paragraph: Paragraph,
+  searchMatches: SearchMatch[],
   label: AllLabels | AllLabelsWithSufix | null,
+  activeSearchMatchId: string | null,
 ): Annotation[] => {
-  if (!search || search.length < SEARCH_MIN_LENGTH) return [];
-
-  const indexes = findSearchIndexes(paragraph.value, search);
-  return indexes.map(
-    (el) =>
+  return searchMatches.map(
+    (match) =>
       ({
-        start: el,
-        end: el + search.length,
+        start: match.start,
+        end: match.end,
         type: "search",
         tag: label,
-        paragraphId: paragraph.id,
+        paragraphId: match.paragraphId,
+        searchMatchId: match.id,
+        searchIndex: match.index,
+        isActive: match.id === activeSearchMatchId,
       }) as Annotation,
   );
 };
@@ -86,11 +97,50 @@ export const predictionsToMap = (
     // Ignore characters
     if ([":", ",", ".", ")", "(", "-", "_"].includes(token.text)) continue;
 
-    if (map.has(token.paragraphId)) {
-      map.get(token.paragraphId)!.push(token);
+    const paragraphPredictions = map.get(token.paragraphId);
+    if (paragraphPredictions) {
+      paragraphPredictions.push(token);
     } else {
       map.set(token.paragraphId, [token]);
     }
+  }
+
+  return map;
+};
+
+export const createSearchMatches = (
+  paragraphs: Paragraph[],
+  search: string,
+): SearchMatch[] => {
+  if (!search || search.length < SEARCH_MIN_LENGTH) return [];
+
+  const matches: SearchMatch[] = [];
+  paragraphs.forEach((paragraph) => {
+    const indexes = findSearchIndexes(paragraph.value, search);
+    indexes.forEach((start) => {
+      const index = matches.length;
+      matches.push({
+        id: `${paragraph.id}:${start}:${index}`,
+        paragraphId: paragraph.id,
+        start,
+        end: start + search.length,
+        index,
+      });
+    });
+  });
+
+  return matches;
+};
+
+export const searchMatchesToMap = (
+  matches: SearchMatch[],
+): Map<string, SearchMatch[]> => {
+  const map = new Map<string, SearchMatch[]>();
+
+  for (const match of matches) {
+    const paragraphMatches = map.get(match.paragraphId) ?? [];
+    paragraphMatches.push(match);
+    map.set(match.paragraphId, paragraphMatches);
   }
 
   return map;
@@ -106,15 +156,15 @@ export const predictionsToMap = (
  */
 export const createAnnotationsWithSearch = (
   predictions: PredictLabel[],
-  search: string,
-  paragraph: Paragraph,
+  searchMatches: SearchMatch[],
   searchLabel: AllLabels | AllLabelsWithSufix | null,
+  activeSearchMatchId: string | null,
 ): Annotation[] => {
   const matchingAnnotations = labelToAnnotation(predictions);
   const searchAnnotations = getSearchAnnotations(
-    search,
-    paragraph,
+    searchMatches,
     searchLabel,
+    activeSearchMatchId,
   );
 
   return [...matchingAnnotations, ...searchAnnotations];

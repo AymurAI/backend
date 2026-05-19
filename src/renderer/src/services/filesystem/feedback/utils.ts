@@ -14,6 +14,7 @@ function newLabel(
   value: PredictionFeedback["validationText"],
 ): PredictionFeedback {
   return {
+    mentionId: null,
     paragraphId: "",
     text: null,
     start_char: null,
@@ -40,13 +41,13 @@ export function joinValidation({
   validationObject,
 }: DocFile): PredictionFeedback[] {
   const result: PredictionFeedback[] = [];
+  const predictionList = predictions ?? [];
 
   const flat = flatValidation(validationObject);
 
   flat.forEach((val) => {
     // First, add the predictions to the result array
-    // We are sure predictions is !undefined becasue this step is post file processing
-    predictions!.forEach((pred) => {
+    predictionList.forEach((pred) => {
       result.push({
         ...pred,
         validationText: val[pred.attrs.aymurai_label] ?? null,
@@ -55,7 +56,7 @@ export function joinValidation({
 
     // Get the labels from `validationObject` that aren't present on `predictions`
     const filtered = (Object.keys(flat) as AllLabels[]).filter((key) => {
-      return !predictions!.find((pred) => pred.attrs.aymurai_label === key);
+      return !predictionList.find((pred) => pred.attrs.aymurai_label === key);
     });
 
     filtered.forEach((label) =>

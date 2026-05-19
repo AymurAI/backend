@@ -15,7 +15,7 @@ const Affix = styled("span", {
   },
 });
 
-export type SelectOption = { id: string; text: string };
+export type SelectOption = { id: string; text: string; shortText?: string };
 export type SelectSuggestion = { id: string; text?: string };
 
 interface SelectProps {
@@ -244,7 +244,11 @@ export default function Select({
             {prefix && <Affix aria-hidden="true">{prefix} |</Affix>}
 
             <RadixSelect.Icon asChild>
-              <CaretDown size={16} className={classes.caret} aria-hidden="true" />
+              <CaretDown
+                size={16}
+                className={classes.caret}
+                aria-hidden="true"
+              />
             </RadixSelect.Icon>
 
             <span className={classes.value}>
@@ -258,7 +262,13 @@ export default function Select({
                   <Suggestion clickable>{securedSuggestion.text}</Suggestion>
                 </button>
               ) : (
-                <RadixSelect.Value placeholder={placeholder} />
+                <RadixSelect.Value placeholder={placeholder}>
+                  {value
+                    ? (options.find((o) => o.id === value)?.shortText ??
+                      options.find((o) => o.id === value)?.text ??
+                      placeholder)
+                    : undefined}
+                </RadixSelect.Value>
               )}
             </span>
 

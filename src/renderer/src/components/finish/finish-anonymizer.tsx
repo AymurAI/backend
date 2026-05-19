@@ -1,10 +1,11 @@
+import { showToast } from "@/features/showToast";
 import { useFiles } from "@/hooks";
 import { aymuraiService } from "@/services/aymurai";
 import { useExcludedTagsConfig } from "@/store/useLocal";
 import { HStack } from "@/styled/jsx";
 import { FeatureFlowEnum } from "@/types/features";
-import { showToast } from "@/features/showToast";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import FileCheck from "../file-check";
 import Footer from "../layout/footer";
@@ -28,6 +29,7 @@ export default function FinishAnonymizer({ onRestart }: FinishAnonymizerProps) {
     data: anonymizedFile,
     isLoading,
     isError,
+    error,
   } = useQuery(aymuraiService.anonymize(file, tags, words));
 
   const { mutate: convertToPdf, isPending: isPdfPending } = useMutation(
@@ -37,6 +39,15 @@ export default function FinishAnonymizer({ onRestart }: FinishAnonymizerProps) {
   const { mutate: convertToOdt, isPending: isOdtPending } = useMutation(
     aymuraiService.pdfToOdt(),
   );
+
+  const exportErrorMessage =
+    error instanceof Error ? error.message : t("finish.downloadError");
+
+  useEffect(() => {
+    if (!isError) return;
+    console.error("Anonymizer export failed:", error);
+    showToast(exportErrorMessage, "error");
+  }, [error, exportErrorMessage, isError]);
 
   const onConversionError = (error: Error) => {
     console.error("Conversion failed:", error);
@@ -86,6 +97,7 @@ export default function FinishAnonymizer({ onRestart }: FinishAnonymizerProps) {
           fileName={file.data.name}
           hasError={isError}
           isLoading={isLoading}
+          errorMessage={exportErrorMessage}
         />
       </FinishMainContent>
       <Footer withBuiltBy>

@@ -1,14 +1,15 @@
-import type React from "react";
 import { useState } from "react";
 
 import { sva } from "@/styled/css";
 import { styled } from "@/styled/jsx";
 import { hstack } from "@/styled/patterns";
 
-import Input from "@/components/ui/input";
-import Select, { type SelectOption } from "@/components/ui/select";
+import AnonymizerLabelSelect from "@/components/anonymizer/anonymizer-label-select";
+import type { SelectOption } from "@/components/ui/select";
 import { useAnnotation } from "@/context/Annotation";
-import { type AllLabels, anonymizerLabels } from "@/types/aymurai";
+import { useExcludedTagsConfig } from "@/store/useLocal";
+import type { AllLabels } from "@/types/aymurai";
+import { getActiveAnonymizerLabelOptions } from "@/utils/anonymizer/labels";
 
 import {
   Tooltip,
@@ -51,36 +52,37 @@ const tagger = sva({
 });
 
 interface MarkTaggerProps {
-  onClickOne: (label: AllLabels, suffix: number | null) => void;
-  onClickAll: (label: AllLabels, suffix: number | null) => void;
+  onClickOne: (label: AllLabels) => void;
+  onClickAll: (label: AllLabels) => void;
   onDeleteOne?: () => void;
   onDeleteAll?: () => void;
 }
-export default function Tagger({ onClickAll, onClickOne, onDeleteOne, onDeleteAll }: MarkTaggerProps) {
-  const { label: initialLabel, suffix: initialSuffix } = useAnnotation();
+export default function Tagger({
+  onClickAll,
+  onClickOne,
+  onDeleteOne,
+  onDeleteAll,
+}: MarkTaggerProps) {
+  const { label: initialLabel } = useAnnotation();
+  const { tags } = useExcludedTagsConfig();
 
   const [label, setLabel] = useState<AllLabels | null>(initialLabel);
-  const [suffix, setSuffix] = useState<number | null>(initialSuffix);
   const [isSelectOpen, setIsSelectOpen] = useState(false);
+  const options = getActiveAnonymizerLabelOptions(tags);
+  const activeLabel =
+    label && options.some((option) => option.id === label) ? label : null;
 
   const handleClickOne = () => {
-    if (!label) return;
-    onClickOne(label, suffix);
+    if (!activeLabel) return;
+    onClickOne(activeLabel);
   };
   const handleClickAll = () => {
-    if (!label) return;
-    onClickAll(label, suffix);
+    if (!activeLabel) return;
+    onClickAll(activeLabel);
   };
 
   const handleLabelChange = (value: SelectOption) => {
     setLabel(value.id as AllLabels);
-  };
-  const handleSuffixChange: React.ChangeEventHandler<HTMLInputElement> = (
-    e,
-  ) => {
-    const n = Number(e.target.value);
-    if (Number.isNaN(n)) throw new Error("Tried to input a non-numeric value!");
-    setSuffix(n);
   };
 
   const classes = tagger();
@@ -90,11 +92,11 @@ export default function Tagger({ onClickAll, onClickOne, onDeleteOne, onDeleteAl
         <Tooltip open={isSelectOpen ? false : undefined}>
           <TooltipTrigger asChild>
             <div>
-              <Select
+              <AnonymizerLabelSelect
                 placeholder="Etiqueta"
                 size="sm"
-                value={label ?? undefined}
-                options={anonymizerLabels}
+                value={activeLabel ?? undefined}
+                options={options}
                 onChange={handleLabelChange}
                 onOpenChange={setIsSelectOpen}
               />
@@ -102,29 +104,9 @@ export default function Tagger({ onClickAll, onClickOne, onDeleteOne, onDeleteAl
           </TooltipTrigger>
           <TooltipContent showArrow={false} sideOffset={12}>
             <div className={classes.tooltipContent}>
-              <styled.p textStyle="label.sm.default">Selecciona tipo de etiqueta</styled.p>
-            </div>
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
-      <div className={classes.divider} />
-      <TooltipProvider delayDuration={0}>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <styled.div maxWidth="16">
-              <Input
-                placeholder="Sufijo"
-                value={suffix ? suffix.toString() : undefined}
-                size="sm"
-                onChange={handleSuffixChange}
-                type="number"
-                min="1"
-              />
-            </styled.div>
-          </TooltipTrigger>
-          <TooltipContent showArrow={false} sideOffset={12}>
-            <div className={classes.tooltipContent}>
-              <styled.p textStyle="label.sm.default">Agrega sufijo si es necesario</styled.p>
+              <styled.p textStyle="label.sm.default">
+                Selecciona tipo de etiqueta
+              </styled.p>
             </div>
           </TooltipContent>
         </Tooltip>
@@ -133,7 +115,7 @@ export default function Tagger({ onClickAll, onClickOne, onDeleteOne, onDeleteAl
       <TaggerButton
         tooltip="Afectar una ocurrencia"
         onClick={handleClickOne}
-        disabled={!label}
+        disabled={!activeLabel}
       >
         <img
           src={`${import.meta.env.BASE_URL}button-icons/add-one.svg`}
@@ -146,7 +128,7 @@ export default function Tagger({ onClickAll, onClickOne, onDeleteOne, onDeleteAl
       <TaggerButton
         tooltip="Afectar todas las ocurrencias"
         onClick={handleClickAll}
-        disabled={!label}
+        disabled={!activeLabel}
       >
         <img
           src={`${import.meta.env.BASE_URL}button-icons/add-all.svg`}

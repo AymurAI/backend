@@ -89,7 +89,10 @@ export function replaceFile(fileName: string, newFile: File, state: DocFile[]) {
  * @returns `true` if the predictions are equal, `false` otherwise.
  */
 export function comparePrediction(a: PredictLabel, b: PredictLabel) {
+  if (a.mentionId && b.mentionId) return a.mentionId === b.mentionId;
+
   return (
+    a.paragraphId === b.paragraphId &&
     a.start_char === b.start_char &&
     a.end_char === b.end_char &&
     a.text === b.text &&

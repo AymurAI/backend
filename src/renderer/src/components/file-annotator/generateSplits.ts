@@ -22,6 +22,9 @@ const addLeadingText = (splits: Split[], i: number, { length }: string) => {
 const sortTokens = (tokens: Annotation[]) => {
   return tokens.sort((a, b) => a.start - b.start);
 };
+const rangesOverlap = (a: Annotation, b: Annotation) => {
+  return a.start < b.end && b.start < a.end;
+};
 const isRightConflicting = (splits: Split[], token: Annotation) => {
   return (splits.at(-1)?.end ?? 0) > token.start;
 };
@@ -32,6 +35,41 @@ const isLeftConflicting = (token: Annotation, next: Annotation | undefined) => {
   return (
     token.type === "search" && next.type === "tag" && token.end > next.start
   );
+};
+
+const mergeSearchIntoTags = (tokens: Annotation[]): Annotation[] => {
+  const tags = tokens.filter((token) => token.type === "tag");
+  const searches = tokens.filter((token) => token.type === "search");
+  const overlappingSearchIds = new Set<string>();
+
+  const enrichedTags = tags.map((tag) => {
+    const overlappingSearches = searches.filter((search) =>
+      rangesOverlap(tag, search),
+    );
+    if (overlappingSearches.length === 0) return tag;
+
+    for (const search of overlappingSearches) {
+      if (search.searchMatchId) overlappingSearchIds.add(search.searchMatchId);
+    }
+
+    const activeSearch =
+      overlappingSearches.find((search) => search.isActive) ??
+      overlappingSearches[0];
+
+    return {
+      ...tag,
+      searchMatchId: activeSearch?.searchMatchId,
+      searchIndex: activeSearch?.searchIndex,
+      isActive: activeSearch?.isActive ?? false,
+    };
+  });
+
+  const visibleSearches = searches.filter(
+    (search) =>
+      !search.searchMatchId || !overlappingSearchIds.has(search.searchMatchId),
+  );
+
+  return [...enrichedTags, ...visibleSearches];
 };
 
 /**
@@ -53,7 +91,7 @@ export const generateSplits = (
       },
     ];
 
-  const sortedTokens = sortTokens(tokens);
+  const sortedTokens = sortTokens(mergeSearchIntoTags(tokens));
   const splits: Split[] = [];
   // Represents the last index used to split
   let i = 0;

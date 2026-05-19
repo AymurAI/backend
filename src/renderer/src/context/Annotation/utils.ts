@@ -43,11 +43,77 @@ export const getBoundaries = (selection: Selection): [number, number] => {
  */
 export const paragraphIdFromSelection = (selection: Selection) => {
   // This is evaluated after the isValidNode check, so we can safely assume that the parentElement is a span
-  const span = selection.anchorNode!.parentElement;
+  const span = selection.anchorNode?.parentElement;
   const paragraph = span?.parentElement as HTMLParagraphElement;
 
   return paragraph.id;
 };
+
+function closestOffsetElement(node: Node | null): HTMLElement | null {
+  const element = node instanceof HTMLElement ? node : node?.parentElement;
+  return element?.closest<HTMLElement>("[data-start]") ?? null;
+}
+
+function offsetWithinElement(
+  element: HTMLElement,
+  container: Node,
+  offset: number,
+): number | null {
+  const range = document.createRange();
+  range.setStart(element, 0);
+
+  try {
+    range.setEnd(container, offset);
+  } catch {
+    return null;
+  }
+
+  return range.toString().length;
+}
+
+export function getSelectionAnnotationRange(selection: Selection): {
+  paragraphId: string;
+  start: number;
+  end: number;
+  text: string;
+} | null {
+  if (selection.rangeCount === 0 || selection.type !== "Range") return null;
+
+  const range = selection.getRangeAt(0);
+  const text = range.toString();
+  if (!text) return null;
+
+  const startElement = closestOffsetElement(range.startContainer);
+  const endElement = closestOffsetElement(range.endContainer);
+  if (!startElement || !endElement) return null;
+
+  const startParagraph = startElement.closest<HTMLParagraphElement>("p[id]");
+  const endParagraph = endElement.closest<HTMLParagraphElement>("p[id]");
+  if (!startParagraph || !endParagraph || startParagraph.id !== endParagraph.id)
+    return null;
+
+  const startBase = Number(startElement.dataset.start ?? 0);
+  const endBase = Number(endElement.dataset.start ?? 0);
+  const startOffset = offsetWithinElement(
+    startElement,
+    range.startContainer,
+    range.startOffset,
+  );
+  const endOffset = offsetWithinElement(
+    endElement,
+    range.endContainer,
+    range.endOffset,
+  );
+
+  if (startOffset === null || endOffset === null) return null;
+
+  return {
+    paragraphId: startParagraph.id,
+    start: startBase + startOffset,
+    end: endBase + endOffset,
+    text,
+  };
+}
 
 /**
  * Find all indexes where a search string appears in a text.

@@ -7,18 +7,20 @@ import {
   type AppendValidationAction,
   type FilterUnprocessedAction,
   type FilterUnselectedAction,
+  type MergeGroupsAction,
+  type MoveMentionToGroupAction,
   type RemoveAllFilesAction,
   type RemoveAllPredictionsAction,
   type RemoveFileAction,
   type RemovePrediction,
-  type RemovePredictionsAction,
-  type RemovePredictionsByText,
-  type RemovePredictionsByCanonicalId,
   type RemovePredictionValueByCanonicalId,
-  type UpdatePredictionsByCanonicalId,
+  type RemovePredictionsAction,
+  type RemovePredictionsByCanonicalId,
+  type RemovePredictionsByText,
   type ReplaceFileAction,
   type ToggleSelectedAction,
   type UpdatePredictionLabel,
+  type UpdatePredictionsByCanonicalId,
   type UpdatePredictionsByText,
   type ValidateAction,
 } from "./actions";
@@ -31,6 +33,10 @@ import {
 
 import type { AllLabels, AllLabelsWithSufix } from "@/types/aymurai";
 import type { DocFile } from "@/types/file";
+import {
+  normalizeEntityText,
+  stripEntityLabelSuffix,
+} from "@/utils/anonymizer/entity-similarity";
 
 type State = DocFile[];
 
@@ -55,7 +61,9 @@ export type Action =
   | UpdatePredictionsByText
   | RemovePredictionsByCanonicalId
   | RemovePredictionValueByCanonicalId
-  | UpdatePredictionsByCanonicalId;
+  | UpdatePredictionsByCanonicalId
+  | MoveMentionToGroupAction
+  | MergeGroupsAction;
 
 /**
  * Reducer function for `DocFile[]` state
@@ -213,11 +221,12 @@ export default function reducer(state: State, action: Action): State {
     // ----------------
     case ActionTypes.REMOVE_PREDICTIONS_BY_TEXT: {
       const { fileName, text } = payload;
+      const normalizedText = normalizeEntityText(text);
 
       return update(fileName, (cur) => ({
         ...cur,
         predictions: cur.predictions?.filter(
-          (p) => p.text.toLowerCase() !== text.toLowerCase(),
+          (p) => normalizeEntityText(p.text) !== normalizedText,
         ),
       }));
     }
@@ -233,16 +242,29 @@ export default function reducer(state: State, action: Action): State {
         return {
           ...file,
           predictions: file.predictions?.map((p) => {
-            if (
-              p.text === prediction.text &&
-              p.start_char === prediction.start_char &&
-              p.end_char === prediction.end_char
-            ) {
+            const isSamePrediction = prediction.mentionId
+              ? p.mentionId === prediction.mentionId
+              : p.paragraphId === prediction.paragraphId &&
+                p.text === prediction.text &&
+                p.start_char === prediction.start_char &&
+                p.end_char === prediction.end_char;
+
+            if (isSamePrediction) {
+              const currentBaseLabel = stripEntityLabelSuffix(
+                String(p.attrs.aymurai_label),
+              );
+              const nextBaseLabel = stripEntityLabelSuffix(String(newLabel));
+              const canonicalPatch =
+                currentBaseLabel === nextBaseLabel
+                  ? {}
+                  : { canonical_entity_id: crypto.randomUUID() };
+
               return {
                 ...p,
                 attrs: {
                   ...p.attrs,
                   aymurai_label: newLabel as AllLabels | AllLabelsWithSufix,
+                  ...canonicalPatch,
                 },
               };
             }
@@ -256,19 +278,34 @@ export default function reducer(state: State, action: Action): State {
     // UPDATE PREDICTIONS BY TEXT
     // ----------------
     case ActionTypes.UPDATE_PREDICTIONS_BY_TEXT: {
-      const { fileName, text, newLabel } = action.payload;
+      const { fileName, text, newLabel, canonicalId } = action.payload;
+      const normalizedText = normalizeEntityText(text);
+      const fallbackCanonicalId = crypto.randomUUID();
+      const nextBaseLabel = stripEntityLabelSuffix(String(newLabel));
+
       return state.map((file) => {
         if (file.data.name !== fileName) return file;
 
         return {
           ...file,
           predictions: file.predictions?.map((p) => {
-            if (p.text.toLowerCase() === text.toLowerCase()) {
+            if (normalizeEntityText(p.text) === normalizedText) {
+              const currentBaseLabel = stripEntityLabelSuffix(
+                String(p.attrs.aymurai_label),
+              );
+              const canonicalPatch =
+                canonicalId !== undefined
+                  ? { canonical_entity_id: canonicalId }
+                  : currentBaseLabel === nextBaseLabel
+                    ? {}
+                    : { canonical_entity_id: fallbackCanonicalId };
+
               return {
                 ...p,
                 attrs: {
                   ...p.attrs,
                   aymurai_label: newLabel,
+                  ...canonicalPatch,
                 },
               };
             }
@@ -296,11 +333,15 @@ export default function reducer(state: State, action: Action): State {
     // ------------------------------------------------
     case ActionTypes.REMOVE_PREDICTION_VALUE_BY_CANONICAL_ID: {
       const { canonicalId, value } = action.payload;
+      const norm = normalizeEntityText(value);
       return state.map((file) => ({
         ...file,
         predictions: file.predictions?.filter(
           (p) =>
-            !(p.attrs.canonical_entity_id === canonicalId && p.text === value),
+            !(
+              p.attrs.canonical_entity_id === canonicalId &&
+              normalizeEntityText(p.text) === norm
+            ),
         ),
       }));
     }
@@ -315,6 +356,51 @@ export default function reducer(state: State, action: Action): State {
         predictions: file.predictions?.map((p) =>
           p.attrs.canonical_entity_id === canonicalId
             ? { ...p, attrs: { ...p.attrs, aymurai_label: newLabel } }
+            : p,
+        ),
+      }));
+    }
+
+    // ----------------------------------------
+    // MOVE MENTION TO GROUP
+    // ----------------------------------------
+    case ActionTypes.MOVE_MENTION_TO_GROUP: {
+      const { mentionId, targetCanonicalId, targetLabel } = action.payload;
+      return state.map((file) => ({
+        ...file,
+        predictions: file.predictions?.map((p) =>
+          p.mentionId === mentionId
+            ? {
+                ...p,
+                attrs: {
+                  ...p.attrs,
+                  canonical_entity_id: targetCanonicalId,
+                  aymurai_label: targetLabel,
+                },
+              }
+            : p,
+        ),
+      }));
+    }
+
+    // ----------------------------------------
+    // MERGE GROUPS
+    // ----------------------------------------
+    case ActionTypes.MERGE_GROUPS: {
+      const { sourceCanonicalId, targetCanonicalId, targetLabel } =
+        action.payload;
+      return state.map((file) => ({
+        ...file,
+        predictions: file.predictions?.map((p) =>
+          p.attrs.canonical_entity_id === sourceCanonicalId
+            ? {
+                ...p,
+                attrs: {
+                  ...p.attrs,
+                  canonical_entity_id: targetCanonicalId,
+                  aymurai_label: targetLabel,
+                },
+              }
             : p,
         ),
       }));
