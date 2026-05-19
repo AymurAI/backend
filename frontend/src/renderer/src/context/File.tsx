@@ -25,7 +25,6 @@ interface Props {
 }
 export default function FileProvider({ children }: Props) {
   const [state, dispatch] = useReducer(reducer, []);
-
   return (
     <FileContext.Provider value={state}>
       <FileDispatchContext.Provider value={dispatch}>

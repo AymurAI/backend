@@ -1,15 +1,22 @@
-import { type ChangeEvent, useRef, useState } from "react";
+import {
+  type ChangeEvent,
+  type KeyboardEvent,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
+import AnonymizerLabelSelect from "@/components/anonymizer/anonymizer-label-select";
 import Button from "@/components/ui/button";
-import Input from "@/components/ui/input";
-import Select, { type SelectOption } from "@/components/ui/select";
+import type { SelectOption } from "@/components/ui/select";
+import { useExcludedTagsConfig } from "@/store/useLocal";
 import { sva } from "@/styled/css";
 import { Grid, HStack, styled } from "@/styled/jsx";
 import { hstack } from "@/styled/patterns";
-import { anonymizerLabels } from "@/types/aymurai";
+import { getActiveAnonymizerLabelOptions } from "@/utils/anonymizer/labels";
 import { MagnifyingGlass } from "phosphor-react";
+import { SEARCH_MIN_LENGTH } from "../annotations";
 import { Counter } from "./Counter";
-import { useScroll } from "./useScroll";
 
 const searchClasses = sva({
   slots: ["searchBar", "input", "verticalHr"],
@@ -42,8 +49,13 @@ interface Props {
   isLabelManagerOpen: boolean;
   onSearchChange?: (value: string) => void;
   onLabelChange?: (object: SelectOption | undefined) => void;
-  onLabelSufixChange?: (value: number | null) => void;
+  labelValue?: string;
   onLabelManagerToggle: () => void;
+  matchesCount: number;
+  activeIndex: number | null;
+  onNext: () => void;
+  onPrevious: () => void;
+  onFocusDocument: () => void;
 }
 
 export const SearchBar = ({
@@ -51,17 +63,47 @@ export const SearchBar = ({
   isLabelManagerOpen,
   onSearchChange,
   onLabelChange,
-  onLabelSufixChange,
+  labelValue,
   onLabelManagerToggle,
+  matchesCount,
+  activeIndex,
+  onNext,
+  onPrevious,
+  onFocusDocument,
 }: Props) => {
   const [search, setSearch] = useState("");
-  const [labelSufix, setLabelSufix] = useState("");
+  const { tags } = useExcludedTagsConfig();
 
   const inputSearchRef = useRef<HTMLInputElement>(null);
 
-  const { next, previous, count, matchesCount } = useScroll(search);
-
   const classes = searchClasses();
+  const labelOptions = getActiveAnonymizerLabelOptions(tags);
+
+  useEffect(() => {
+    const isEditableTarget = (target: EventTarget | null) => {
+      if (!(target instanceof HTMLElement)) return false;
+      if (target === inputSearchRef.current) return false;
+      if (target.isContentEditable) return true;
+      return ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName);
+    };
+
+    const handleKeyDown = (event: globalThis.KeyboardEvent) => {
+      const isSearchShortcut =
+        (event.ctrlKey || event.metaKey) &&
+        !event.altKey &&
+        !event.shiftKey &&
+        event.key.toLowerCase() === "b";
+
+      if (!isSearchShortcut || isEditableTarget(event.target)) return;
+
+      event.preventDefault();
+      inputSearchRef.current?.focus();
+      inputSearchRef.current?.select();
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   const changeSearchHandler = (e: ChangeEvent<HTMLInputElement>) => {
     const text = e.target.value;
@@ -80,18 +122,17 @@ export const SearchBar = ({
     onSearchChange?.("");
   };
 
-  const searchFocus = () => inputSearchRef.current?.focus();
-
-  // biome-ignore lint/suspicious/noExplicitAny: we should add a type in the future
-  const changeLabelSelectHandler = (e: any | undefined) => {
-    onLabelChange?.(e);
-    onLabelSufixChange?.(null);
-    setLabelSufix("");
+  const handleInputKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key !== "Escape") return;
+    event.preventDefault();
+    handleClear();
+    onFocusDocument();
   };
 
-  const changeLabelSufixHandler = (e: ChangeEvent<HTMLInputElement>) => {
-    setLabelSufix(e.target.value);
-    onLabelSufixChange?.(Number(e.target.value));
+  const searchFocus = () => inputSearchRef.current?.focus();
+
+  const changeLabelSelectHandler = (e: SelectOption | undefined) => {
+    onLabelChange?.(e);
   };
 
   return (
@@ -113,13 +154,15 @@ export const SearchBar = ({
           className={classes.input}
           onChange={changeSearchHandler}
           onClick={clickSearchHandler}
+          onKeyDown={handleInputKeyDown}
         />
         <Counter
           clear={handleClear}
-          next={next}
-          previous={previous}
+          next={onNext}
+          previous={onPrevious}
           count={matchesCount}
-          cursor={count}
+          cursor={activeIndex === null ? 0 : activeIndex + 1}
+          isSearching={search.length >= SEARCH_MIN_LENGTH}
         />
       </div>
       {isAnnotable && (
@@ -129,19 +172,11 @@ export const SearchBar = ({
             Aplicar&#10;etiquetas
           </styled.p>
           <div style={{ minWidth: 150 }}>
-            <Select
+            <AnonymizerLabelSelect
               placeholder="Etiqueta"
-              options={anonymizerLabels}
+              value={labelValue}
+              options={labelOptions}
               onChange={changeLabelSelectHandler}
-            />
-          </div>
-          <div style={{ width: 100 }}>
-            <Input
-              placeholder="Sufijo"
-              value={labelSufix}
-              onChange={changeLabelSufixHandler}
-              type="number"
-              min={1}
             />
           </div>
           {!isLabelManagerOpen && (
@@ -160,49 +195,4 @@ export const SearchBar = ({
       )}
     </Grid>
   );
-  // return (
-  //   <Grid
-  //     columns={isAnnotable ? 2 : 1}
-  //     spacing="m"
-  //     justify="stretch"
-  //     align="stretch"
-  //   >
-  //     <S.WrapperSearch onClick={searchFocus}>
-  //       <MagnifyingGlass size={24} />
-  //       <S.InputContainer>
-  //         <S.Input
-  //           ref={inputSearchRef}
-  //           placeholder="Buscar"
-  //           onChange={changeSearchHandler}
-  //           onClick={clickSearchHandler}
-  //         />
-  //       </S.InputContainer>
-
-  //       <Counter {...{ next, previous, matchesCount, count }} />
-  //     </S.WrapperSearch>
-
-  //     {isAnnotable && (
-  //       <S.ContainerLabel>
-  //         <S.WrapperLabel>
-  //           <Select
-  //             placeholder="Seleccione una opción"
-  //             options={anonymizerLabels}
-  //             onChange={changeLabelSelectHandler}
-  //           />
-  //         </S.WrapperLabel>
-  //         <S.WrapperSufixLabel>
-  //           <S.InputContainer>
-  //             <S.Input
-  //               ref={inputLabelSufixRef}
-  //               placeholder="Sufijo"
-  //               onChange={changeLabelSufixHandler}
-  //               type="number"
-  //               min="1"
-  //             />
-  //           </S.InputContainer>
-  //         </S.WrapperSufixLabel>
-  //       </S.ContainerLabel>
-  //     )}
-  //   </Grid>
-  // );
 };

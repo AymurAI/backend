@@ -17,6 +17,10 @@ interface LocalStorageStore {
   setExcludedTags: (tags: Record<AnonymizerLabels, boolean>) => void;
   excludedWords: string[];
   setExcludedWords: (words: string[]) => void;
+  groupOrder: Record<string, string[]> | null;
+  setGroupOrder: (order: Record<string, string[]>) => void;
+  categoryAssignments: Record<string, string> | null;
+  setCategoryAssignments: (assignments: Record<string, string>) => void;
 }
 
 const useLocalStore = create<LocalStorageStore>()(
@@ -40,6 +44,10 @@ const useLocalStore = create<LocalStorageStore>()(
         setExcludedTags: (tags) => set({ excludedTags: tags }),
         excludedWords: [],
         setExcludedWords: (words) => set({ excludedWords: words }),
+        groupOrder: null,
+        setGroupOrder: (groupOrder) => set({ groupOrder }),
+        categoryAssignments: null,
+        setCategoryAssignments: (categoryAssignments) => set({ categoryAssignments }),
       }),
       {
         name: "local-storage",
@@ -72,4 +80,15 @@ export const useExcludedTagsConfigActions = () =>
   useLocalStore(useShallow((s) => ({
     setTags: s.setExcludedTags,
     setWords: s.setExcludedWords,
+  })));
+
+export const useGroupOrder = () =>
+  useLocalStore(useShallow((s) => ({
+    groupOrder: s.groupOrder,
+    categoryAssignments: s.categoryAssignments,
+  })));
+export const useGroupOrderActions = () =>
+  useLocalStore(useShallow((s) => ({
+    setGroupOrder: s.setGroupOrder,
+    setCategoryAssignments: s.setCategoryAssignments,
   })));

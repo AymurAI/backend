@@ -7,6 +7,7 @@ const ErrorText = styled("p", {
   fontSize: "$subtitleSm",
   lineHeight: "$subtitleSm",
   fontWeight: "$default",
+  whiteSpace: "pre-line",
 });
 
 export default ErrorText;

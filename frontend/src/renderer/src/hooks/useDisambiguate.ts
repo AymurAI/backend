@@ -19,7 +19,10 @@ type FileDisambiguate = { status: PredictStatus };
  */
 export function useDisambiguate(
   files: DocFile[],
-  predictStatuses: Record<string, { status: PredictStatus }>,
+  predictStatuses: Record<
+    string,
+    { status: PredictStatus; fromValidation?: boolean }
+  >,
   enabled: boolean,
 ): Record<string, FileDisambiguate> {
   const dispatch = useFileDispatch();
@@ -29,9 +32,13 @@ export function useDisambiguate(
   const queries = useQueries({
     queries: files.map((file) => ({
       ...disambiguate(file),
-      // Fire only when this step is enabled and predict is fully done
+      // Fire only when this step is enabled, predict is fully done, AND the
+      // predictions were not loaded from stored DB validation (which is already
+      // post-disambiguation data and must not be overwritten).
       enabled:
-        enabled && predictStatuses[file.data.name]?.status === "completed",
+        enabled &&
+        predictStatuses[file.data.name]?.status === "completed" &&
+        !predictStatuses[file.data.name]?.fromValidation,
     })),
   });
 
@@ -58,13 +65,15 @@ export function useDisambiguate(
     result[fileName] = {
       status: !enabled
         ? "completed" // this step is skipped for non-anonymizer flows
-        : !predictDone
-          ? "processing" // still waiting on predict
-          : query.isError
-            ? "error"
-            : query.isSuccess
-              ? "completed"
-              : "processing",
+        : predictStatuses[fileName]?.fromValidation
+          ? "completed" // predictions came from DB validation; disambiguation not needed
+          : !predictDone
+            ? "processing" // still waiting on predict
+            : query.isError
+              ? "error"
+              : query.isSuccess
+                ? "completed"
+                : "processing",
     };
   });
 

@@ -38,6 +38,7 @@ export default async function predict(
       (l) =>
         ({
           ...l,
+          mentionId: crypto.randomUUID(),
           start_char: l.attrs.aymurai_alt_start_char || l.start_char,
           end_char: l.attrs.aymurai_alt_end_char || l.end_char,
           text: l.attrs.aymurai_alt_text || l.text,
