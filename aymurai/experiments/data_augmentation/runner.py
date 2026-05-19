@@ -1357,7 +1357,9 @@ def augment_paragraph(
     alignment_df, alignment_records = build_alignment_records(
         source_text=source_text, target_text=resolved_text
     )
-    bio_lines = entities_to_bio_lines(resolved_text, entities)
+    # Entity spans are computed on local_resolved_text (apply_replacements output),
+    # so BIO lines must be generated from the same text to keep offsets aligned.
+    bio_lines = entities_to_bio_lines(local_resolved_text, entities)
     alignment_bio_lines = alignment_to_bio_lines(alignment_df)
 
     alignments_dir.mkdir(parents=True, exist_ok=True)

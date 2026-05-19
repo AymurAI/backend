@@ -11,7 +11,7 @@ paths:
   alignments_dirname: "alignments"
 
 api:
-  base_url: "https://aymurai.collectiveai.io"
+  base_url: "http://127.0.0.1:8000"
   document_extract_path: "/misc/document-extract"
   timeout_s: 300
 
@@ -25,14 +25,15 @@ ollama:
   allow_non_faker_values: true
   llm_call_retries: 1
   llm_only_labels:
-    - "TEXTO_ANONIMIZAR"
-    - "NUM"
-    - "OCUPACION"
-    - "OCUPACIÓN"
-    - "PROFESION"
-    - "PROFESIÓN"
-    - "OCUPACION/PROFESION"
-    - "OCUPACIÓN/PROFESIÓN"
+    # - "TEXTO_ANONIMIZAR"
+    # - "NUM"
+    # - "OCUPACION"
+    # - "OCUPACIÓN"
+    # - "PROFESION"
+    # - "PROFESIÓN"
+    # - "OCUPACION/PROFESION"
+    # - "OCUPACIÓN/PROFESIÓN"
+    - USUARIX
 
 # openai:
 #   model: "gpt-4.1-mini"
@@ -42,9 +43,9 @@ ollama:
 
 generation:
   target_label_count: null
-  candidates_per_label: 5
+  candidates_per_label: 1
   max_attempts_per_label: 50
-  max_paragraphs: 5000
+  max_paragraphs: 1
   deduplicate_candidate_paragraphs: true
   run_with_ollama: true
   dry_run_preflight_only: false
