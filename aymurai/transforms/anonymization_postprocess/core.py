@@ -33,6 +33,7 @@ class AnonymizationEntityCleaner(Transform):
         original_text = ent["text"]
         start_char = ent["start_char"]
         end_char = ent["end_char"]
+        label = ent["attrs"]["aymurai_label"]
 
         # Match leading and trailing non-alphanumeric characters
         leading_match = re.match(r"^\W+", original_text)
@@ -44,6 +45,23 @@ class AnonymizationEntityCleaner(Transform):
 
         # Clean the text
         cleaned_text = pattern.sub("", original_text)
+
+        exact_labels = {
+            "DNI",
+            "CUIT_CUIL",
+            "TELEFONO",
+            "PATENTE_DOMINIO",
+            "IP",
+            "NUM_CAJA_AHORRO",
+            "CBU",
+            "NUM_MATRICULA",
+        }
+
+        ent["attrs"]["aymurai_label_subclass"] = []
+
+        if label in exact_labels:
+            flattened_text = re.sub(r"[^a-zA-Z0-9]", "", cleaned_text)
+            ent["attrs"]["aymurai_label_subclass"].append(flattened_text)
 
         # Update the entity's alt text and indices
         ent["attrs"]["aymurai_alt_text"] = cleaned_text

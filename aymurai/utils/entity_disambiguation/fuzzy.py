@@ -7,6 +7,17 @@ from rapidfuzz.fuzz import token_set_ratio
 from aymurai.meta.api_interfaces import DocLabel
 from aymurai.meta.entities import CanonicalEntity
 
+EXACT_LABELS = {
+    "DNI",
+    "CUIT_CUIL",
+    "TELEFONO",
+    "PATENTE_DOMINIO",
+    "IP",
+    "NUM_CAJA_AHORRO",
+    "CBU",
+    "NUM_MATRICULA",
+}
+
 
 def _find_parent(parent: list[int], idx: int) -> int:
     """
@@ -179,16 +190,36 @@ def build_canonical_entities(
         if target_labels and attrs.aymurai_label not in target_labels:
             continue
         alias = attrs.aymurai_alt_text or label.text
+
+        subclass_val = getattr(attrs, "aymurai_label_subclass", None)
+
+        if isinstance(subclass_val, list):
+            exact_alias = subclass_val[-1] if subclass_val else alias
+        else:
+            exact_alias = subclass_val or alias
+
         grouped.setdefault(attrs.aymurai_label, []).append(
-            {"text": alias, "aymurai_label": attrs.aymurai_label}
+            {
+                "text": alias,
+                "aymurai_label": attrs.aymurai_label,
+                "exact_alias": exact_alias,
+            }
         )
 
     canonical_entities: list[CanonicalEntity] = []
-    for items in grouped.values():
-        clusters = _cluster_aliases_with_cdist(
-            items=items,
-            threshold=threshold,
-        )
+    for label_type, items in grouped.items():
+        if label_type in EXACT_LABELS:
+            exact_groups = {}
+            for item in items:
+                exact_groups.setdefault(item["exact_alias"], []).append(item)
+
+            clusters = list(exact_groups.values())
+        else:
+            clusters = _cluster_aliases_with_cdist(
+                items=items,
+                threshold=threshold,
+            )
+
         canonical_entities.extend(_clusters_to_canonical_entities(clusters))
 
     canonical_entities = sorted(canonical_entities, key=lambda x: x.canonical_text)
