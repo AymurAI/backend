@@ -18,10 +18,11 @@ import taskbar from "@/services/taskbar";
 import { css } from "@/styled/css";
 import { HStack, Stack, styled } from "@/styled/jsx";
 import type { Workflows } from "@/types/aymurai";
-import { FeatureFlowEnum, featureNamespace } from "@/types/features";
+import { FeatureFlowEnum, featureNamespace, getFeatureRouteSlug, parseFeatureRouteSlug } from "@/types/features";
 import type { DocFile } from "@/types/file";
 import { useQueryClient } from "@tanstack/react-query";
 import {
+  Navigate,
   createFileRoute,
   useNavigate,
   useParams,
@@ -29,15 +30,18 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-export const Route = createFileRoute("/app/$feature/process")({
+export const Route = createFileRoute("/$feature/process")({
   component: RouteComponent,
 });
 
 function RouteComponent() {
   const queryClient = useQueryClient();
-  const { feature } = useParams({
-    from: "/app/$feature/process",
+  const { feature: featureSlug } = useParams({
+    from: "/$feature/process",
   });
+  const feature = parseFeatureRouteSlug(featureSlug);
+  if (!feature) return <Navigate to="/home/features" />;
+
   const { t } = useTranslation(featureNamespace[feature]);
 
   const dispatch = useFileDispatch();
@@ -60,8 +64,8 @@ function RouteComponent() {
   const handleNext = () => {
     dispatch(filterUnprocessed());
     navigate({
-      to: "/app/$feature/validation",
-      params: { feature },
+      to: "/$feature/validation",
+      params: { feature: getFeatureRouteSlug(feature) },
     });
   };
 
@@ -120,7 +124,8 @@ function RouteComponent() {
 
   return (
     <RequireFile>
-      <Header
+      <Stack width="screen" minHeight="screen" gap="0">
+        <Header
         title={t("title")}
         feature={feature}
         center={<Stepper currentStep={2} />}
@@ -129,7 +134,7 @@ function RouteComponent() {
       <MainContent>
         <Stack gap="10">
           <HStack alignItems="center" gap="6">
-            <BackButton to="/app/$feature/preview" params={{ feature }} />
+            <BackButton to="/$feature/preview" params={{ feature: getFeatureRouteSlug(feature) }} />
             <SectionTitle>{t("process.sectionTitle")}</SectionTitle>
           </HStack>
           <Card className={css({ alignItems: "stretch" })}>
@@ -163,11 +168,12 @@ function RouteComponent() {
           </Card>
         </Stack>
       </MainContent>
-      <Footer withBuiltBy>
-        <Button onClick={handleNext} disabled={isProcessing}>
-          Siguiente
-        </Button>
-      </Footer>
+        <Footer withBuiltBy>
+          <Button onClick={handleNext} disabled={isProcessing}>
+            Siguiente
+          </Button>
+        </Footer>
+      </Stack>
     </RequireFile>
   );
 }

@@ -6,7 +6,7 @@ import Card from "@/components/ui/card";
 import APIProtected from "@/features/APIProtected";
 import { css } from "@/styled/css";
 import { Grid, Stack, styled } from "@/styled/jsx";
-import { FeatureFlowEnum } from "@/types/features";
+import { FeatureFlowEnum, getFeatureRouteSlug } from "@/types/features";
 import { FEATURE_ICON } from "@/utils/config";
 import {
   Link,
@@ -71,15 +71,15 @@ function RouteComponent() {
             </styled.h1>
             <Grid columns={2} rowGap="6" columnGap="6">
               <CardTool
-                to="/$feature"
-                params={{ feature: FeatureFlowEnum.Dataset }}
+                to="/$feature/onboarding"
+                params={{ feature: getFeatureRouteSlug(FeatureFlowEnum.Dataset) }}
                 title={t("dataset:title")}
                 subtitle={t("dataset:subtitle")}
                 icon={FEATURE_ICON.DATA_SET}
               />
               <CardTool
-                to="/$feature"
-                params={{ feature: FeatureFlowEnum.Anonymizer }}
+                to="/$feature/onboarding"
+                params={{ feature: getFeatureRouteSlug(FeatureFlowEnum.Anonymizer) }}
                 title={t("anonymizer:title")}
                 subtitle={t("anonymizer:subtitle")}
                 icon={FEATURE_ICON.ANONYMIZER}

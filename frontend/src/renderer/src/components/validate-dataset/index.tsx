@@ -8,13 +8,17 @@ import { validate } from "@/reducers/file/actions";
 import { css } from "@/styled/css";
 import { HStack, Stack } from "@/styled/jsx";
 import { isFileValidated, isValidationCompleted } from "@/utils/file";
-import { useNavigate, useParams } from "@tanstack/react-router";
+import { getFeatureRouteSlug, parseFeatureRouteSlug } from "@/types/features";
+import { Navigate, useNavigate, useParams } from "@tanstack/react-router";
 import FormGroup from "./form-group";
 import { moveNext, movePrevious } from "./utils";
 
 export function ValidateDataset() {
   // HOOKS
-  const { feature } = useParams({ from: "/$feature/validation" });
+  const { feature: featureSlug } = useParams({ from: "/$feature/validation" });
+  const feature = parseFeatureRouteSlug(featureSlug);
+
+  if (!feature) return <Navigate to="/home/features" />;
   const files = useFiles();
   const [checked, setChecked] = useState(false);
   const [selected, setSelected] = useState(0);
@@ -39,7 +43,7 @@ export function ValidateDataset() {
   const handleContinue = () => {
     navigate({
       to: "/$feature/finish",
-      params: { feature },
+      params: { feature: getFeatureRouteSlug(feature) },
     });
   };
 

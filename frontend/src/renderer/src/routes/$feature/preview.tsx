@@ -14,8 +14,9 @@ import { SectionTitle } from "@/layout/section-title";
 import { addFiles, filterUnselected } from "@/reducers/file/actions";
 import { css } from "@/styled/css";
 import { Grid, HStack, Stack, styled } from "@/styled/jsx";
-import { FeatureFlowEnum, featureNamespace } from "@/types/features";
+import { FeatureFlowEnum, featureNamespace, getFeatureRouteSlug, parseFeatureRouteSlug } from "@/types/features";
 import {
+  Navigate,
   createFileRoute,
   useNavigate,
   useParams,
@@ -23,15 +24,19 @@ import {
 import { useRef } from "react";
 import { useTranslation } from "react-i18next";
 
-export const Route = createFileRoute("/app/$feature/preview")({
+export const Route = createFileRoute("/$feature/preview")({
   component: RouteComponent,
 });
 
 function RouteComponent() {
-  const { feature } = useParams({
-    from: "/app/$feature/preview",
+  const { feature: featureSlug } = useParams({
+    from: "/$feature/preview",
   });
+  const feature = parseFeatureRouteSlug(featureSlug);
   const navigate = useNavigate();
+
+  if (!feature) return <Navigate to="/home/features" />;
+
   const { t } = useTranslation(featureNamespace[feature]);
 
   const inputRef = useRef<HTMLInputElement>(null);
@@ -49,8 +54,8 @@ function RouteComponent() {
     if (rawFiles) {
       dispatch(addFiles([...rawFiles]));
       await navigate({
-        to: "/app/$feature/preview",
-        params: { feature },
+        to: "/$feature/preview",
+        params: { feature: getFeatureRouteSlug(feature) },
       });
     }
   };
@@ -61,14 +66,15 @@ function RouteComponent() {
   const handleConfirmFiles = () => {
     dispatch(filterUnselected());
     navigate({
-      to: "/app/$feature/process",
-      params: { feature },
+      to: "/$feature/process",
+      params: { feature: getFeatureRouteSlug(feature) },
     });
   };
 
   return (
     <RequireFile>
-      <Header
+      <Stack width="screen" minHeight="screen" gap="0">
+        <Header
         title={t("title")}
         center={<Stepper currentStep={1} />}
         feature={feature}
@@ -77,7 +83,7 @@ function RouteComponent() {
       <MainContent>
         <Stack gap="8">
           <HStack alignItems="center" gap="6">
-            <BackButton to="/app/$feature/onboarding" params={{ feature }} />
+            <BackButton to="/$feature/onboarding" params={{ feature: getFeatureRouteSlug(feature) }} />
             <SectionTitle>{t("preview.sectionTitle")}</SectionTitle>
           </HStack>
           <Card>
@@ -121,7 +127,8 @@ function RouteComponent() {
           </Button>
         </HStack>
       </Footer>
-      <HiddenInput ref={inputRef} onChange={handleAddFiles} />
+        <HiddenInput ref={inputRef} onChange={handleAddFiles} />
+      </Stack>
     </RequireFile>
   );
 }

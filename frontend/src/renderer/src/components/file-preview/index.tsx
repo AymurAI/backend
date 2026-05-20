@@ -6,7 +6,7 @@ import type { PredictStatus } from "@/hooks/usePredict";
 import { toggleSelected } from "@/reducers/file/actions";
 import type { DocFile } from "@/types/file";
 
-import { FeatureFlowEnum } from "@/types/features";
+import { FeatureFlowEnum, parseFeatureRouteSlug } from "@/types/features";
 import { useParams } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import * as S from "./FilePreview.styles";
@@ -16,7 +16,8 @@ interface Props {
   status: PredictStatus;
 }
 export default function FilePreview({ file, status }: Props) {
-  const { feature } = useParams({ from: "/$feature/preview" });
+  const { feature: featureSlug } = useParams({ from: "/$feature/preview" });
+  const feature = parseFeatureRouteSlug(featureSlug);
   const { t } = useTranslation();
   const dispatch = useFileDispatch();
 

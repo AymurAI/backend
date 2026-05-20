@@ -6,42 +6,50 @@ import HomeButton from "@/components/layout/home-button";
 import RequireFile from "@/features/RequireFile";
 import { useFiles } from "@/hooks";
 import { Grid, Stack } from "@/styled/jsx";
-import { FeatureFlowEnum, featureNamespace } from "@/types/features";
+import { FeatureFlowEnum, featureNamespace, getFeatureRouteSlug, parseFeatureRouteSlug } from "@/types/features";
 import {
+  Navigate,
   createFileRoute,
   useNavigate,
   useParams,
 } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 
-export const Route = createFileRoute("/app/$feature/validation")({
+export const Route = createFileRoute("/$feature/validation")({
   component: RouteComponent,
 });
 
 function RouteComponent() {
-  const { feature } = useParams({
-    from: "/app/$feature/validation",
+  const { feature: featureSlug } = useParams({
+    from: "/$feature/validation",
   });
+  const feature = parseFeatureRouteSlug(featureSlug);
 
   const navigate = useNavigate();
+
+  if (!feature) return <Navigate to="/home/features" />;
+
   const { t } = useTranslation(featureNamespace[feature]);
 
   const file = useFiles()[0]!;
 
   const handleContinue = () =>
-    navigate({ to: "/app/$feature/finish", params: { feature } });
+    navigate({ to: "/$feature/finish", params: { feature: getFeatureRouteSlug(feature) } });
 
   if (feature === FeatureFlowEnum.Anonymizer)
     return (
       <RequireFile>
-        <Header
+        <Stack width="screen" minHeight="screen" gap="0">
+          <Header
           title={t("title")}
           center={<Stepper currentStep={3} />}
           feature={feature}
           right={<HomeButton />}
         />
-        <Grid
+          <Grid
           columns={1}
+          flex="1"
+          minHeight="0"
           gap="0"
           justifyContent="stretch"
           alignItems="stretch"
@@ -50,11 +58,12 @@ function RouteComponent() {
           <FileAnnotator {...{ file }} isAnnotable />
         </Grid>
 
-        <Footer>
-          <Button size="md" onClick={handleContinue}>
-            Anonimizar documento
-          </Button>
-        </Footer>
+          <Footer>
+            <Button size="md" onClick={handleContinue}>
+              Anonimizar documento
+            </Button>
+          </Footer>
+        </Stack>
       </RequireFile>
     );
   return (

@@ -1,4 +1,5 @@
 import {
+  Navigate,
   createFileRoute,
   useNavigate,
   useParams,
@@ -18,22 +19,27 @@ import { SectionTitle } from "@/layout/section-title";
 import { addFiles } from "@/reducers/file/actions";
 import { useSetTutorialSeen, useTutorialSeen } from "@/store/useLocal";
 import { HStack, Stack, styled } from "@/styled/jsx";
-import { featureNamespace } from "@/types/features";
+import { featureNamespace, getFeatureRouteSlug, parseFeatureRouteSlug } from "@/types/features";
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
+import { flushSync } from "react-dom";
 import { useTranslation } from "react-i18next";
 
 // FIRST step of the processing workflow
-export const Route = createFileRoute("/app/$feature/onboarding")({
+export const Route = createFileRoute("/$feature/onboarding")({
   component: RouteComponent,
 });
 
 function RouteComponent() {
   const queryClient = useQueryClient();
-  const { feature } = useParams({
-    from: "/app/$feature/onboarding",
+  const { feature: featureSlug } = useParams({
+    from: "/$feature/onboarding",
   });
+  const feature = parseFeatureRouteSlug(featureSlug);
   const navigate = useNavigate();
+
+  if (!feature) return <Navigate to="/home/features" />;
+
   const { t } = useTranslation(featureNamespace[feature]);
 
   const inputRef = useRef<HTMLInputElement>(null);
@@ -43,10 +49,12 @@ function RouteComponent() {
   const toggleTutorialSeen = useSetTutorialSeen();
 
   const handleAddFiles = async (files: File[]) => {
-    dispatch(addFiles(files));
+    flushSync(() => {
+      dispatch(addFiles(files));
+    });
     await navigate({
-      to: "/app/$feature/preview",
-      params: { feature },
+      to: "/$feature/preview",
+      params: { feature: getFeatureRouteSlug(feature) },
     });
     toggleTutorialSeen(feature);
   };
@@ -66,7 +74,7 @@ function RouteComponent() {
   }, []);
 
   return (
-    <>
+    <Stack width="screen" minHeight="screen" gap="0">
       <Header title={t("title")} feature={feature} right={<HomeButton />} />
       <MainContent>
         {tutorialSeen ? (
@@ -98,6 +106,6 @@ function RouteComponent() {
         </HStack>
       </Footer>
       <HiddenInput ref={inputRef} onChange={handleInputChange} />
-    </>
+    </Stack>
   );
 }

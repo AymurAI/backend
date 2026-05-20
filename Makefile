@@ -50,10 +50,10 @@ FRONTEND_DIR=frontend
 FRONTEND_DIST_DIR=frontend-dist
 
 frontend-install:
-	cd $(FRONTEND_DIR) && npm install
+	cd $(FRONTEND_DIR) && pnpm install
 
 frontend-build: frontend-install
-	cd $(FRONTEND_DIR) && npm run build:web
+	cd $(FRONTEND_DIR) && pnpm run build:web
 	# Copy build output to frontend-dist
 	rm -rf $(FRONTEND_DIST_DIR)
 	cp -r $(FRONTEND_DIR)/out/renderer $(FRONTEND_DIST_DIR)

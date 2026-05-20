@@ -1,7 +1,7 @@
 import { useFileDispatch } from "@/hooks/useFiles";
 import { removeAllFiles } from "@/reducers/file/actions";
 import { Grid, Stack, styled } from "@/styled/jsx";
-import { FeatureFlowEnum, featureNamespace } from "@/types/features";
+import { FeatureFlowEnum, featureNamespace, getFeatureRouteSlug } from "@/types/features";
 import { Link } from "@tanstack/react-router";
 import { DotsNine, Gear } from "phosphor-react";
 import { useTranslation } from "react-i18next";
@@ -31,8 +31,8 @@ export default function FeaturesMenu() {
           {features.map((feature) => (
             <Link
               key={feature}
-              to="/$feature"
-              params={{ feature }}
+              to="/$feature/onboarding"
+              params={{ feature: getFeatureRouteSlug(feature) }}
               onClick={handleClearFiles}
             >
               <Card size="sm" clickable>

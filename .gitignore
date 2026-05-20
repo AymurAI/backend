@@ -138,3 +138,6 @@ notebooks/**
 
 # Frontend build output
 frontend-dist/
+
+# pnpm local package store
+.pnpm-store/

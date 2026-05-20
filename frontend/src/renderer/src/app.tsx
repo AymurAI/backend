@@ -6,6 +6,7 @@ import {
 import { Toaster } from "react-hot-toast";
 
 import { ThemeProvider } from "@/components";
+import FileProvider from "@/context/File";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import * as TanstackReactQuery from "@/features/ReactQueryProvider";
 
@@ -37,7 +38,9 @@ export default function App() {
       {/* Stitches global styles */}
       <ThemeProvider>
         <TooltipProvider>
-          <RouterProvider router={router} />
+          <FileProvider>
+            <RouterProvider router={router} />
+          </FileProvider>
           <Toaster position="bottom-center" />
         </TooltipProvider>
       </ThemeProvider>
