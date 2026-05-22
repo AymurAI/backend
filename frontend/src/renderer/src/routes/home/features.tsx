@@ -1,5 +1,5 @@
-import BuiltBy from "@/components/brand/built-by";
 import FeatureIcon from "@/components/feature-icon";
+import Footer from "@/components/layout/footer";
 import Header from "@/components/layout/header";
 import MainContent from "@/components/layout/main-content";
 import Card from "@/components/ui/card";
@@ -15,13 +15,6 @@ import {
 } from "@tanstack/react-router";
 import type { Icon } from "phosphor-react";
 import { useTranslation } from "react-i18next";
-
-const builtBy = css({
-  pos: "absolute",
-  bottom: "16", // 64px
-  left: "[50%]",
-  transform: "[translateX(-50%)]",
-});
 
 interface CardToolProps extends LinkComponentProps {
   title: string;
@@ -86,11 +79,8 @@ function RouteComponent() {
               />
             </Grid>
           </Stack>
-          {/* Floating content below */}
-          <div className={builtBy}>
-            <BuiltBy />
-          </div>
         </MainContent>
+        <Footer withBuiltBy />
       </Stack>
     </APIProtected>
   );

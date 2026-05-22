@@ -132,6 +132,16 @@ const suffixBadge = css({
   letterSpacing: "wide",
 });
 
+const textItemSplitHighlight = {
+  bg: "[#D9DCFF]",
+  boxShadow: "[inset 0 0 0 1px #8A92D8]",
+} as const;
+
+const textItemConfirmingSplitHighlight = {
+  bg: "[#C8CDF8]",
+  boxShadow: "[inset 0 0 0 2px #6F78CE]",
+} as const;
+
 const textItemStyle = css({
   display: "flex",
   alignItems: "flex-start",
@@ -143,16 +153,14 @@ const textItemStyle = css({
   minW: "0",
   w: "full",
   boxSizing: "border-box",
+  "&:hover": textItemSplitHighlight,
 });
 
 const textItemDraggingStyle = css({ opacity: "0.35" });
-const textItemPendingSplitStyle = css({
-  bg: "[#D9DCFF]",
-  boxShadow: "[inset 0 0 0 1px #8A92D8]",
-});
+const textItemPendingSplitStyle = css(textItemSplitHighlight);
 const textItemConfirmingSplitStyle = css({
-  bg: "[#C8CDF8]",
-  boxShadow: "[inset 0 0 0 2px #6F78CE]",
+  ...textItemConfirmingSplitHighlight,
+  "&:hover": textItemConfirmingSplitHighlight,
 });
 
 const textContextMenu = css({
@@ -250,6 +258,7 @@ interface DraggableTextChipProps {
   displayText: string;
   onRemove: () => void;
   onCreateGroup: (position: { x: number; y: number }) => void;
+  canCreateGroup: boolean;
   isSplitTarget: boolean;
   isSplitActionHovered: boolean;
 }
@@ -260,6 +269,7 @@ function DraggableTextChip({
   displayText,
   onRemove,
   onCreateGroup,
+  canCreateGroup,
   isSplitTarget,
   isSplitActionHovered,
 }: DraggableTextChipProps) {
@@ -281,6 +291,7 @@ function DraggableTextChip({
           : ""
       }`}
       onContextMenu={(event) => {
+        if (!canCreateGroup) return;
         event.preventDefault();
         event.stopPropagation();
         onCreateGroup({ x: event.clientX, y: event.clientY });
@@ -689,13 +700,13 @@ export default function LabelEntityTab({
               event.preventDefault();
               event.stopPropagation();
             }}
+            onPointerEnter={() => setTextMenuActionHovered(true)}
+            onPointerLeave={() => setTextMenuActionHovered(false)}
           >
             <button
               type="button"
               className={textContextMenuButton}
               onClick={handleCreateGroupFromText}
-              onMouseEnter={() => setTextMenuActionHovered(true)}
-              onMouseLeave={() => setTextMenuActionHovered(false)}
             >
               <PlusCircle size={14} />
               Crear nuevo grupo
@@ -889,6 +900,9 @@ export default function LabelEntityTab({
                                             group.canonicalId,
                                             normText,
                                           )
+                                        }
+                                        canCreateGroup={
+                                          group.mentions.length > 1
                                         }
                                         onCreateGroup={(position) => {
                                           setTextMenu({
