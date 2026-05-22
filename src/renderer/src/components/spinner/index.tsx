@@ -11,7 +11,7 @@ const SVG = styled("svg", {
 
 export default function Spinner() {
   return (
-    <SVG width={48} height={48} fill="none" xmlns="http://www.w3.org/2000/svg">
+    <SVG width={48} height={48} viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
       <path
         d="M24 42c9.941 0 18-8.059 18-18S33.941 6 24 6 6 14.059 6 24s8.059 18 18 18Z"
         stroke="#E6E8FF"

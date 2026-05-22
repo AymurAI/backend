@@ -20,7 +20,7 @@ export default function FileCheck({
       <Card {...{ hasError }}>
         <Icon {...{ hasError, isLoading }} />
       </Card>
-      <Text>{fileName}</Text>
+      <Text size="s">{fileName}</Text>
       {hasError && <ErrorText>{errorMessage}</ErrorText>}
     </Wrapper>
   );

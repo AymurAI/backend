@@ -26,7 +26,7 @@ export default function FinishMainContent({
         </Stack>
         <Card>
           <Stack gap={{ base: "4", xl: "8" }}>
-            <styled.h3>{t("finish.subtitle")}</styled.h3>
+            <styled.h2 textStyle="subtitle.md.default">{t("finish.subtitle")}</styled.h2>
             <Grid columns={4} gap="8" justifyContent="center" width="full">
               {children}
             </Grid>
