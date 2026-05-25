@@ -1,3 +1,4 @@
+import json
 import uuid
 
 from pydantic import TypeAdapter
@@ -10,7 +11,6 @@ from aymurai.database.schema import (
 )
 from aymurai.database.utils import text_to_uuid
 from aymurai.meta.api_interfaces import DocLabel
-
 
 _DOC_LABELS_ADAPTER = TypeAdapter(list[DocLabel])
 
@@ -27,7 +27,20 @@ def _serialize_doclabels(value: list[DocLabel] | None):
     """
     if value is None:
         return None
-    return _DOC_LABELS_ADAPTER.dump_python(value, mode="json", exclude_none=True)
+
+    labels = _DOC_LABELS_ADAPTER.dump_python(value, mode="json", exclude_none=True)
+    deduped = []
+    seen = set()
+
+    for label in labels:
+        key = json.dumps(label, sort_keys=True, separators=(",", ":"))
+        if key in seen:
+            continue
+
+        seen.add(key)
+        deduped.append(label)
+
+    return deduped
 
 
 def _normalize_paragraph_payload(payload: dict) -> dict:

@@ -2,6 +2,7 @@ import json
 import os
 import subprocess
 import tempfile
+from collections.abc import Iterable
 from threading import Lock
 
 import torch
@@ -68,8 +69,10 @@ def _entities_to_doclabels(entities: list[dict]) -> list[DocLabel]:
 
     for ent in entities:
         try:
-            doclabels.append(
-                DocLabel.model_validate(
+            if isinstance(ent, DocLabel):
+                doclabel = ent
+            else:
+                doclabel = DocLabel.model_validate(
                     {
                         "text": ent.get("text", ""),
                         "start_char": ent.get("start_char"),
@@ -77,11 +80,41 @@ def _entities_to_doclabels(entities: list[dict]) -> list[DocLabel]:
                         "attrs": ent.get("attrs", {}),
                     }
                 )
-            )
+            doclabels.append(doclabel)
         except Exception as exc:  # keep going if a single entity is malformed
             logger.warning(f"Skipping invalid entity for DocLabel: {exc}")
 
-    return doclabels
+    return _dedupe_doclabels(doclabels)
+
+
+def _dedupe_doclabels(labels: Iterable[DocLabel]) -> list[DocLabel]:
+    """
+    Remove exact duplicate labels while preserving first-seen order.
+
+    Args:
+        labels (Iterable[DocLabel]): An iterable of DocLabel objects,
+            potentially containing duplicates.
+
+    Returns:
+        list[DocLabel]: A list of DocLabel objects with duplicates removed,
+            preserving the order of first occurrence.
+    """
+    deduped: list[DocLabel] = []
+    seen: set[str] = set()
+
+    for label in labels:
+        key = json.dumps(
+            label.model_dump(mode="json", exclude_none=True),
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        if key in seen:
+            continue
+
+        seen.add(key)
+        deduped.append(label)
+
+    return deduped
 
 
 def _merge_label_policies(
@@ -444,6 +477,7 @@ async def anonymizer_disambiguate(
     )
 
     for document in predictions:
+        document.labels = _dedupe_doclabels(document.labels or [])
         for label in document.labels or []:
             label.attrs.aymurai_disambiguation = effective_disambiguation_by_label.get(
                 label.attrs.aymurai_label, "fuzzy"

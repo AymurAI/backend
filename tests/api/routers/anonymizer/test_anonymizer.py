@@ -506,6 +506,46 @@ def test_should_isolate_cache_when_different_texts(
 
 
 @pytest.mark.integration
+@patch("aymurai.api.endpoints.routers.anonymizer.anonymizer.load_pipeline")
+def test_should_dedupe_duplicate_labels_when_returning_cached_prediction(
+    mock_load_pipeline, client, db_session
+):
+    text = "EL SEÑOR JUEZ, doctor Tarte, señaló :"
+    label = build_label("PER", "Tarte").model_dump(mode="json")
+    label.update({"start_char": 22, "end_char": 27})
+    label["attrs"].update(
+        {
+            "aymurai_alt_text": "Tarte",
+            "aymurai_alt_start_char": 22,
+            "aymurai_alt_end_char": 27,
+            "aymurai_disambiguation": "fuzzy",
+            "aymurai_anonymize": True,
+        }
+    )
+
+    db_session.add(
+        AnonymizationParagraph(
+            id=text_to_uuid(text),
+            text=text,
+            prediction=[label, label],
+        )
+    )
+    db_session.commit()
+
+    response = client.post(
+        "/anonymizer/predict",
+        json={"text": text},
+        params={"use_cache": True},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["document"] == text
+    assert data["labels"] == [label]
+    mock_load_pipeline.assert_not_called()
+
+
+@pytest.mark.integration
 @patch(
     "aymurai.api.endpoints.routers.anonymizer.anonymizer.map_canonical_entities_ner_preds"
 )
@@ -550,6 +590,66 @@ def test_should_disambiguate_and_persist_paragraphs(
     assert stored is not None
     assert stored.prediction is not None
     assert stored.prediction[0]["text"] == "Ana Pérez"
+
+
+@pytest.mark.integration
+@patch(
+    "aymurai.api.endpoints.routers.anonymizer.anonymizer.map_canonical_entities_ner_preds"
+)
+@patch("aymurai.api.endpoints.routers.anonymizer.anonymizer.get_canonical_dates")
+@patch("aymurai.api.endpoints.routers.anonymizer.anonymizer.build_canonical_entities")
+def test_should_dedupe_duplicate_labels_when_disambiguating_and_persisting(
+    mock_build_canonical_entities,
+    mock_get_canonical_dates,
+    mock_map_canonical_entities,
+    client,
+    db_session,
+):
+    mock_build_canonical_entities.return_value = []
+    mock_get_canonical_dates.return_value = []
+    mock_map_canonical_entities.side_effect = lambda predictions, canonical_entities: (
+        predictions
+    )
+
+    text = "EL SEÑOR JUEZ, doctor Tarte, señaló :"
+    label = build_label("PER", "Tarte").model_dump(mode="json")
+    label.update({"start_char": 22, "end_char": 27})
+    label["attrs"].update(
+        {
+            "aymurai_alt_text": "Tarte",
+            "aymurai_alt_start_char": 22,
+            "aymurai_alt_end_char": 27,
+        }
+    )
+    body = {
+        "paragraphs": [{"document": text, "labels": [label, label]}],
+        "label_policies": {
+            "PER": {"anonymize": True, "disambiguation": "none"},
+        },
+    }
+
+    response = client.post("/anonymizer/disambiguate", json=body)
+
+    assert response.status_code == 200
+    labels = response.json()["data"][0]["labels"]
+    assert labels == [
+        {
+            **label,
+            "attrs": {
+                **label["attrs"],
+                "aymurai_disambiguation": "none",
+                "aymurai_anonymize": True,
+            },
+        }
+    ]
+
+    stored = db_session.get(AnonymizationParagraph, text_to_uuid(text))
+    assert stored is not None
+    assert stored.prediction is not None
+    assert len(stored.prediction) == 1
+    assert stored.prediction[0]["text"] == "Tarte"
+    assert stored.prediction[0]["attrs"]["aymurai_disambiguation"] == "none"
+    assert stored.prediction[0]["attrs"]["aymurai_anonymize"] is True
 
 
 @pytest.mark.integration
