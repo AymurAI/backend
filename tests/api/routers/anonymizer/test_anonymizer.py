@@ -121,6 +121,12 @@ def _assert_text_count(page_text: str, text: str, expected: int) -> None:
     assert page_text.count(text) == expected, page_text
 
 
+def _assert_rect_close(actual: pymupdf.Rect, expected: pymupdf.Rect) -> None:
+    assert (actual.x0, actual.y0, actual.x1, actual.y1) == pytest.approx(
+        (expected.x0, expected.y0, expected.x1, expected.y1)
+    )
+
+
 def _write_variable_signature_pdf(
     path: Path,
 ) -> tuple[Path, list[dict], list[str], list[str], list[pymupdf.Rect]]:
@@ -424,6 +430,55 @@ def test_signature_text_rect_refinement_does_not_include_role_text(tmp_path):
     assert not refined.intersects(role_rect)
 
 
+def test_signature_text_rect_refinement_returns_current_rect_when_no_hit_in_widget(
+    tmp_path,
+):
+    source_path = _write_pdf(
+        tmp_path / "signature-no-hit.pdf",
+        lambda _doc, page: page.insert_text((260, 80), "RUIZ"),
+    )
+
+    with pymupdf.open(source_path) as doc:
+        page = doc[0]
+        current_rect = pymupdf.Rect(100, 72, 130, 84)
+
+        refined = _refine_signature_text_rect(
+            page,
+            "RUIZ",
+            pymupdf.Rect(80, 60, 180, 115),
+            current_rect,
+        )
+
+    _assert_rect_close(refined, current_rect)
+
+
+def test_signature_text_rect_refinement_selects_closest_matching_hit(tmp_path):
+    source_path = _write_pdf(
+        tmp_path / "signature-multiple-hits.pdf",
+        lambda _doc, page: (
+            page.insert_text((100, 80), "RUIZ"),
+            page.insert_text((220, 80), "RUIZ"),
+        ),
+    )
+
+    with pymupdf.open(source_path) as doc:
+        page = doc[0]
+        left_rect, right_rect = page.search_for("RUIZ")
+        target = pymupdf.Rect(right_rect)
+        target.x0 += 2
+        target.x1 += 2
+
+        refined = _refine_signature_text_rect(
+            page,
+            "RUIZ",
+            pymupdf.Rect(80, 60, 280, 115),
+            target,
+        )
+
+    assert refined.intersects(right_rect)
+    assert not refined.intersects(left_rect)
+
+
 @pytest.mark.integration
 @WINDOWS_PYMUPDF_LAYOUT_XFAIL
 def test_pdf_anonymizer_only_redacts_marked_signature_names_in_variable_layouts(
@@ -461,6 +516,91 @@ def test_pdf_anonymizer_only_redacts_marked_signature_names_in_variable_layouts(
 
         for qr_rect in qr_rects:
             assert _dark_pixel_ratio(page, qr_rect) > 0.25
+
+
+@pytest.mark.integration
+@WINDOWS_PYMUPDF_LAYOUT_XFAIL
+def test_pdf_anonymizer_leaves_unlabeled_signature_names_visible(tmp_path):
+    source_path, preds, signers, preserved_texts, qr_rects = (
+        _write_variable_signature_pdf(tmp_path / "partially-labeled-signatures.pdf")
+    )
+    unlabeled_signer = signers[-1]
+    filtered_preds = []
+    filtered_labels = []
+    for pred, signer in zip(preds, signers, strict=True):
+        labels = [] if signer == unlabeled_signer else pred["labels"]
+        filtered_preds.append({**pred, "labels": labels})
+        filtered_labels.extend(labels)
+
+    render_context = _render_context_for_entities(filtered_labels)
+    output_dir = tmp_path / "out-partial"
+    output_dir.mkdir(exist_ok=True)
+
+    output_path = PdfAnonymizer().anonymize(
+        {"path": str(source_path)},
+        filtered_preds,
+        str(output_dir),
+        render_context=render_context,
+    )
+
+    with pymupdf.open(output_path) as output_doc:
+        page = output_doc[0]
+        page_text = page.get_text()
+
+        assert list(page.widgets() or []) == []
+        assert unlabeled_signer in page_text
+        assert "<PER_5>" not in page_text
+
+        for index, signer in enumerate(signers[:-1], start=1):
+            assert signer not in page_text
+            assert f"<PER_{index}>" in page_text
+
+        for preserved_text in preserved_texts:
+            _assert_text_count(page_text, preserved_text, 1)
+
+        for qr_rect in qr_rects:
+            assert _dark_pixel_ratio(page, qr_rect) > 0.25
+
+
+@pytest.mark.integration
+@WINDOWS_PYMUPDF_LAYOUT_XFAIL
+def test_pdf_anonymizer_preserves_non_signature_widget_appearance_when_baking(
+    tmp_path,
+):
+    def configure(_doc: pymupdf.Document, page: pymupdf.Page) -> None:
+        page.insert_text((80, 88), "Ana Perez")
+
+        text_widget = pymupdf.Widget()
+        text_widget.field_name = "public_field"
+        text_widget.field_type = pymupdf.PDF_WIDGET_TYPE_TEXT
+        text_widget.field_value = "Visible Field Value"
+        text_widget.text_font = "Helv"
+        text_widget.text_fontsize = 10
+        text_widget.rect = pymupdf.Rect(260, 70, 410, 96)
+        page.add_widget(text_widget)
+
+        signature_widget = pymupdf.Widget()
+        signature_widget.field_name = "sig_1"
+        signature_widget.field_type = pymupdf.PDF_WIDGET_TYPE_SIGNATURE
+        signature_widget.rect = pymupdf.Rect(60, 60, 180, 110)
+        page.add_widget(signature_widget)
+
+    source_path = _write_pdf(tmp_path / "signature-and-text-widget.pdf", configure)
+    output_path = _run_pdf_anonymizer(
+        tmp_path,
+        source_path,
+        "Ana Perez",
+        [_label_dict("Ana Perez")],
+    )
+
+    with pymupdf.open(output_path) as output_doc:
+        page = output_doc[0]
+        page_text = page.get_text()
+
+        assert list(page.widgets() or []) == []
+        assert "Visible Field Value" in page_text
+        assert "Ana Perez" not in page_text
+        assert "<PER>" in page_text
 
 
 @pytest.mark.integration
