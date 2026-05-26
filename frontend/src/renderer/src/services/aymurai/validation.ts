@@ -69,7 +69,31 @@ export default async function getStoredValidation(
     // - []           → paragraph validated with no entities
     // - [...]        → restore stored annotations
     const labels = validationResponseSchema.parse(response.data);
-    return labels.map((l) => normalizeValidationLabel(l, paragraph.id));
+    const normalized = labels.map((l) => normalizeValidationLabel(l, paragraph.id));
+
+    // Defensive: validate that stored offsets are still consistent with the
+    // current paragraph text.
+    const active = normalized.filter((l) => l.attrs.aymurai_anonymize !== false);
+    const isValid = active.every(
+      (l) =>
+        Number.isFinite(l.start_char) &&
+        Number.isFinite(l.end_char) &&
+        l.start_char >= 0 &&
+        l.end_char <= paragraph.value.length &&
+        l.start_char < l.end_char &&
+        paragraph.value.slice(l.start_char, l.end_char) === l.text,
+    );
+    // If any active label fails basic offset checks, discard the stored data
+    // and fall back to fresh model predict + disambiguation.
+    if (!isValid) {
+      console.warn(
+        "[validation] Stored offsets do not match paragraph text — falling back to predict.",
+        { paragraphId: paragraph.id },
+      );
+      return null;
+    }
+
+    return normalized;
   } catch (e) {
     // Propagate request cancellations so React Query can clean up properly
     if (e instanceof CanceledError) throw e;

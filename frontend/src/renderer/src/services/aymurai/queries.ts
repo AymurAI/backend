@@ -167,22 +167,43 @@ export const disambiguate = (file: DocFile) =>
 
       const parsed = disambiguateSchema.parse(response.data);
 
-      // Map response items back to paragraphs by **index** — the backend
-      // echoes the array in the same order we sent it.
-      return parsed.data.flatMap((item, i) => {
-        const paragraph = paragraphs[i];
+      // Build a consumption queue per paragraph text so we can match response
+      // items by content instead of array index. This tolerates backend
+      // reordering and count drops. Duplicate paragraph texts are matched in
+      // the order they appear in the original paragraphs array.
+      const paragraphQueue = new Map<string, Paragraph[]>();
+      for (const p of paragraphs) {
+        const q = paragraphQueue.get(p.value) ?? [];
+        q.push(p);
+        paragraphQueue.set(p.value, q);
+      }
+      const consumed = new Map<string, number>();
+      const matchedParagraphIds = new Set<string>();
+
+      const disambiguated = parsed.data.flatMap((item) => {
+        const queue = paragraphQueue.get(item.document) ?? [];
+        const nextIdx = consumed.get(item.document) ?? 0;
+        const paragraph = queue[nextIdx];
+        consumed.set(item.document, nextIdx + 1);
+
+        if (!paragraph) return [];
+
+        matchedParagraphIds.add(paragraph.id);
 
         // Build a lookup from (start_char, end_char) → original mention so we
         // can reuse the stable mentionId.
         const origByPos = new Map<string, PredictLabel>();
-        for (const orig of byParagraphId.get(paragraph?.id ?? "") ?? []) {
+        for (const orig of byParagraphId.get(paragraph.id) ?? []) {
           origByPos.set(`${orig.start_char}:${orig.end_char}`, orig);
         }
 
         return item.labels.map((l) => {
-          const resolvedText = l.attrs.aymurai_alt_text ?? l.text;
-          const resolvedStart = l.attrs.aymurai_alt_start_char ?? l.start_char;
-          const resolvedEnd = l.attrs.aymurai_alt_end_char ?? l.end_char;
+          const altStart = l.attrs.aymurai_alt_start_char;
+          const altEnd = l.attrs.aymurai_alt_end_char;
+          const useAlt = altStart !== null && altEnd !== null && altStart < altEnd;
+          const resolvedText = useAlt && l.attrs.aymurai_alt_text ? l.attrs.aymurai_alt_text : l.text;
+          const resolvedStart = useAlt ? altStart : l.start_char;
+          const resolvedEnd = useAlt ? altEnd : l.end_char;
 
           // Prefer original mentionId so downstream D&D state stays stable.
           const orig = origByPos.get(`${l.start_char}:${l.end_char}`);
@@ -204,10 +225,18 @@ export const disambiguate = (file: DocFile) =>
               aymurai_label_instance: l.attrs.aymurai_label_instance ?? null,
               aymurai_disambiguation: l.attrs.aymurai_disambiguation ?? null,
             },
-            paragraphId: paragraph?.id ?? item.document,
+            paragraphId: paragraph.id,
           } satisfies PredictLabel;
         });
       });
+
+      // Preserve raw predictions for any paragraph the backend did not return,
+      // so a backend count drop never silently erases annotations.
+      const unmatched = predictions.filter(
+        (p) => !matchedParagraphIds.has(p.paragraphId),
+      );
+
+      return [...disambiguated, ...unmatched];
     },
   });
 

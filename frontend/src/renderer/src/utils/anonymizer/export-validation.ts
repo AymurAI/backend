@@ -258,9 +258,28 @@ export function assertValidAnonymizerExportState(
   const issues = validateAnonymizerExportState(file, labels);
   if (issues.length === 0) return;
 
+  // Group issues by code so a quick console.table() is readable.
+  const byCode = issues.reduce<Record<string, number>>((acc, i) => {
+    acc[i.code] = (acc[i.code] ?? 0) + 1;
+    return acc;
+  }, {});
   console.error("Invalid anonymizer export annotations", {
     fileName: file.data.name,
+    issueSummary: byCode,
     issues,
   });
+  console.table(
+    issues.map((i) => ({
+      code: i.code,
+      paragraphId:
+        i.entity.paragraphId.length > 40
+          ? `${i.entity.paragraphId.slice(0, 40)}…`
+          : i.entity.paragraphId,
+      label: i.entity.label,
+      start: i.entity.start,
+      end: i.entity.end,
+      text: i.entity.text,
+    })),
+  );
   throw new AnonymizerExportValidationError(issues);
 }
