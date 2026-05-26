@@ -90,10 +90,17 @@ export function usePredict(
             if (workflow === "anonymizer") {
               const stored = await getStoredValidation(paragraph, controller);
               if (stored !== null) {
+                console.debug(
+                  `[predict] Restored ${stored.length} labels from DB validation`,
+                  { paragraphId: paragraph.id.slice(0, 60) },
+                );
                 fromValidationRef.current.add(paragraph.id);
                 dispatch(addPredictions(file.data.name, stored));
                 return stored;
               }
+              console.debug("[predict] No stored validation — running model predict", {
+                paragraphId: paragraph.id.slice(0, 60),
+              });
             }
             const predictions = await predict(paragraph, controller, workflow);
             dispatch(addPredictions(file.data.name, predictions));

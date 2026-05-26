@@ -34,17 +34,23 @@ export default async function predict(
     );
     const parsed = predictSchema.parse(response.data);
 
-    const data = parsed.labels.map(
-      (l) =>
-        ({
-          ...l,
-          mentionId: crypto.randomUUID(),
-          start_char: l.attrs.aymurai_alt_start_char || l.start_char,
-          end_char: l.attrs.aymurai_alt_end_char || l.end_char,
-          text: l.attrs.aymurai_alt_text || l.text,
-          paragraphId: paragraph.id,
-        }) as PredictLabel,
-    );
+    const data = parsed.labels.map((l) => {
+      const altStart = l.attrs.aymurai_alt_start_char;
+      const altEnd = l.attrs.aymurai_alt_end_char;
+      // Only apply alt offsets when both are present and form a valid range.
+      // The NER pipeline can emit inverted alt offsets (altStart > altEnd) for
+      // non-alphanumeric entities like "∙" — using them would produce an
+      // invalid_range error at export time.
+      const useAlt = altStart != null && altEnd != null && altStart < altEnd;
+      return {
+        ...l,
+        mentionId: crypto.randomUUID(),
+        start_char: useAlt ? altStart : l.start_char,
+        end_char: useAlt ? altEnd : l.end_char,
+        text: useAlt && l.attrs.aymurai_alt_text ? l.attrs.aymurai_alt_text : l.text,
+        paragraphId: paragraph.id,
+      } as PredictLabel;
+    });
 
     return data;
   } catch (e) {

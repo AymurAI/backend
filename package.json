@@ -96,11 +96,5 @@
     "wait-on": "^6.0.1",
     "zod": "^4.0.14",
     "zustand": "^5.0.7"
-  },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "electron",
-      "esbuild"
-    ]
   }
 }
