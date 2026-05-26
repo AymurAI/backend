@@ -13,6 +13,7 @@ from docx import Document
 
 from aymurai.database.schema import AnonymizationParagraph
 from aymurai.database.utils import text_to_uuid
+from aymurai.meta.api_interfaces import LabelPolicy, RenderPolicy
 from aymurai.text.anonymization import DocxAnonymizer, PdfAnonymizer, get_anonymizer
 from aymurai.text.anonymization.alignment import index_paragraphs
 from tests.api.conftest import build_label
@@ -20,6 +21,9 @@ from tests.api.routers.conftest import build_mock_pipeline
 
 PNG_1X1 = base64.b64decode(
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a6R8AAAAASUVORK5CYII="
+)
+PNG_BLACK_1X1 = base64.b64decode(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAAAAAA6fptVAAAACklEQVR42mNgAAAAAgAB4iG8MwAAAABJRU5ErkJggg=="
 )
 WATERMARK_URL = "https://www.aymurai.info/"
 
@@ -50,6 +54,7 @@ def _run_pdf_anonymizer(
     source_path: Path,
     document: str,
     labels: list[dict],
+    render_context: dict | None = None,
 ) -> Path:
     output_dir = tmp_path / "out"
     output_dir.mkdir(exist_ok=True)
@@ -57,8 +62,166 @@ def _run_pdf_anonymizer(
         {"path": str(source_path)},
         [{"document": document, "labels": labels}],
         str(output_dir),
+        render_context=render_context,
     )
     return Path(output_path)
+
+
+def _label_for_document_text(document: str, text: str, label: str = "PER") -> dict:
+    payload = _label_dict(text, label)
+    start = document.index(text)
+    payload["start_char"] = start
+    payload["end_char"] = start + len(text)
+    return payload
+
+
+def _render_context_for_entities(labels: list[dict]) -> dict:
+    index_by_entity = {}
+    next_index_by_base = {}
+    for label in labels:
+        attrs = label.get("attrs") or {}
+        base = attrs.get("aymurai_label") or label.get("label") or "ENT"
+        entity_id = str(attrs.get("canonical_entity_id") or label.get("text"))
+        key = (base, entity_id)
+        if key not in index_by_entity:
+            next_index_by_base[base] = next_index_by_base.get(base, 0) + 1
+            index_by_entity[key] = next_index_by_base[base]
+
+    return {
+        "render_policy": RenderPolicy(suffix_mode="always", suffix_threshold=0),
+        "label_policies": {"PER": LabelPolicy()},
+        "count_by_base": dict(next_index_by_base),
+        "index_by_entity": index_by_entity,
+    }
+
+
+def _dark_pixel_ratio(page: pymupdf.Page, rect: pymupdf.Rect) -> float:
+    pixmap = page.get_pixmap(
+        matrix=pymupdf.Matrix(2, 2),
+        clip=rect,
+        alpha=False,
+    )
+    samples = pixmap.samples
+    if not samples:
+        return 0.0
+
+    channels = pixmap.n
+    dark_pixels = 0
+    total_pixels = pixmap.width * pixmap.height
+    for offset in range(0, len(samples), channels):
+        if all(channel < 96 for channel in samples[offset : offset + 3]):
+            dark_pixels += 1
+
+    return dark_pixels / max(total_pixels, 1)
+
+
+def _assert_text_count(page_text: str, text: str, expected: int) -> None:
+    assert page_text.count(text) == expected, page_text
+
+
+def _write_variable_signature_pdf(
+    path: Path,
+) -> tuple[Path, list[dict], list[str], list[str], list[pymupdf.Rect]]:
+    blocks = [
+        {
+            "origin": (58, 112),
+            "lines": [
+                "Mesa de Control 42",
+                "Adriana Morales",
+                "Area de Validacion",
+                "Codigo A-17",
+            ],
+            "signer": "Adriana Morales",
+            "qr": "top",
+        },
+        {
+            "origin": (326, 112),
+            "lines": [
+                "Bernardo Diaz",
+                "Direccion Legal",
+                "Organismo Beta Sur",
+                "Tramite BX-900",
+            ],
+            "signer": "Bernardo Diaz",
+            "qr": "right",
+        },
+        {
+            "origin": (58, 328),
+            "lines": [
+                "Centro Operativo",
+                "Carolina Ruiz",
+                "Secretaria Tecnica",
+                "2026-05-26 10:15",
+            ],
+            "signer": "Carolina Ruiz",
+            "qr": "left",
+        },
+        {
+            "origin": (326, 328),
+            "lines": [
+                "Unidad Regional",
+                "Coordinacion de Revision",
+                "Daniel Silva",
+                "Expediente Digital Z-42",
+            ],
+            "signer": "Daniel Silva",
+            "qr": "top",
+        },
+        {
+            "origin": (58, 544),
+            "lines": [
+                "Responsable: Elena Torres - Acta Final",
+                "Delegacion Gamma",
+                "Registro Interno R-204",
+            ],
+            "signer": "Elena Torres",
+            "qr": "right",
+        },
+    ]
+
+    doc = pymupdf.open()
+    page = doc.new_page()
+    preds: list[dict] = []
+    preserved_texts: list[str] = []
+    signers: list[str] = []
+    qr_rects: list[pymupdf.Rect] = []
+
+    for idx, block in enumerate(blocks):
+        x, y = block["origin"]
+        if block["qr"] == "right":
+            qr_rect = pymupdf.Rect(x + 150, y - 4, x + 182, y + 28)
+        elif block["qr"] == "left":
+            qr_rect = pymupdf.Rect(x - 2, y - 48, x + 30, y - 16)
+        else:
+            qr_rect = pymupdf.Rect(x, y - 52, x + 32, y - 20)
+        page.insert_image(qr_rect, stream=PNG_BLACK_1X1)
+        qr_rects.append(qr_rect)
+
+        for line_idx, line in enumerate(block["lines"]):
+            page.insert_text((x, y + (line_idx * 16)), line, fontsize=11)
+            if line == block["signer"]:
+                continue
+            if block["signer"] in line:
+                preserved_texts.extend(
+                    part.strip() for part in line.split(block["signer"]) if part.strip()
+                )
+            else:
+                preserved_texts.append(line)
+
+        widget = pymupdf.Widget()
+        widget.field_name = f"sig_{idx}"
+        widget.field_type = pymupdf.PDF_WIDGET_TYPE_SIGNATURE
+        widget.rect = pymupdf.Rect(x - 12, y - 62, x + 230, y + 64)
+        page.add_widget(widget)
+
+        document = "\n".join(block["lines"])
+        label = _label_for_document_text(document, block["signer"])
+        preds.append({"document": document, "labels": [label]})
+        signers.append(block["signer"])
+
+    doc.save(path)
+    doc.close()
+    return path, preds, signers, preserved_texts, qr_rects
 
 
 @pytest.mark.integration
@@ -220,15 +383,57 @@ def test_pdf_anonymizer_removes_image_backed_entities(tmp_path):
 
 @pytest.mark.integration
 @WINDOWS_PYMUPDF_LAYOUT_XFAIL
-def test_pdf_anonymizer_removes_signature_widgets_without_restoring_appearance(
+def test_pdf_anonymizer_only_redacts_marked_signature_names_in_variable_layouts(
+    tmp_path,
+):
+    source_path, preds, signers, preserved_texts, qr_rects = (
+        _write_variable_signature_pdf(tmp_path / "variable-signatures.pdf")
+    )
+    render_context = _render_context_for_entities([pred["labels"][0] for pred in preds])
+    output_dir = tmp_path / "out-variable"
+    output_dir.mkdir(exist_ok=True)
+
+    output_path = PdfAnonymizer().anonymize(
+        {"path": str(source_path)},
+        preds,
+        str(output_dir),
+        render_context=render_context,
+    )
+
+    with pymupdf.open(output_path) as output_doc:
+        page = output_doc[0]
+        page_text = page.get_text()
+
+        assert list(page.widgets() or []) == []
+        assert len(page.get_image_info()) >= len(qr_rects)
+
+        for signer in signers:
+            assert signer not in page_text
+
+        for index in range(1, len(signers) + 1):
+            assert f"<PER_{index}>" in page_text
+
+        for preserved_text in preserved_texts:
+            _assert_text_count(page_text, preserved_text, 1)
+
+        for qr_rect in qr_rects:
+            assert _dark_pixel_ratio(page, qr_rect) > 0.25
+
+
+@pytest.mark.integration
+@WINDOWS_PYMUPDF_LAYOUT_XFAIL
+def test_pdf_anonymizer_preserves_signature_appearance_when_redacting_signer_name(
     tmp_path,
 ):
     def configure(_doc: pymupdf.Document, page: pymupdf.Page) -> None:
-        page.insert_text((80, 90), "Ana Perez")
+        page.insert_text((80, 76), "FIRMADO DIGITALMENTE")
+        page.insert_text((80, 92), "05/02/2025 14:17")
+        page.insert_text((80, 108), "Ana Perez")
+        page.insert_image(pymupdf.Rect(185, 68, 215, 98), stream=PNG_1X1)
         widget = pymupdf.Widget()
         widget.field_name = "sig_1"
         widget.field_type = pymupdf.PDF_WIDGET_TYPE_SIGNATURE
-        widget.rect = pymupdf.Rect(60, 60, 220, 110)
+        widget.rect = pymupdf.Rect(60, 60, 230, 120)
         page.add_widget(widget)
 
     source_path = _write_pdf(tmp_path / "signature.pdf", configure)
@@ -244,7 +449,9 @@ def test_pdf_anonymizer_removes_signature_widgets_without_restoring_appearance(
         page_text = page.get_text()
 
         assert list(page.widgets() or []) == []
-        assert page.get_image_info() == []
+        assert page.get_image_info() != []
+        assert "FIRMADO DIGITALMENTE" in page_text
+        assert "05/02/2025 14:17" in page_text
         assert "Ana Perez" not in page_text
         assert "<PER>" in page_text
 
