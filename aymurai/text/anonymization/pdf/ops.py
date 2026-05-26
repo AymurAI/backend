@@ -189,7 +189,7 @@ def _image_rects_for_clip(
     return rects
 
 
-def _distance_between_rect_centers(
+def _squared_distance_between_rect_centers(
     left: pymupdf.Rect,
     right: pymupdf.Rect,
 ) -> float:
@@ -241,7 +241,10 @@ def _refine_signature_text_rect(
     intersecting_hits = [hit for hit in hits if hit.intersects(target)]
     candidates = intersecting_hits or hits
     return pymupdf.Rect(
-        min(candidates, key=lambda hit: _distance_between_rect_centers(hit, target))
+        min(
+            candidates,
+            key=lambda hit: _squared_distance_between_rect_centers(hit, target),
+        )
     )
 
 
