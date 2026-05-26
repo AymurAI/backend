@@ -16,6 +16,8 @@ from aymurai.database.utils import text_to_uuid
 from aymurai.meta.api_interfaces import LabelPolicy, RenderPolicy
 from aymurai.text.anonymization import DocxAnonymizer, PdfAnonymizer, get_anonymizer
 from aymurai.text.anonymization.alignment import index_paragraphs
+from aymurai.text.anonymization.pdf.ops import _refine_signature_text_rect
+from aymurai.text.anonymization.pdf.widgets import _signature_background_rect
 from tests.api.conftest import build_label
 from tests.api.routers.conftest import build_mock_pipeline
 
@@ -379,6 +381,47 @@ def test_pdf_anonymizer_removes_image_backed_entities(tmp_path):
         assert page.get_image_info() == []
         assert "Ana Perez" not in page_text
         assert "<PER>" in page_text
+
+
+def test_signature_background_rect_stays_on_signer_name_line():
+    background = _signature_background_rect(
+        {
+            "line_rect": pymupdf.Rect(80, 70, 220, 118),
+            "canvas_rect": pymupdf.Rect(112, 70, 145, 82),
+            "redact_rect": pymupdf.Rect(112, 70, 145, 82),
+        },
+        pymupdf.Rect(60, 60, 230, 130),
+    )
+
+    assert background.y0 >= 70
+    assert background.y1 <= 82
+
+
+def test_signature_text_rect_refinement_does_not_include_role_text(tmp_path):
+    source_path = _write_pdf(
+        tmp_path / "signature-role.pdf",
+        lambda _doc, page: (
+            page.insert_text((100, 80), "RUIZ"),
+            page.insert_text((100, 96), "JUEZ/A"),
+        ),
+    )
+
+    with pymupdf.open(source_path) as doc:
+        page = doc[0]
+        signer_rect = page.search_for("RUIZ")[0]
+        role_rect = page.search_for("JUEZ/A")[0]
+        loose_rect = pymupdf.Rect(signer_rect)
+        loose_rect.include_rect(role_rect)
+
+        refined = _refine_signature_text_rect(
+            page,
+            "RUIZ",
+            pymupdf.Rect(80, 60, 200, 115),
+            loose_rect,
+        )
+
+    assert refined.intersects(signer_rect)
+    assert not refined.intersects(role_rect)
 
 
 @pytest.mark.integration
