@@ -189,6 +189,101 @@ def _image_rects_for_clip(
     return rects
 
 
+def _distance_between_rect_centers(
+    left: pymupdf.Rect,
+    right: pymupdf.Rect,
+) -> float:
+    """
+    Computes the squared distance between two rectangle centers.
+
+    Args:
+        left (pymupdf.Rect): The first rectangle.
+        right (pymupdf.Rect): The second rectangle.
+
+    Returns:
+        float: The squared distance between rectangle centers.
+    """
+    left_center = ((left.x0 + left.x1) / 2.0, (left.y0 + left.y1) / 2.0)
+    right_center = ((right.x0 + right.x1) / 2.0, (right.y0 + right.y1) / 2.0)
+    return (left_center[0] - right_center[0]) ** 2 + (
+        left_center[1] - right_center[1]
+    ) ** 2
+
+
+def _refine_signature_text_rect(
+    page: pymupdf.Page,
+    entity_text: str,
+    widget_rect: pymupdf.Rect,
+    current_rect: pymupdf.Rect,
+) -> pymupdf.Rect:
+    """
+    Finds a tighter text rectangle for signer names inside signature widgets.
+
+    Args:
+        page (pymupdf.Page): The PDF page being processed.
+        entity_text (str): The entity text being mapped.
+        widget_rect (pymupdf.Rect): The signature widget rectangle.
+        current_rect (pymupdf.Rect): The currently resolved entity rectangle.
+
+    Returns:
+        pymupdf.Rect: The refined rectangle when available, otherwise current_rect.
+    """
+    widget_clip = pymupdf.Rect(widget_rect)
+    hits = [
+        pymupdf.Rect(hit)
+        for hit in page.search_for(entity_text, clip=widget_clip)
+        if pymupdf.Rect(hit).intersects(widget_clip)
+    ]
+    if not hits:
+        return pymupdf.Rect(current_rect)
+
+    target = pymupdf.Rect(current_rect)
+    intersecting_hits = [hit for hit in hits if hit.intersects(target)]
+    candidates = intersecting_hits or hits
+    return pymupdf.Rect(
+        min(candidates, key=lambda hit: _distance_between_rect_centers(hit, target))
+    )
+
+
+def _build_signature_page_op(
+    page: pymupdf.Page,
+    entity_text: str,
+    widget_info: dict[str, Any],
+    current_rect: pymupdf.Rect,
+    token: str,
+    entity_style: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """
+    Builds a signature-specific operation scoped to the sensitive text only.
+
+    Args:
+        page (pymupdf.Page): The PDF page being processed.
+        entity_text (str): The sensitive text being replaced.
+        widget_info (dict[str, Any]): The signature widget metadata.
+        current_rect (pymupdf.Rect): The initially resolved text rectangle.
+        token (str): The logical replacement token.
+        entity_style (dict[str, Any] | None): The text style to render with.
+
+    Returns:
+        dict[str, Any]: The signature replacement operation.
+    """
+    refined_rect = _refine_signature_text_rect(
+        page,
+        entity_text,
+        widget_info["rect"],
+        current_rect,
+    )
+    op = _build_page_op(
+        refined_rect,
+        None,
+        token,
+        entity_style=entity_style or widget_info.get("style") or None,
+    )
+    op["widget_xref"] = widget_info["xref"]
+    op["widget_rect"] = widget_info["rect"]
+    return op
+
+
 def _entity_overlaps_image(
     page: pymupdf.Page,
     entity_rect: pymupdf.Rect,
@@ -303,14 +398,14 @@ def _collect_page_redactions(
                             fallback_widget["field_type"]
                             == pymupdf.PDF_WIDGET_TYPE_SIGNATURE
                         ):
-                            op = _build_page_op(
+                            op = _build_signature_page_op(
+                                page,
+                                entity_text,
+                                fallback_widget,
                                 fallback_rects[0],
-                                lines[0] if lines else None,
                                 token,
                                 entity_style=fallback_widget.get("style") or None,
                             )
-                            op["widget_xref"] = fallback_widget["xref"]
-                            op["widget_rect"] = fallback_widget["rect"]
                             signature_widget_ops.setdefault(page_index, []).append(op)
                             continue
 
@@ -470,14 +565,14 @@ def _collect_page_redactions(
                         )
                         continue
                     if widget_info["field_type"] == pymupdf.PDF_WIDGET_TYPE_SIGNATURE:
-                        op = _build_page_op(
+                        op = _build_signature_page_op(
+                            page,
+                            entity_text,
+                            widget_info,
                             rect,
-                            line,
                             token,
                             entity_style=ent_style,
                         )
-                        op["widget_xref"] = widget_info["xref"]
-                        op["widget_rect"] = widget_info["rect"]
                         signature_widget_ops.setdefault(page_index, []).append(op)
                         continue
 
@@ -514,43 +609,51 @@ def _collect_page_redactions(
 
                 for seg_idx, (
                     seg_line,
-                    _seg_text,
+                    seg_text,
                     seg_rect,
                     seg_img,
                     seg_style,
                     seg_widget,
                 ) in enumerate(segments):
+                    if signature_widget is not None:
+                        op = _build_signature_page_op(
+                            page,
+                            seg_text,
+                            signature_widget,
+                            seg_rect,
+                            token,
+                            entity_style=seg_style,
+                        )
+                        if seg_idx != widest_idx:
+                            op["text"] = None
+                            op["fontsize"] = None
+                        signature_widget_ops.setdefault(page_index, []).append(op)
+                        continue
+
                     if seg_idx == widest_idx:
                         op = _build_page_op(
                             seg_rect,
                             seg_line,
                             token,
-                            is_image=(any_image and signature_widget is None),
+                            is_image=any_image,
                             entity_style=seg_style,
                         )
-                        if signature_widget is None and shared_image_rect is not None:
+                        if shared_image_rect is not None:
                             op["image_rect"] = shared_image_rect
                     else:
                         op = _build_page_op(
                             seg_rect,
                             seg_line,
                             token,
-                            is_image=(
-                                (seg_img is not None) and signature_widget is None
-                            ),
+                            is_image=(seg_img is not None),
                             entity_style=seg_style,
                         )
                         op["text"] = None
                         op["fontsize"] = None
-                        if seg_img is not None and signature_widget is None:
+                        if seg_img is not None:
                             op["image_rect"] = seg_img
 
-                    if signature_widget is not None:
-                        op["widget_xref"] = signature_widget["xref"]
-                        op["widget_rect"] = signature_widget["rect"]
-                        signature_widget_ops.setdefault(page_index, []).append(op)
-                    else:
-                        page_ops.setdefault(page_index, []).append(op)
+                    page_ops.setdefault(page_index, []).append(op)
 
     return page_ops, widget_ops, signature_widget_ops
 
@@ -802,6 +905,40 @@ def _apply_asset_redactions(
             _render_text_op(page, op)
 
 
+def _apply_signature_redactions(
+    doc: pymupdf.Document,
+    signature_widget_ops: dict[int, list[dict]],
+) -> None:
+    """
+    Applies signer-name redactions without removing the full signature appearance.
+
+    Args:
+        doc (pymupdf.Document): The PDF document being processed.
+        signature_widget_ops (dict[int, list[dict]]): The signature operations grouped by page index.
+    """
+    for page_idx, ops in signature_widget_ops.items():
+        if not ops:
+            continue
+
+        page = doc[page_idx]
+        for op in ops:
+            page.add_redact_annot(
+                op["redact_rect"],
+                text=None,
+                fill=(1, 1, 1),
+                cross_out=False,
+            )
+
+        page.apply_redactions(
+            images=pymupdf.PDF_REDACT_IMAGE_PIXELS,
+            graphics=pymupdf.PDF_REDACT_LINE_ART_NONE,
+            text=pymupdf.PDF_REDACT_TEXT_REMOVE,
+        )
+
+        for op in ops:
+            _render_text_op(page, op)
+
+
 def _apply_redactions(
     doc: pymupdf.Document,
     page_ops: dict[int, list[dict]],
@@ -821,8 +958,7 @@ def _apply_redactions(
     _prepare_signature_widget_ops(doc, signature_widget_ops)
 
     text_page_ops, asset_page_ops = _partition_page_ops(page_ops)
-    for page_idx, ops in signature_widget_ops.items():
-        asset_page_ops.setdefault(page_idx, []).extend(ops)
 
     _apply_text_redactions(doc, text_page_ops)
     _apply_asset_redactions(doc, asset_page_ops)
+    _apply_signature_redactions(doc, signature_widget_ops)

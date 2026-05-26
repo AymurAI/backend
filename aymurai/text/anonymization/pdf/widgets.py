@@ -29,21 +29,24 @@ def _signature_background_rect(
     Returns:
         pymupdf.Rect: The background rectangle for the signature replacement.
     """
-    background = pymupdf.Rect(
-        op.get("line_rect") or op.get("canvas_rect") or widget_rect
+    background_source = (
+        op.get("canvas_rect") or op.get("redact_rect") or op.get("line_rect")
     )
-    canvas_rect = op.get("canvas_rect")
-    if canvas_rect is not None:
-        background.include_rect(pymupdf.Rect(canvas_rect))
+    background = pymupdf.Rect(background_source or widget_rect)
 
-    pad_x = max(background.height * 0.75, 2.0)
-    pad_y = max(background.height * 0.25, 0.75)
+    redact_rect = op.get("redact_rect")
+    if redact_rect is not None:
+        background.include_rect(pymupdf.Rect(redact_rect))
+
+    # Keep the repaint area on the sensitive text line so the replacement
+    # background does not visually cover adjacent non-sensitive content
+    pad_x = max(background.height * 0.2, 0.5)
     widget_clip = pymupdf.Rect(widget_rect)
 
     background.x0 = max(widget_clip.x0, background.x0 - pad_x)
-    background.y0 = max(widget_clip.y0, background.y0 - pad_y)
+    background.y0 = max(widget_clip.y0, background.y0)
     background.x1 = min(widget_clip.x1, background.x1 + pad_x)
-    background.y1 = min(widget_clip.y1, background.y1 + pad_y)
+    background.y1 = min(widget_clip.y1, background.y1)
     return background
 
 
@@ -272,12 +275,14 @@ def _prepare_signature_widget_ops(
     signature_widget_ops: dict[int, list[dict]],
 ) -> None:
     """
-    Deletes signature widgets and prepares their replacement operations.
+    Flattens signature widgets and prepares their replacement operations.
 
     Args:
         doc (pymupdf.Document): The PDF document being processed.
         signature_widget_ops (dict[int, list[dict]]): The collected signature widget operations grouped by page index.
     """
+    should_bake_widgets = False
+
     for page_idx, ops in signature_widget_ops.items():
         if not ops:
             continue
@@ -300,15 +305,7 @@ def _prepare_signature_widget_ops(
 
             if widget is not None:
                 widget_rect = pymupdf.Rect(widget.rect)
-                try:
-                    page.delete_widget(widget)
-                except Exception as exc:
-                    logger.warning(
-                        "Failed to delete signature widget xref=%s on page=%s: %s",
-                        widget_xref,
-                        page_idx,
-                        exc,
-                    )
+                should_bake_widgets = True
             else:
                 logger.warning(
                     "Could not resolve PDF signature widget xref=%s on page=%s",
@@ -318,6 +315,13 @@ def _prepare_signature_widget_ops(
 
             for op in widget_group_ops:
                 op["widget_rect"] = pymupdf.Rect(widget_rect)
-                op["asset_rect"] = pymupdf.Rect(widget_rect)
-                op["graphics_mode"] = pymupdf.PDF_REDACT_LINE_ART_REMOVE_IF_COVERED
+                op.pop("asset_rect", None)
+                op.pop("image_rect", None)
+                op.pop("graphics_mode", None)
                 op["background_rect"] = _signature_background_rect(op, widget_rect)
+
+    if should_bake_widgets:
+        try:
+            doc.bake(annots=False, widgets=True)
+        except Exception as exc:
+            logger.warning("Failed to flatten PDF signature widgets: %s", exc)
