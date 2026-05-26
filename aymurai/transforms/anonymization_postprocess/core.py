@@ -1,10 +1,9 @@
 import re
 from copy import deepcopy
-from string import punctuation
 
+from aymurai.meta.pipeline_interfaces import Transform
 from aymurai.meta.types import DataItem
 from aymurai.utils.misc import get_element
-from aymurai.meta.pipeline_interfaces import Transform
 
 
 class AnonymizationEntityCleaner(Transform):
@@ -45,6 +44,9 @@ class AnonymizationEntityCleaner(Transform):
         # Clean the text
         cleaned_text = pattern.sub("", original_text)
 
+        if not cleaned_text:
+            return None
+
         # Update the entity's alt text and indices
         ent["attrs"]["aymurai_alt_text"] = cleaned_text
         ent["attrs"]["aymurai_alt_start_char"] = start_char + leading_chars_removed
@@ -61,11 +63,11 @@ class AnonymizationEntityCleaner(Transform):
             DataItem: processed item
         """
         item = deepcopy(item)
-
         ents = get_element(item, [self.field, "entities"]) or []
 
-        # Filter out predictions that are punctuation marks only
-        ents = [ent for ent in ents if ent["text"] not in punctuation]
-        ents = [self.process(ent) for ent in ents]
+        # Filter out predictions with empty alt text and update the rest
+        item[self.field]["entities"] = [
+            out for ent in ents if (out := self.process(ent)) is not None
+        ]
 
         return item
