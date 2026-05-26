@@ -4,6 +4,7 @@ from copy import deepcopy
 from aymurai.meta.pipeline_interfaces import Transform
 from aymurai.meta.types import DataItem
 from aymurai.utils.misc import get_element
+from aymurai.transforms.anonymization_postprocess.exact_labels import EXACT_LABELS
 
 
 class AnonymizationEntityCleaner(Transform):
@@ -48,27 +49,24 @@ class AnonymizationEntityCleaner(Transform):
         if not cleaned_text:
             return None
 
-        exact_labels = {
-            "DNI",
-            "CUIT_CUIL",
-            "TELEFONO",
-            "PATENTE_DOMINIO",
-            "IP",
-            "NUM_CAJA_AHORRO",
-            "CBU",
-            "NUM_MATRICULA",
-        }
+        raw_subclass = ent["attrs"]["aymurai_label_subclass"]
+        if isinstance(raw_subclass, list):
+            aymurai_label_subclass = raw_subclass.copy()
+        elif raw_subclass:
+            aymurai_label_subclass = [raw_subclass]
+        else:
+            aymurai_label_subclass = []
 
-        ent["attrs"]["aymurai_label_subclass"] = []
-
-        if label in exact_labels:
+        if label in EXACT_LABELS:
             flattened_text = re.sub(r"[^a-zA-Z0-9]", "", cleaned_text)
-            ent["attrs"]["aymurai_label_subclass"].append(flattened_text)
+            if flattened_text and flattened_text not in aymurai_label_subclass:
+                aymurai_label_subclass.append(flattened_text)
 
         # Update the entity's alt text and indices
         ent["attrs"]["aymurai_alt_text"] = cleaned_text
         ent["attrs"]["aymurai_alt_start_char"] = start_char + leading_chars_removed
         ent["attrs"]["aymurai_alt_end_char"] = end_char - trailing_chars_removed
+        ent["attrs"]["aymurai_label_subclass"] = aymurai_label_subclass
 
         return ent
 

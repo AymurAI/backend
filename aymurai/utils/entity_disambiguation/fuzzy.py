@@ -7,16 +7,7 @@ from rapidfuzz.fuzz import token_set_ratio
 from aymurai.meta.api_interfaces import DocLabel
 from aymurai.meta.entities import CanonicalEntity
 
-EXACT_LABELS = {
-    "DNI",
-    "CUIT_CUIL",
-    "TELEFONO",
-    "PATENTE_DOMINIO",
-    "IP",
-    "NUM_CAJA_AHORRO",
-    "CBU",
-    "NUM_MATRICULA",
-}
+from aymurai.transforms.anonymization_postprocess.exact_labels import EXACT_LABELS
 
 
 def _find_parent(parent: list[int], idx: int) -> int:
@@ -212,8 +203,17 @@ def build_canonical_entities(
             exact_groups = {}
             for item in items:
                 exact_groups.setdefault(item["exact_alias"], []).append(item)
-
-            clusters = list(exact_groups.values())
+            clusters = [
+                [
+                    (
+                        item["text"],
+                        str(item["exact_alias"]).lower().strip(),
+                        item["aymurai_label"],
+                    )
+                    for item in group_items
+                ]
+                for group_items in exact_groups.values()
+            ]
         else:
             clusters = _cluster_aliases_with_cdist(
                 items=items,
