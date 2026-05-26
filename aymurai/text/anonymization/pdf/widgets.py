@@ -277,6 +277,11 @@ def _prepare_signature_widget_ops(
     """
     Flattens signature widgets and prepares their replacement operations.
 
+    PyMuPDF bakes widgets at document scope, not per widget. When a
+    signature widget must be flattened, all widgets are intentionally baked
+    before sanitization so their visible appearances survive in the static
+    anonymized PDF.
+
     Args:
         doc (pymupdf.Document): The PDF document being processed.
         signature_widget_ops (dict[int, list[dict]]): The collected signature widget operations grouped by page index.
