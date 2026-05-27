@@ -34,10 +34,7 @@ def extraction(path: str) -> str:
     return document_normalize(text, preserve_paragraphs=True) if text else ""
 
 
-def run_safe_text_extraction(
-    path: str,
-    timeout_s: float | None = 30,
-) -> str:
+def run_safe_text_extraction(path: str, timeout_s: float | None = 300) -> str:
     """
     Runs the text extraction in a separate process to avoid blocking the main thread.
     This is useful for long-running tasks or when the extraction might hang.
@@ -45,7 +42,7 @@ def run_safe_text_extraction(
     Args:
         path (str): Path to the file to be processed.
         timeout_s (float | None): Timeout in seconds for the extraction process.
-            If None, waits indefinitely. Defaults to 30.
+            If None, waits indefinitely. Defaults to 300.
 
     Returns:
         str: Extracted text from the document.

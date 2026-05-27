@@ -96,14 +96,12 @@ def _cleanup_rect_for_signature_widget_op(op: dict[str, Any]) -> pymupdf.Rect | 
     Returns:
         pymupdf.Rect | None: The cleanup rectangle for the signature widget operation, if available.
     """
-    widget_rect = op.get("widget_rect")
-    if widget_rect is not None:
-        return pymupdf.Rect(widget_rect)
-
-    background_rect = op.get("background_rect") or op.get("canvas_rect")
-    if background_rect is None:
+    cleanup_source = (
+        op.get("redact_rect") or op.get("background_rect") or op.get("canvas_rect")
+    )
+    if cleanup_source is None:
         return None
-    return pymupdf.Rect(background_rect)
+    return pymupdf.Rect(cleanup_source)
 
 
 def _collect_link_cleanup_rects(
