@@ -116,7 +116,7 @@ export default function FileAnnotator({ file, isAnnotable = false }: Props) {
   const fileRef = useRef<HTMLDivElement>(null);
 
   const [label, setLabel] = useState<AllLabels | null>(null);
-  const [labelManagerOpen, setLabelManagerOpen] = useState(false);
+  const [labelManagerOpen, setLabelManagerOpen] = useState(isAnnotable);
 
   const paragraphs = file.paragraphs ?? [];
   const { tags, words } = useExcludedTagsConfig();
@@ -170,13 +170,23 @@ export default function FileAnnotator({ file, isAnnotable = false }: Props) {
     if (!activeSearchMatchId) return;
 
     const timer = window.setTimeout(() => {
-      const element = document.querySelector<HTMLElement>(
-        `[data-search-match-id="${activeSearchMatchId}"]`,
-      );
-      element?.scrollIntoView({
+      const container = fileRef.current;
+      const element = Array.from(
+        container?.querySelectorAll<HTMLElement>("[data-search-match-id]") ?? [],
+      ).find((el) => el.getAttribute("data-search-match-id") === activeSearchMatchId);
+      if (!element || !container) return;
+
+      const containerRect = container.getBoundingClientRect();
+      const elementRect = element.getBoundingClientRect();
+      const scrollOffset =
+        elementRect.top -
+        containerRect.top -
+        containerRect.height / 2 +
+        elementRect.height / 2;
+
+      container.scrollBy({
+        top: scrollOffset,
         behavior: "smooth",
-        block: "center",
-        inline: "nearest",
       });
     }, 50);
 

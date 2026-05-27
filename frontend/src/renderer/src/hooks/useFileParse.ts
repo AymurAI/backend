@@ -23,18 +23,18 @@ export function useFileParse(
   });
 
   useEffect(() => {
-    queries.forEach((query, i) => {
-      const file = files[i];
+    queries.forEach((query, fileIndex) => {
+      const file = files[fileIndex];
       // Use the Redux state as the guard: if paragraphs are already set, skip.
       // This correctly re-dispatches when the same file is reloaded after a replace.
       if (!query.isSuccess || !query.data || file.paragraphs !== undefined)
         return;
       dispatch(
         addParagraphs(
-          query.data.document.map((p) => ({
+          query.data.document.map((p, paragraphIndex) => ({
             value: p,
             document_id: query.data.document_id,
-            id: p,
+            id: `${query.data.document_id}:${paragraphIndex}`,
           })),
           file.data.name,
         ),

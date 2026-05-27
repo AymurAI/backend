@@ -7,12 +7,16 @@ FROM node:lts-bookworm AS frontend-builder
 
 WORKDIR /frontend
 
+RUN npm install --global corepack@latest && \
+    corepack enable pnpm && \
+    corepack prepare pnpm@latest --activate
+
 COPY frontend/ ./
 
-RUN --mount=type=cache,target=/root/.npm \
-    npm install
+RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
+    pnpm install --frozen-lockfile
 
-RUN npm run build:web
+RUN pnpm run build:web
 
 
 # -------------------

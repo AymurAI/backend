@@ -11,10 +11,7 @@ export const Wrapper = styled("div", {
   position: "relative",
 
   // Settings to enable ellipsis on file name
-  maxWidth: 131,
-  "@xl": {
-    maxWidth: 175,
-  },
+  maxWidth: 150,
   "& p": {
     overflow: "hidden",
     textOverflow: "ellipsis",
@@ -30,22 +27,8 @@ export const Card = styled("div", {
   justifyContent: "center",
   alignItems: "center",
 
-  height: 150,
-  width: 113,
-
-  "@xl": {
-    height: 200,
-    width: 150,
-    "& svg": {
-      width: 48,
-      height: 48,
-    },
-  },
-
-  "& svg": {
-    width: 36,
-    height: 36,
-  },
+  height: 200,
+  width: 150,
 
   borderWidth: "$sizes$xs",
   borderStyle: "solid",
