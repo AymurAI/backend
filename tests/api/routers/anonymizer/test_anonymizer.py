@@ -936,6 +936,58 @@ def test_should_dedupe_duplicate_labels_when_returning_cached_prediction(
 
 
 @pytest.mark.integration
+@patch("aymurai.api.endpoints.routers.anonymizer.anonymizer.load_pipeline")
+def test_should_merge_cached_duplicate_labels_for_same_span_and_label(
+    mock_load_pipeline, client, db_session
+):
+    text = (
+        "Víctima: María Paula Trucha, DNI 23.456.789, quien se encuentra "
+        "conectada con su cámara apagada."
+    )
+    dni_label = build_label("DNI", "23.456.789").model_dump(mode="json")
+    dni_label.update({"start_char": 33, "end_char": 43})
+    dni_label["attrs"].update(
+        {
+            "aymurai_alt_text": "23.456.789",
+            "aymurai_alt_start_char": 33,
+            "aymurai_alt_end_char": 43,
+            "aymurai_label_instance": 2,
+            "aymurai_disambiguation": "fuzzy",
+            "aymurai_anonymize": True,
+            "canonical_entity_id": "0bba6d15-1b0c-51f0-b2ca-4fdc8a57cb73",
+        }
+    )
+    enriched_dni_label = {
+        **dni_label,
+        "attrs": {
+            **dni_label["attrs"],
+            "aymurai_label_subclass": ["23456789"],
+        },
+    }
+
+    db_session.add(
+        AnonymizationParagraph(
+            id=text_to_uuid(text),
+            text=text,
+            prediction=[dni_label, enriched_dni_label],
+        )
+    )
+    db_session.commit()
+
+    response = client.post(
+        "/anonymizer/predict",
+        json={"text": text},
+        params={"use_cache": True},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["document"] == text
+    assert data["labels"] == [enriched_dni_label]
+    mock_load_pipeline.assert_not_called()
+
+
+@pytest.mark.integration
 @patch(
     "aymurai.api.endpoints.routers.anonymizer.anonymizer.map_canonical_entities_ner_preds"
 )
