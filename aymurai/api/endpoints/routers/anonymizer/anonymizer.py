@@ -89,30 +89,54 @@ def _entities_to_doclabels(entities: list[dict]) -> list[DocLabel]:
 
 def _dedupe_doclabels(labels: Iterable[DocLabel]) -> list[DocLabel]:
     """
-    Remove exact duplicate labels while preserving first-seen order.
+    Merge duplicate labels for the same span and AymurAI label.
 
     Args:
         labels (Iterable[DocLabel]): An iterable of DocLabel objects,
             potentially containing duplicates.
 
     Returns:
-        list[DocLabel]: A list of DocLabel objects with duplicates removed,
+        list[DocLabel]: A list of DocLabel objects with duplicates merged,
             preserving the order of first occurrence.
     """
     deduped: list[DocLabel] = []
-    seen: set[str] = set()
+    index_by_key: dict[tuple[int, int, str], int] = {}
 
     for label in labels:
-        key = json.dumps(
-            label.model_dump(mode="json", exclude_none=True),
-            sort_keys=True,
-            separators=(",", ":"),
+        key = (
+            label.start_char,
+            label.end_char,
+            label.attrs.aymurai_label if label.attrs else "",
         )
-        if key in seen:
+        existing_index = index_by_key.get(key)
+        if existing_index is None:
+            index_by_key[key] = len(deduped)
+            deduped.append(label)
             continue
 
-        seen.add(key)
-        deduped.append(label)
+        existing = deduped[existing_index]
+        existing_data = existing.model_dump(mode="json")
+        incoming_data = label.model_dump(mode="json")
+        existing_attrs = existing_data.get("attrs") or {}
+        incoming_attrs = incoming_data.get("attrs") or {}
+
+        for attr_key, incoming_value in incoming_attrs.items():
+            existing_value = existing_attrs.get(attr_key)
+            if attr_key == "aymurai_label_subclass":
+                merged = list(existing_value or [])
+                for subclass in incoming_value or []:
+                    if subclass not in merged:
+                        merged.append(subclass)
+                existing_attrs[attr_key] = merged
+            elif existing_value in (None, [], "") and incoming_value not in (
+                None,
+                [],
+                "",
+            ):
+                existing_attrs[attr_key] = incoming_value
+
+        existing_data["attrs"] = existing_attrs
+        deduped[existing_index] = DocLabel.model_validate(existing_data)
 
     return deduped
 
