@@ -7,6 +7,7 @@ from aymurai.meta.types import DataItem
 from aymurai.utils.misc import get_element
 
 _ENTITY_BOUNDARY_PATTERN = re.compile(r"^\W+|\W+$")
+from aymurai.transforms.anonymization_postprocess.exact_labels import EXACT_LABELS
 
 
 def clean_entity_boundaries(
@@ -73,9 +74,25 @@ class AnonymizationEntityCleaner(Transform):
         if cleaned is None:
             return ent
 
+        label = ent["attrs"]["aymurai_label"]
+        raw_subclass = ent["attrs"]["aymurai_label_subclass"]
+
+        if isinstance(raw_subclass, list):
+            aymurai_label_subclass = raw_subclass.copy()
+        elif raw_subclass:
+            aymurai_label_subclass = [raw_subclass]
+        else:
+            aymurai_label_subclass = []
+
+        if label in EXACT_LABELS:
+            flattened_text = re.sub(r"[^a-zA-Z0-9]", "", cleaned["text"])
+            if flattened_text and flattened_text not in aymurai_label_subclass:
+                aymurai_label_subclass.append(flattened_text)
+
         ent["attrs"]["aymurai_alt_text"] = cleaned["text"]
         ent["attrs"]["aymurai_alt_start_char"] = cleaned["start_char"]
         ent["attrs"]["aymurai_alt_end_char"] = cleaned["end_char"]
+        ent["attrs"]["aymurai_label_subclass"] = aymurai_label_subclass
 
         return ent
 
@@ -88,11 +105,11 @@ class AnonymizationEntityCleaner(Transform):
             DataItem: processed item
         """
         item = deepcopy(item)
-
         ents = get_element(item, [self.field, "entities"]) or []
 
-        # Filter out predictions that are punctuation marks only
-        ents = [ent for ent in ents if ent["text"] not in punctuation]
-        ents = [self.process(ent) for ent in ents]
+        # Filter out predictions with empty alt text and update the rest
+        item[self.field]["entities"] = [
+            out for ent in ents if (out := self.process(ent)) is not None
+        ]
 
         return item

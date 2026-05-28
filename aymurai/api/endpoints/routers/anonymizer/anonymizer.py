@@ -2,11 +2,12 @@ import json
 import os
 import subprocess
 import tempfile
+from collections.abc import Iterable
 from threading import Lock
 from typing import List
 
 import torch
-from fastapi import Body, Depends, Form, Query, UploadFile
+from fastapi import Body, Depends, Form, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse
 from fastapi.routing import APIRouter
 from sqlmodel import Session
@@ -70,8 +71,10 @@ def _entities_to_doclabels(entities: list[dict]) -> list[DocLabel]:
 
     for ent in entities:
         try:
-            doclabels.append(
-                DocLabel.model_validate(
+            if isinstance(ent, DocLabel):
+                doclabel = ent
+            else:
+                doclabel = DocLabel.model_validate(
                     {
                         "text": ent.get("text", ""),
                         "start_char": ent.get("start_char"),
@@ -79,11 +82,65 @@ def _entities_to_doclabels(entities: list[dict]) -> list[DocLabel]:
                         "attrs": ent.get("attrs", {}),
                     }
                 )
-            )
+            doclabels.append(doclabel)
         except Exception as exc:  # keep going if a single entity is malformed
             logger.warning(f"Skipping invalid entity for DocLabel: {exc}")
 
-    return doclabels
+    return _dedupe_doclabels(doclabels)
+
+
+def _dedupe_doclabels(labels: Iterable[DocLabel]) -> list[DocLabel]:
+    """
+    Merge duplicate labels for the same span and AymurAI label.
+
+    Args:
+        labels (Iterable[DocLabel]): An iterable of DocLabel objects,
+            potentially containing duplicates.
+
+    Returns:
+        list[DocLabel]: A list of DocLabel objects with duplicates merged,
+            preserving the order of first occurrence.
+    """
+    deduped: list[DocLabel] = []
+    index_by_key: dict[tuple[int, int, str], int] = {}
+
+    for label in labels:
+        key = (
+            label.start_char,
+            label.end_char,
+            label.attrs.aymurai_label if label.attrs else "",
+        )
+        existing_index = index_by_key.get(key)
+        if existing_index is None:
+            index_by_key[key] = len(deduped)
+            deduped.append(label)
+            continue
+
+        existing = deduped[existing_index]
+        existing_data = existing.model_dump(mode="json")
+        incoming_data = label.model_dump(mode="json")
+        existing_attrs = existing_data.get("attrs") or {}
+        incoming_attrs = incoming_data.get("attrs") or {}
+
+        for attr_key, incoming_value in incoming_attrs.items():
+            existing_value = existing_attrs.get(attr_key)
+            if attr_key == "aymurai_label_subclass":
+                merged = list(existing_value or [])
+                for subclass in incoming_value or []:
+                    if subclass not in merged:
+                        merged.append(subclass)
+                existing_attrs[attr_key] = merged
+            elif existing_value in (None, [], "") and incoming_value not in (
+                None,
+                [],
+                "",
+            ):
+                existing_attrs[attr_key] = incoming_value
+
+        existing_data["attrs"] = existing_attrs
+        deduped[existing_index] = DocLabel.model_validate(existing_data)
+
+    return deduped
 
 
 def _merge_label_policies(
@@ -490,6 +547,7 @@ async def anonymizer_disambiguate(
         target_labels: An optional list of entity labels to refine via LLM
             (e.g., ["PER", "DNI"]). Fuzzy clustering still runs across all
             detected labels.
+        session: Database session dependency for caching results.
     Returns:
         DocumentAnnotations: The original annotations enriched with
             'canonical_entity_id' and 'role' fields for each resolved mention.
@@ -565,8 +623,12 @@ async def anonymizer_disambiguate(
         else []
     )
 
+    logger.info("canonical entities detected were: %s", canonical_entities)
+
     if "FECHA" in fuzzy_labels:
         canonical_entities += get_canonical_dates(labels)
+
+    logger.info("canonical entities after adding dates: %s", canonical_entities)
 
     logger.info(
         "fuzzy clustering produced %d canonical entities", len(canonical_entities)
@@ -640,6 +702,7 @@ async def anonymizer_disambiguate(
     )
 
     for document in predictions:
+        document.labels = _dedupe_doclabels(document.labels or [])
         for label in document.labels or []:
             label.attrs.aymurai_disambiguation = effective_disambiguation_by_label.get(
                 label.attrs.aymurai_label, "fuzzy"
@@ -717,7 +780,18 @@ async def anonymizer_compile_document(
     """
     logger.info(f"receiving => {file.filename}")
     extension = MIMETYPE_EXTENSION_MAPPER.get(file.content_type)
-    logger.info(f"detection extension: {extension} ({file.content_type})")
+    file_suffix = os.path.splitext(file.filename or "")[1].lower()
+
+    if extension is None and file_suffix:
+        extension = file_suffix.lstrip(".")
+
+    if extension not in {"docx", "pdf"}:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported format for anonymization: {extension or 'unknown'}",
+        )
+
+    logger.info(f"detected extension: {extension} ({file.content_type})")
 
     # Create a temporary file
     _, suffix = os.path.splitext(file.filename)
