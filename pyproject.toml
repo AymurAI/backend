@@ -120,6 +120,8 @@ include = ["aymurai"]
 
 [project.scripts]
 aymurai-api = "aymurai.api.main:main"
+aymurai-mlflow-export-traces = "aymurai.mlops.mlflow_trace_migration:main_export"
+aymurai-mlflow-import-traces = "aymurai.mlops.mlflow_trace_migration:main_import"
 
 
 [tool.setuptools.package-data]
