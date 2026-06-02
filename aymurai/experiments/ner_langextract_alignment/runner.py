@@ -295,7 +295,7 @@ def _load_input_paragraphs(config: NERLangExtractRunConfig) -> list[dict[str, An
                 "document_id": str(row.get("document_id") or "external"),
                 "paragraph_id": str(row.get("paragraph_id") or str(idx)),
                 "source_path": row.get("source_path"),
-                "text": str(row.get("text") or ""),
+                "text": str(row.get(config.data.input_paragraphs_text_column) or ""),
             }
         )
 
