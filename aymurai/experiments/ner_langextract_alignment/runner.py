@@ -17,6 +17,7 @@ import mlflow
 import requests
 from tqdm import tqdm
 
+from aymurai.experiments.ner_holdout_evaluation.loaders import load_conll_bio
 from aymurai.experiments.ner_langextract_alignment.clients import (
     call_anonymizer_predict,
     call_extraction_api,
@@ -48,6 +49,7 @@ from aymurai.experiments.ner_langextract_alignment.manifest import (
     sha256_file,
 )
 from aymurai.experiments.ner_langextract_alignment.mlflow_logging import (
+    append_jsonl,
     configure_mlflow,
     log_run_metadata,
     safe_log_artifact,
@@ -63,7 +65,6 @@ from aymurai.experiments.ner_langextract_alignment.normalize import (
     serialize_entity,
 )
 from aymurai.experiments.ner_langextract_alignment.types import LLMTrace
-from aymurai.experiments.ner_holdout_evaluation.loaders import load_conll_bio
 from aymurai.logger import get_logger
 from aymurai.settings import load_env
 from aymurai.utils.yaml_data import load_yaml
@@ -183,6 +184,51 @@ def _ensure_dirs(config: NERLangExtractRunConfig, run_name: str) -> dict[str, Pa
     return paths
 
 
+def _load_jsonl_if_exists(path: Path) -> list[dict[str, Any]]:
+    if not path.exists():
+        return []
+
+    rows: list[dict[str, Any]] = []
+    with path.open("r", encoding="utf-8") as fh:
+        for line_no, line in enumerate(fh, start=1):
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                row = json.loads(line)
+            except json.JSONDecodeError as exc:
+                logger.warning(
+                    "Skipping invalid checkpoint row: path=%s line=%s error=%s",
+                    path,
+                    line_no,
+                    exc,
+                )
+                continue
+            if isinstance(row, dict):
+                rows.append(row)
+    return rows
+
+
+def _trace_from_serialized(row: dict[str, Any]) -> LLMTrace:
+    parsed_output = row.get("parsed_output")
+    metadata = row.get("metadata")
+    return LLMTrace(
+        trace_id=str(row.get("trace_id") or ""),
+        sample_id=str(row.get("sample_id") or ""),
+        provider=str(row.get("provider") or ""),
+        model=str(row.get("model") or ""),
+        prompt=str(row.get("prompt") or ""),
+        input_text=str(row.get("input_text") or ""),
+        raw_output=(
+            row.get("raw_output") if isinstance(row.get("raw_output"), str) else None
+        ),
+        parsed_output=parsed_output if isinstance(parsed_output, dict) else None,
+        duration_ms=float(row.get("duration_ms") or 0.0),
+        error=str(row.get("error")) if row.get("error") else None,
+        metadata=metadata if isinstance(metadata, dict) else {},
+    )
+
+
 def _load_mapping(path: str) -> dict[str, str]:
     payload = load_yaml(path)
     mapping = payload.get("labels", payload) if isinstance(payload, dict) else {}
@@ -295,7 +341,7 @@ def _load_input_paragraphs(config: NERLangExtractRunConfig) -> list[dict[str, An
                 "document_id": str(row.get("document_id") or "external"),
                 "paragraph_id": str(row.get("paragraph_id") or str(idx)),
                 "source_path": row.get("source_path"),
-                "text": str(row.get("text") or ""),
+                "text": str(row.get(config.data.input_paragraphs_text_column) or ""),
             }
         )
 
@@ -526,9 +572,25 @@ def _save_json(path: Path, payload: Any) -> None:
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
-def run_experiment(config_path: str) -> None:
+def _safe_log_param(key: str, value: Any) -> None:
+    try:
+        mlflow.log_param(key, value)
+    except Exception as exc:
+        logger.warning("Skipping MLflow param %s=%s: %s", key, value, exc)
+
+
+def run_experiment(
+    config_path: str,
+    *,
+    run_name_override: str | None = None,
+    mlflow_run_id: str | None = None,
+    resume: bool = False,
+    checkpoint_every: int = 1,
+) -> None:
     config = load_experiment_config(config_path)
-    run_name = render_run_name(config.experiment.run_name, config.langextract.model_id)
+    run_name = run_name_override or render_run_name(
+        config.experiment.run_name, config.langextract.model_id
+    )
     paths = _ensure_dirs(config, run_name)
 
     mapping = _load_mapping(config.mapping.labels_yaml_path)
@@ -545,11 +607,14 @@ def run_experiment(config_path: str) -> None:
         # Backward compatibility for tests/mocks returning bool only.
         mlflow_enabled = bool(mlflow_setup)
         mlflow_experiment_id = None
-    run_context = (
-        mlflow.start_run(run_name=run_name, experiment_id=mlflow_experiment_id)
-        if mlflow_enabled
-        else nullcontext()
-    )
+    if mlflow_enabled and mlflow_run_id:
+        run_context = mlflow.start_run(run_id=mlflow_run_id)
+    elif mlflow_enabled:
+        run_context = mlflow.start_run(
+            run_name=run_name, experiment_id=mlflow_experiment_id
+        )
+    else:
+        run_context = nullcontext()
     if not mlflow_enabled:
         logger.warning("Running without MLflow tracking for this execution.")
 
@@ -561,8 +626,10 @@ def run_experiment(config_path: str) -> None:
                     "pipeline": "ner_langextract_alignment",
                 }
             )
-            mlflow.log_param("mlflow_experiment_id", mlflow_experiment_id or "")
-            mlflow.log_param("config_path", config_path)
+            _safe_log_param("mlflow_experiment_id", mlflow_experiment_id or "")
+            _safe_log_param("config_path", config_path)
+            if mlflow_run_id:
+                mlflow.set_tag("resumed_from_run_id", mlflow_run_id)
 
         samples_input: list[dict[str, Any]] = []
         input_manifest: dict[str, Any]
@@ -588,9 +655,36 @@ def run_experiment(config_path: str) -> None:
 
         model = build_tracing_model(config.langextract)
         samples_output: list[dict[str, Any]] = []
-        traces = []
+        traces: list[LLMTrace] = []
+        processed_sample_ids: set[str] = set()
+
+        if resume:
+            samples_output = _load_jsonl_if_exists(paths["samples"])
+            existing_trace_rows = _load_jsonl_if_exists(paths["traces_jsonl"])
+            traces = [_trace_from_serialized(row) for row in existing_trace_rows]
+            processed_sample_ids = {
+                str(row.get("sample_id"))
+                for row in samples_output
+                if row.get("sample_id")
+            }
+            logger.info(
+                "resume enabled: loaded %s sample checkpoints and %s trace checkpoints",
+                len(samples_output),
+                len(traces),
+            )
+        else:
+            write_jsonl(paths["samples"], [])
+            write_jsonl(paths["traces_jsonl"], [])
+
+        checkpoint_every = max(0, int(checkpoint_every))
+        processed_since_checkpoint = 0
 
         for sample in tqdm(samples_input, desc="align-paragraphs"):
+            sample_id = str(sample["sample_id"])
+            if sample_id in processed_sample_ids:
+                logger.info("resume skip: sample_id=%s already checkpointed", sample_id)
+                continue
+
             text = sample["text"]
             if not text.strip():
                 continue
@@ -615,7 +709,7 @@ def run_experiment(config_path: str) -> None:
 
             try:
                 lx_payload, lx_traces, lx_ms = run_langextract(
-                    sample_id=sample["sample_id"],
+                    sample_id=sample_id,
                     text=text,
                     config=config.langextract,
                     examples=examples,
@@ -624,11 +718,11 @@ def run_experiment(config_path: str) -> None:
             except Exception as exc:
                 logger.warning(
                     "langextract failed for sample_id=%s after retries: %s",
-                    sample["sample_id"],
+                    sample_id,
                     exc,
                 )
                 lx_payload = {
-                    "document_id": sample["sample_id"],
+                    "document_id": sample_id,
                     "text": text,
                     "extractions": [],
                     "error": str(exc),
@@ -636,8 +730,8 @@ def run_experiment(config_path: str) -> None:
                 lx_ms = 0.0
                 lx_traces = [
                     LLMTrace(
-                        trace_id=f"fallback-{sample['sample_id']}",
-                        sample_id=sample["sample_id"],
+                        trace_id=f"fallback-{sample_id}",
+                        sample_id=sample_id,
                         provider=config.langextract.provider,
                         model=config.langextract.model_id,
                         prompt="",
@@ -652,7 +746,7 @@ def run_experiment(config_path: str) -> None:
             traces.extend(lx_traces)
 
             record = _record_from_paragraph(
-                sample_id=sample["sample_id"],
+                sample_id=sample_id,
                 document_id=sample["document_id"],
                 paragraph_id=sample["paragraph_id"],
                 source_path=sample.get("source_path"),
@@ -665,6 +759,22 @@ def run_experiment(config_path: str) -> None:
                 config=config,
             )
             samples_output.append(record)
+            processed_sample_ids.add(sample_id)
+
+            if checkpoint_every:
+                append_jsonl(paths["samples"], [record])
+                append_jsonl(
+                    paths["traces_jsonl"],
+                    serialize_traces_for_logging(lx_traces, config),
+                )
+                processed_since_checkpoint += 1
+                if processed_since_checkpoint >= checkpoint_every:
+                    logger.info(
+                        "checkpointed %s samples to %s",
+                        len(samples_output),
+                        paths["samples"],
+                    )
+                    processed_since_checkpoint = 0
 
         serialized_traces = serialize_traces_for_logging(traces, config)
         write_jsonl(paths["samples"], samples_output)
@@ -740,13 +850,46 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--config", required=True, help="Path to experiment YAML config"
     )
+    parser.add_argument(
+        "--run-name",
+        default=None,
+        help="Override the rendered run name and output directory name.",
+    )
+    parser.add_argument(
+        "--mlflow-run-id",
+        default=None,
+        help="Resume logging into an existing MLflow run ID.",
+    )
+    parser.add_argument(
+        "--resume",
+        action="store_true",
+        help=(
+            "Load existing output checkpoints for the run name and skip those "
+            "sample IDs."
+        ),
+    )
+    parser.add_argument(
+        "--checkpoint-every",
+        type=int,
+        default=1,
+        help=(
+            "Append sample and trace checkpoints every N processed samples; "
+            "0 disables checkpoint appends."
+        ),
+    )
     return parser
 
 
 def main() -> None:
     args = build_arg_parser().parse_args()
     started = time.perf_counter()
-    run_experiment(args.config)
+    run_experiment(
+        args.config,
+        run_name_override=args.run_name,
+        mlflow_run_id=args.mlflow_run_id,
+        resume=args.resume,
+        checkpoint_every=args.checkpoint_every,
+    )
     elapsed = time.perf_counter() - started
     logger.info(f"run completed in {elapsed:.2f}s")
 

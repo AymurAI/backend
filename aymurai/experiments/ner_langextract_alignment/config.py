@@ -21,6 +21,7 @@ class DataConfig(BaseModel):
 
     input_documents_dir: str | None = None
     input_paragraphs_jsonl: str | None = None
+    input_paragraphs_text_column: str = "text"
     input_bio_txt: str | None = None
     input_hf_dataset: str | None = None
     input_hf_config_name: str | None = None
