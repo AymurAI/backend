@@ -206,6 +206,16 @@ def write_jsonl(path: Path, rows: list[dict[str, Any]]) -> None:
             fh.write("\n")
 
 
+def append_jsonl(path: Path, rows: list[dict[str, Any]]) -> None:
+    if not rows:
+        return
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as fh:
+        for row in rows:
+            fh.write(json.dumps(row, ensure_ascii=False))
+            fh.write("\n")
+
+
 def write_traces_summary_csv(path: Path, traces: list[LLMTrace]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8", newline="") as fh:
@@ -259,8 +269,15 @@ def log_run_metadata(
         "qa_sample_rate": config.labelstudio.qa_sample_rate,
     }
 
-    mlflow.log_params(params)
-    mlflow.log_metrics(metrics)
+    try:
+        mlflow.log_params(params)
+    except Exception as exc:
+        logger.warning("Skipping MLflow parameter logging: %s", exc)
+
+    try:
+        mlflow.log_metrics(metrics)
+    except Exception as exc:
+        logger.warning("Skipping MLflow metric logging: %s", exc)
 
     with tempfile.TemporaryDirectory() as temp_dir:
         tmp = Path(temp_dir)
