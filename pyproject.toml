@@ -89,6 +89,7 @@ dependencies = [
     "tiktoken==0.12.0",
     "marker-pdf==1.10.1",
     "docx2txt>=0.9",
+    "opf",
 ]
 
 [project.urls]
@@ -134,3 +135,6 @@ local_scheme = "no-local-version"
 
 [tool.pylint.messages_control]
 disable = "C0330, C0326"
+
+[tool.uv.sources]
+opf = { git = "https://github.com/openai/privacy-filter.git" }
