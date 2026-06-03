@@ -39,24 +39,22 @@ function RouteComponent() {
   if (feature === FeatureFlowEnum.Anonymizer)
     return (
       <RequireFile>
-        <Stack width="screen" minHeight="screen" gap="0">
+        <Stack width="screen" height="screen" gap="0">
           <Header
-          title={t("title")}
-          center={<Stepper currentStep={3} />}
-          feature={feature}
-          right={<HomeButton />}
-        />
+            title={t("title")}
+            center={<Stepper currentStep={3} />}
+            feature={feature}
+            right={<HomeButton />}
+          />
           <Grid
-          columns={1}
-          flex="1"
-          minHeight="0"
-          gap="0"
-          justifyContent="stretch"
-          alignItems="stretch"
-          style={{ overflow: "hidden" }}
-        >
-          <FileAnnotator {...{ file }} isAnnotable />
-        </Grid>
+            columns={1}
+            gap="0"
+            justifyContent="stretch"
+            alignItems="stretch"
+            style={{ overflow: "hidden" }}
+          >
+            <FileAnnotator {...{ file }} isAnnotable />
+          </Grid>
 
           <Footer>
             <Button size="md" onClick={handleContinue}>

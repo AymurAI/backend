@@ -5,7 +5,6 @@ import tempfile
 from collections.abc import Iterable
 from threading import Lock
 
-import torch
 from fastapi import Body, Depends, Form, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse
 from fastapi.routing import APIRouter
@@ -31,7 +30,7 @@ from aymurai.meta.api_interfaces import (
     RenderPolicy,
     TextRequest,
 )
-from aymurai.settings import settings
+from aymurai.settings import DEFAULT_RENDER_POLICY, settings
 from aymurai.text.anonymization import (
     InvalidDocumentAnonymizer,
     get_anonymizer,
@@ -48,7 +47,6 @@ logger = get_logger(__name__)
 
 
 RESOURCES_BASEPATH = settings.RESOURCES_BASEPATH
-torch.set_num_threads = 100  # FIXME: polemic ?
 pipeline_lock = Lock()
 
 
@@ -198,10 +196,7 @@ def _merge_render_policy(
     Returns:
         RenderPolicy: Effective render policy.
     """
-    policy = RenderPolicy(
-        suffix_mode="auto",
-        suffix_threshold=1,
-    )
+    policy = RenderPolicy.model_validate(DEFAULT_RENDER_POLICY)
 
     def apply(incoming: RenderPolicy) -> None:
         nonlocal policy

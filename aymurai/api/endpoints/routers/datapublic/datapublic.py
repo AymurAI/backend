@@ -1,7 +1,6 @@
 import os
 from threading import Lock
 
-import torch
 from fastapi import Body, Depends, HTTPException, Query
 from fastapi.routing import APIRouter
 from pydantic import UUID5
@@ -28,7 +27,6 @@ logger = get_logger(__name__)
 
 
 RESOURCES_BASEPATH = settings.RESOURCES_BASEPATH
-torch.set_num_threads = 100  # FIXME: polemic ?
 pipeline_lock = Lock()
 
 

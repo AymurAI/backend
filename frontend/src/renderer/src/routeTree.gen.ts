@@ -9,10 +9,8 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as FeatureRouteRouteImport } from './routes/$feature/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as HomeIndexRouteImport } from './routes/home/index'
-import { Route as FeatureIndexRouteImport } from './routes/$feature/index'
 import { Route as HomeHostRouteImport } from './routes/home/host'
 import { Route as HomeFeaturesRouteImport } from './routes/home/features'
 import { Route as FeatureValidationRouteImport } from './routes/$feature/validation'
@@ -21,11 +19,6 @@ import { Route as FeaturePreviewRouteImport } from './routes/$feature/preview'
 import { Route as FeatureOnboardingRouteImport } from './routes/$feature/onboarding'
 import { Route as FeatureFinishRouteImport } from './routes/$feature/finish'
 
-const FeatureRouteRoute = FeatureRouteRouteImport.update({
-  id: '/$feature',
-  path: '/$feature',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -35,11 +28,6 @@ const HomeIndexRoute = HomeIndexRouteImport.update({
   id: '/home/',
   path: '/home/',
   getParentRoute: () => rootRouteImport,
-} as any)
-const FeatureIndexRoute = FeatureIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => FeatureRouteRoute,
 } as any)
 const HomeHostRoute = HomeHostRouteImport.update({
   id: '/home/host',
@@ -52,34 +40,33 @@ const HomeFeaturesRoute = HomeFeaturesRouteImport.update({
   getParentRoute: () => rootRouteImport,
 } as any)
 const FeatureValidationRoute = FeatureValidationRouteImport.update({
-  id: '/validation',
-  path: '/validation',
-  getParentRoute: () => FeatureRouteRoute,
+  id: '/$feature/validation',
+  path: '/$feature/validation',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const FeatureProcessRoute = FeatureProcessRouteImport.update({
-  id: '/process',
-  path: '/process',
-  getParentRoute: () => FeatureRouteRoute,
+  id: '/$feature/process',
+  path: '/$feature/process',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const FeaturePreviewRoute = FeaturePreviewRouteImport.update({
-  id: '/preview',
-  path: '/preview',
-  getParentRoute: () => FeatureRouteRoute,
+  id: '/$feature/preview',
+  path: '/$feature/preview',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const FeatureOnboardingRoute = FeatureOnboardingRouteImport.update({
-  id: '/onboarding',
-  path: '/onboarding',
-  getParentRoute: () => FeatureRouteRoute,
+  id: '/$feature/onboarding',
+  path: '/$feature/onboarding',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const FeatureFinishRoute = FeatureFinishRouteImport.update({
-  id: '/finish',
-  path: '/finish',
-  getParentRoute: () => FeatureRouteRoute,
+  id: '/$feature/finish',
+  path: '/$feature/finish',
+  getParentRoute: () => rootRouteImport,
 } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/$feature': typeof FeatureRouteRouteWithChildren
   '/$feature/finish': typeof FeatureFinishRoute
   '/$feature/onboarding': typeof FeatureOnboardingRoute
   '/$feature/preview': typeof FeaturePreviewRoute
@@ -87,8 +74,7 @@ export interface FileRoutesByFullPath {
   '/$feature/validation': typeof FeatureValidationRoute
   '/home/features': typeof HomeFeaturesRoute
   '/home/host': typeof HomeHostRoute
-  '/$feature/': typeof FeatureIndexRoute
-  '/home/': typeof HomeIndexRoute
+  '/home': typeof HomeIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -99,13 +85,11 @@ export interface FileRoutesByTo {
   '/$feature/validation': typeof FeatureValidationRoute
   '/home/features': typeof HomeFeaturesRoute
   '/home/host': typeof HomeHostRoute
-  '/$feature': typeof FeatureIndexRoute
   '/home': typeof HomeIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/$feature': typeof FeatureRouteRouteWithChildren
   '/$feature/finish': typeof FeatureFinishRoute
   '/$feature/onboarding': typeof FeatureOnboardingRoute
   '/$feature/preview': typeof FeaturePreviewRoute
@@ -113,14 +97,12 @@ export interface FileRoutesById {
   '/$feature/validation': typeof FeatureValidationRoute
   '/home/features': typeof HomeFeaturesRoute
   '/home/host': typeof HomeHostRoute
-  '/$feature/': typeof FeatureIndexRoute
   '/home/': typeof HomeIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/$feature'
     | '/$feature/finish'
     | '/$feature/onboarding'
     | '/$feature/preview'
@@ -128,8 +110,7 @@ export interface FileRouteTypes {
     | '/$feature/validation'
     | '/home/features'
     | '/home/host'
-    | '/$feature/'
-    | '/home/'
+    | '/home'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -140,12 +121,10 @@ export interface FileRouteTypes {
     | '/$feature/validation'
     | '/home/features'
     | '/home/host'
-    | '/$feature'
     | '/home'
   id:
     | '__root__'
     | '/'
-    | '/$feature'
     | '/$feature/finish'
     | '/$feature/onboarding'
     | '/$feature/preview'
@@ -153,13 +132,16 @@ export interface FileRouteTypes {
     | '/$feature/validation'
     | '/home/features'
     | '/home/host'
-    | '/$feature/'
     | '/home/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  FeatureRouteRoute: typeof FeatureRouteRouteWithChildren
+  FeatureFinishRoute: typeof FeatureFinishRoute
+  FeatureOnboardingRoute: typeof FeatureOnboardingRoute
+  FeaturePreviewRoute: typeof FeaturePreviewRoute
+  FeatureProcessRoute: typeof FeatureProcessRoute
+  FeatureValidationRoute: typeof FeatureValidationRoute
   HomeFeaturesRoute: typeof HomeFeaturesRoute
   HomeHostRoute: typeof HomeHostRoute
   HomeIndexRoute: typeof HomeIndexRoute
@@ -167,13 +149,6 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/$feature': {
-      id: '/$feature'
-      path: '/$feature'
-      fullPath: '/$feature'
-      preLoaderRoute: typeof FeatureRouteRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/': {
       id: '/'
       path: '/'
@@ -184,16 +159,9 @@ declare module '@tanstack/react-router' {
     '/home/': {
       id: '/home/'
       path: '/home'
-      fullPath: '/home/'
+      fullPath: '/home'
       preLoaderRoute: typeof HomeIndexRouteImport
       parentRoute: typeof rootRouteImport
-    }
-    '/$feature/': {
-      id: '/$feature/'
-      path: '/'
-      fullPath: '/$feature/'
-      preLoaderRoute: typeof FeatureIndexRouteImport
-      parentRoute: typeof FeatureRouteRoute
     }
     '/home/host': {
       id: '/home/host'
@@ -211,67 +179,49 @@ declare module '@tanstack/react-router' {
     }
     '/$feature/validation': {
       id: '/$feature/validation'
-      path: '/validation'
+      path: '/$feature/validation'
       fullPath: '/$feature/validation'
       preLoaderRoute: typeof FeatureValidationRouteImport
-      parentRoute: typeof FeatureRouteRoute
+      parentRoute: typeof rootRouteImport
     }
     '/$feature/process': {
       id: '/$feature/process'
-      path: '/process'
+      path: '/$feature/process'
       fullPath: '/$feature/process'
       preLoaderRoute: typeof FeatureProcessRouteImport
-      parentRoute: typeof FeatureRouteRoute
+      parentRoute: typeof rootRouteImport
     }
     '/$feature/preview': {
       id: '/$feature/preview'
-      path: '/preview'
+      path: '/$feature/preview'
       fullPath: '/$feature/preview'
       preLoaderRoute: typeof FeaturePreviewRouteImport
-      parentRoute: typeof FeatureRouteRoute
+      parentRoute: typeof rootRouteImport
     }
     '/$feature/onboarding': {
       id: '/$feature/onboarding'
-      path: '/onboarding'
+      path: '/$feature/onboarding'
       fullPath: '/$feature/onboarding'
       preLoaderRoute: typeof FeatureOnboardingRouteImport
-      parentRoute: typeof FeatureRouteRoute
+      parentRoute: typeof rootRouteImport
     }
     '/$feature/finish': {
       id: '/$feature/finish'
-      path: '/finish'
+      path: '/$feature/finish'
       fullPath: '/$feature/finish'
       preLoaderRoute: typeof FeatureFinishRouteImport
-      parentRoute: typeof FeatureRouteRoute
+      parentRoute: typeof rootRouteImport
     }
   }
 }
 
-interface FeatureRouteRouteChildren {
-  FeatureFinishRoute: typeof FeatureFinishRoute
-  FeatureOnboardingRoute: typeof FeatureOnboardingRoute
-  FeaturePreviewRoute: typeof FeaturePreviewRoute
-  FeatureProcessRoute: typeof FeatureProcessRoute
-  FeatureValidationRoute: typeof FeatureValidationRoute
-  FeatureIndexRoute: typeof FeatureIndexRoute
-}
-
-const FeatureRouteRouteChildren: FeatureRouteRouteChildren = {
+const rootRouteChildren: RootRouteChildren = {
+  IndexRoute: IndexRoute,
   FeatureFinishRoute: FeatureFinishRoute,
   FeatureOnboardingRoute: FeatureOnboardingRoute,
   FeaturePreviewRoute: FeaturePreviewRoute,
   FeatureProcessRoute: FeatureProcessRoute,
   FeatureValidationRoute: FeatureValidationRoute,
-  FeatureIndexRoute: FeatureIndexRoute,
-}
-
-const FeatureRouteRouteWithChildren = FeatureRouteRoute._addFileChildren(
-  FeatureRouteRouteChildren,
-)
-
-const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
-  FeatureRouteRoute: FeatureRouteRouteWithChildren,
   HomeFeaturesRoute: HomeFeaturesRoute,
   HomeHostRoute: HomeHostRoute,
   HomeIndexRoute: HomeIndexRoute,
