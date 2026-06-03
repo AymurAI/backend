@@ -2,7 +2,6 @@ import os
 import time
 from contextlib import asynccontextmanager
 
-import torch
 from alembic import command
 from alembic.config import Config
 from fastapi import FastAPI, Request
@@ -12,6 +11,7 @@ from starlette.formparsers import MultiPartParser
 from aymurai.api import core
 from aymurai.api.endpoints.routers.frontend import frontend
 from aymurai.api.startup.database import check_db_connection
+from aymurai.api.utils import configure_torch_threads
 from aymurai.logger import get_logger
 from aymurai.pipeline import AymurAIPipeline
 from aymurai.settings import settings
@@ -24,7 +24,7 @@ except ImportError:
 logger = get_logger(__name__)
 
 
-torch.set_num_threads = 100  # FIXME: polemic ?
+configure_torch_threads()
 
 RESOURCES_BASEPATH = settings.RESOURCES_BASEPATH
 

@@ -72,6 +72,7 @@ class Settings(BaseSettings):
     # Cachetools settings
     MEMORY_CACHE_MAXSIZE: int = 1
     MEMORY_CACHE_TTL: int = 60
+    TORCH_NUM_THREADS: int = 4
 
     LIBREOFFICE_BIN: str = "libreoffice"
     PDF_WATERMARK_FONT_REGULAR: str | None = None

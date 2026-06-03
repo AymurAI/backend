@@ -5,7 +5,6 @@ import tempfile
 from collections.abc import Iterable
 from threading import Lock
 
-import torch
 from fastapi import Body, Depends, Form, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse
 from fastapi.routing import APIRouter
@@ -48,7 +47,6 @@ logger = get_logger(__name__)
 
 
 RESOURCES_BASEPATH = settings.RESOURCES_BASEPATH
-torch.set_num_threads = 100  # FIXME: polemic ?
 pipeline_lock = Lock()
 
 
