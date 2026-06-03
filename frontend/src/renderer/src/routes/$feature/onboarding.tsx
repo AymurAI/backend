@@ -74,7 +74,7 @@ function RouteComponent() {
   }, []);
 
   return (
-    <Stack width="screen" minHeight="screen" gap="0">
+    <Stack width="screen" height="screen" gap="0">
       <Header title={t("title")} feature={feature} right={<HomeButton />} />
       <MainContent>
         {tutorialSeen ? (
