@@ -4,7 +4,7 @@ import { HStack } from "@/styled/jsx";
 import { FeatureFlowEnum } from "@/types/features";
 import type { DocFile } from "@/types/file";
 import { submitValidations } from "@/utils/file";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import FileCheck from "../file-check";
 import Footer from "../layout/footer";
@@ -20,27 +20,38 @@ export default function FinishDataset({ onRestart }: FinishDatasetProps) {
 
   const [errorNames, setErrorNames] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const didSubmit = useRef(false);
 
   const checkForErrors = (fileName: string) =>
     !!errorNames.find((name) => name === fileName);
 
-  const submit = async (file: DocFile) => {
-    try {
-      // POST the validated data to the dataset
-      await submitValidations({
-        isOnline: false,
-        validations: file.validationObject,
-      });
-    } catch {
-      setErrorNames((names) => [...names, file.data.name]);
-    }
+  const submit = useCallback(
+    async (file: DocFile) => {
+      try {
+        // POST the validated data to the dataset
+        await submitValidations({
+          isOnline: false,
+          validations: file.validationObject,
+        });
+      } catch (error) {
+        console.error("[dataset] Error saving validations", {
+          fileName: file.data.name,
+          error,
+        });
+        setErrorNames((names) => [...names, file.data.name]);
+      }
 
-    // Export the feedback JSON
-    await filesystem.feedback.export(files);
-  };
+      // Export the feedback JSON
+      await filesystem.feedback.export(files);
+    },
+    [files],
+  );
 
   // At first render, submit all the data
   useEffect(() => {
+    if (didSubmit.current) return;
+    didSubmit.current = true;
+
     const submitAll = async () => {
       for (const file of files) {
         await submit(file);
@@ -50,7 +61,7 @@ export default function FinishDataset({ onRestart }: FinishDatasetProps) {
     submitAll().then(() => setIsLoading(false));
 
     // We strictly need to run this effect once
-  }, []);
+  }, [files, submit]);
 
   return (
     <>

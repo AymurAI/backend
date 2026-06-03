@@ -8,6 +8,8 @@ import filesystemAPI from "../utils";
  * @returns A ExcelJS `Workbook` instance if the `.xlsx` file can be opened, `null` otherwise
  */
 export default async function read() {
+  if (!window.filesystem) return null;
+
   try {
     const buffer = await filesystemAPI().excel.read();
 
