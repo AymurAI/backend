@@ -11,9 +11,11 @@ import pymupdf
 import pytest
 from docx import Document
 
+from aymurai.api.endpoints.routers.anonymizer import anonymizer as anonymizer_module
 from aymurai.database.schema import AnonymizationParagraph
 from aymurai.database.utils import text_to_uuid
 from aymurai.meta.api_interfaces import LabelPolicy, RenderPolicy
+from aymurai.settings import Settings
 from aymurai.text.anonymization import DocxAnonymizer, PdfAnonymizer, get_anonymizer
 from aymurai.text.anonymization.alignment import index_paragraphs
 from aymurai.text.anonymization.pdf.ops import _refine_signature_text_rect
@@ -975,7 +977,7 @@ def test_should_merge_cached_duplicate_labels_for_same_span_and_label(
     db_session.commit()
 
     response = client.post(
-        "/anonymizer/predict",
+        "/api/anonymizer/predict",
         json={"text": text},
         params={"use_cache": True},
     )
@@ -1157,6 +1159,54 @@ def test_should_return_application_pdf_when_pdf_document_is_anonymized(
     assert response.status_code == 200
     assert response.headers["content-type"] == "application/pdf"
     assert len(response.content) > 0
+
+
+@pytest.mark.integration
+@patch("aymurai.api.endpoints.routers.anonymizer.anonymizer.get_anonymizer")
+def test_should_pass_resolved_default_policies_to_document_anonymizer(
+    mock_get_anonymizer,
+    client,
+    tmp_path,
+    monkeypatch,
+):
+    monkeypatch.delenv("DISAMBIGUATION_LABEL_POLICIES", raising=False)
+    monkeypatch.delenv("RENDER_POLICY", raising=False)
+    monkeypatch.setattr(anonymizer_module, "settings", Settings())
+
+    anonymized_path = _write_pdf(
+        tmp_path / "output.pdf",
+        lambda _doc, page: page.insert_text((72, 72), "Anonymized PDF output"),
+    )
+    mock_anonymizer = MagicMock(return_value=str(anonymized_path))
+    mock_get_anonymizer.return_value = mock_anonymizer
+
+    annotations = {
+        "data": [
+            {
+                "document": "Ana Perez presento el escrito",
+                "labels": [build_label("PER", "Ana Perez").model_dump(mode="json")],
+            }
+        ],
+        "label_policies": None,
+        "render_policy": None,
+    }
+
+    response = client.post(
+        "/api/anonymizer/anonymize-document",
+        data={"annotations": json.dumps(annotations)},
+        files={"file": ("sample.pdf", b"%PDF-1.4 fake", "application/pdf")},
+    )
+
+    assert response.status_code == 200
+    render_context = mock_anonymizer.call_args.kwargs["render_context"]
+    assert render_context["render_policy"] == RenderPolicy(
+        suffix_mode="auto", suffix_threshold=1
+    )
+    assert render_context["label_policies"]["PER"] == LabelPolicy(
+        disambiguation="fuzzy",
+        anonymize=True,
+        use_subclass_when_available=True,
+    )
 
 
 @patch("aymurai.api.endpoints.routers.anonymizer.anonymizer.subprocess.check_output")

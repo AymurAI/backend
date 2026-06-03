@@ -1,5 +1,6 @@
 import json
 import os
+from copy import deepcopy
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -7,8 +8,16 @@ from pydantic import AliasChoices, ConfigDict, Field, FilePath, field_validator
 from pydantic_settings import BaseSettings
 
 import aymurai
+from aymurai.utils.yaml_data import load_yaml
 
 PARENT = Path(aymurai.__file__).parent
+
+
+DEFAULT_DISAMBIGUATION_LABEL_POLICIES = load_yaml(
+    str(PARENT / "config" / "default_disambiguation_label_policies.yml")
+)
+
+DEFAULT_RENDER_POLICY = {"suffix_mode": "auto", "suffix_threshold": 1}
 
 
 def load_env():
@@ -76,23 +85,18 @@ class Settings(BaseSettings):
     THRESHOLD: int = 70
 
     # Label policies (JSON dict: label -> {disambiguation, anonymize})
-    DISAMBIGUATION_LABEL_POLICIES: dict | None = None
-
-    @field_validator("DISAMBIGUATION_LABEL_POLICIES", mode="before")
-    @classmethod
-    def parse_label_policies(cls, v):
-        if v is None or v == "":
-            return None
-        if isinstance(v, str):
-            return json.loads(v)
-        return v
+    DISAMBIGUATION_LABEL_POLICIES: dict | None = Field(
+        default_factory=lambda: deepcopy(DEFAULT_DISAMBIGUATION_LABEL_POLICIES)
+    )
 
     # Render policy (JSON dict)
-    RENDER_POLICY: dict | None = None
+    RENDER_POLICY: dict | None = Field(
+        default_factory=lambda: deepcopy(DEFAULT_RENDER_POLICY)
+    )
 
-    @field_validator("RENDER_POLICY", mode="before")
+    @field_validator("DISAMBIGUATION_LABEL_POLICIES", "RENDER_POLICY", mode="before")
     @classmethod
-    def parse_render_policy(cls, v):
+    def parse_policies(cls, v):
         if v is None or v == "":
             return None
         if isinstance(v, str):

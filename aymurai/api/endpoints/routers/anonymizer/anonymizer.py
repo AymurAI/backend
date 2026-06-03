@@ -31,7 +31,7 @@ from aymurai.meta.api_interfaces import (
     RenderPolicy,
     TextRequest,
 )
-from aymurai.settings import settings
+from aymurai.settings import DEFAULT_RENDER_POLICY, settings
 from aymurai.text.anonymization import (
     InvalidDocumentAnonymizer,
     get_anonymizer,
@@ -198,10 +198,7 @@ def _merge_render_policy(
     Returns:
         RenderPolicy: Effective render policy.
     """
-    policy = RenderPolicy(
-        suffix_mode="auto",
-        suffix_threshold=1,
-    )
+    policy = RenderPolicy.model_validate(DEFAULT_RENDER_POLICY)
 
     def apply(incoming: RenderPolicy) -> None:
         nonlocal policy
