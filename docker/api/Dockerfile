@@ -1,3 +1,24 @@
+# syntax=docker/dockerfile:1.7
+
+# -------------------
+# Frontend Build Stage
+# -------------------
+FROM node:lts-bookworm AS frontend-builder
+
+WORKDIR /frontend
+
+RUN npm install --global corepack@latest && \
+    corepack enable pnpm && \
+    corepack prepare pnpm@latest --activate
+
+COPY frontend/ ./
+
+RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
+    pnpm install --frozen-lockfile
+
+RUN pnpm run build:web
+
+
 # -------------------
 # Build Stage
 # -------------------
@@ -19,7 +40,7 @@ WORKDIR /app
 RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=uv.lock,target=uv.lock \
     --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
-    uv sync --frozen --no-install-project --extra runtime
+    uv sync --frozen --no-install-project
 
 # Copy application code
 COPY aymurai /app/aymurai
@@ -73,11 +94,13 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 COPY --from=builder --chown=app:app /app/.venv /app/.venv
 
 # Copy static resources
-COPY resources/api/static /resources/api/static
 COPY resources/pipelines /resources/pipelines
+COPY --from=frontend-builder /frontend/out/renderer /app/frontend-dist
 
 # Set working directory
 WORKDIR /app
+
+ENV FRONTEND_DIST_DIR=/app/frontend-dist
 
 # Define start command
 CMD uv run fastapi run --port 8899 .venv/lib/python3.10/site-packages/aymurai/api/main.py
@@ -88,13 +111,10 @@ CMD uv run fastapi run --port 8899 .venv/lib/python3.10/site-packages/aymurai/ap
 # -----------------------------
 FROM aymurai-api AS aymurai-api-full
 
-# Configure TensorFlow and resources
-ENV TF_CPP_MIN_LOG_LEVEL=3 \
-    TFHUB_CACHE_DIR=resources/cache/tfhub_modules \
-    RESOURCES_BASEPATH=resources
+# Configure resources base path
+ENV RESOURCES_BASEPATH=resources
 
 # Copy additional resources
-COPY ./resources/api resources/api
 COPY ./resources/pipelines/production resources/pipelines/production
 
 # Initialize application to download models

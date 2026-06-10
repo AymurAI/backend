@@ -2,10 +2,10 @@ import json
 import os
 import subprocess
 import tempfile
+from collections.abc import Iterable
 from threading import Lock
 
-import torch
-from fastapi import Body, Depends, Form, Query, UploadFile
+from fastapi import Body, Depends, Form, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse
 from fastapi.routing import APIRouter
 from sqlmodel import Session
@@ -18,7 +18,7 @@ from aymurai.database.crud.anonymization.paragraph import (
     anonymization_paragraph_create,
     anonymization_paragraph_read,
 )
-from aymurai.database.schema import AnonymizationParagraph
+from aymurai.database.schema import AnonymizationParagraph, AnonymizationParagraphCreate
 from aymurai.database.session import get_session
 from aymurai.database.utils import data_to_uuid, text_to_uuid
 from aymurai.logger import get_logger
@@ -26,22 +26,306 @@ from aymurai.meta.api_interfaces import (
     DocLabel,
     DocumentAnnotations,
     DocumentInformation,
+    LabelPolicy,
+    RenderPolicy,
     TextRequest,
 )
-from aymurai.settings import settings
-from aymurai.text.anonymization import DocAnonymizer
+from aymurai.settings import DEFAULT_RENDER_POLICY, settings
+from aymurai.text.anonymization import (
+    InvalidDocumentAnonymizer,
+    get_anonymizer,
+)
 from aymurai.text.extraction import MIMETYPE_EXTENSION_MAPPER
+from aymurai.utils.entity_disambiguation import (
+    build_canonical_entities,
+    get_canonical_dates,
+    map_canonical_entities_ner_preds,
+)
 from aymurai.utils.misc import get_element
 
 logger = get_logger(__name__)
 
 
 RESOURCES_BASEPATH = settings.RESOURCES_BASEPATH
-torch.set_num_threads = 100  # FIXME: polemic ?
 pipeline_lock = Lock()
 
 
 router = APIRouter()
+
+
+def _entities_to_doclabels(entities: list[dict]) -> list[DocLabel]:
+    """
+    Convert raw entities to DocLabel objects.
+
+    Args:
+        entities (list[dict]): List of entity dictionaries.
+
+    Returns:
+        list[DocLabel]: List of DocLabel objects.
+    """
+    doclabels: list[DocLabel] = []
+
+    for ent in entities:
+        try:
+            if isinstance(ent, DocLabel):
+                doclabel = ent
+            else:
+                doclabel = DocLabel.model_validate(
+                    {
+                        "text": ent.get("text", ""),
+                        "start_char": ent.get("start_char"),
+                        "end_char": ent.get("end_char"),
+                        "attrs": ent.get("attrs", {}),
+                    }
+                )
+            doclabels.append(doclabel)
+        except Exception as exc:  # keep going if a single entity is malformed
+            logger.warning(f"Skipping invalid entity for DocLabel: {exc}")
+
+    return _dedupe_doclabels(doclabels)
+
+
+def _dedupe_doclabels(labels: Iterable[DocLabel]) -> list[DocLabel]:
+    """
+    Merge duplicate labels for the same span and AymurAI label.
+
+    Args:
+        labels (Iterable[DocLabel]): An iterable of DocLabel objects,
+            potentially containing duplicates.
+
+    Returns:
+        list[DocLabel]: A list of DocLabel objects with duplicates merged,
+            preserving the order of first occurrence.
+    """
+    deduped: list[DocLabel] = []
+    index_by_key: dict[tuple[int, int, str], int] = {}
+
+    for label in labels:
+        key = (
+            label.start_char,
+            label.end_char,
+            label.attrs.aymurai_label if label.attrs else "",
+        )
+        existing_index = index_by_key.get(key)
+        if existing_index is None:
+            index_by_key[key] = len(deduped)
+            deduped.append(label)
+            continue
+
+        existing = deduped[existing_index]
+        existing_data = existing.model_dump(mode="json")
+        incoming_data = label.model_dump(mode="json")
+        existing_attrs = existing_data.get("attrs") or {}
+        incoming_attrs = incoming_data.get("attrs") or {}
+
+        for attr_key, incoming_value in incoming_attrs.items():
+            existing_value = existing_attrs.get(attr_key)
+            if attr_key == "aymurai_label_subclass":
+                merged = list(existing_value or [])
+                for subclass in incoming_value or []:
+                    if subclass not in merged:
+                        merged.append(subclass)
+                existing_attrs[attr_key] = merged
+            elif existing_value in (None, [], "") and incoming_value not in (
+                None,
+                [],
+                "",
+            ):
+                existing_attrs[attr_key] = incoming_value
+
+        existing_data["attrs"] = existing_attrs
+        deduped[existing_index] = DocLabel.model_validate(existing_data)
+
+    return deduped
+
+
+def _merge_label_policies(
+    request_policies: dict[str, LabelPolicy] | None,
+) -> dict[str, LabelPolicy]:
+    """
+    Merges label policies from settings and request, with request policies taking precedence.
+
+    Args:
+        request_policies (dict[str, LabelPolicy] | None): Per-label policies provided in the request body.
+
+    Returns:
+        dict[str, LabelPolicy]: Effective per-label policies after merging settings and request policies.
+    """
+    policies: dict[str, LabelPolicy] = {}
+
+    if settings.DISAMBIGUATION_LABEL_POLICIES:
+        for label, policy in settings.DISAMBIGUATION_LABEL_POLICIES.items():
+            incoming = LabelPolicy.model_validate(policy)
+            current = policies.get(label, LabelPolicy())
+            if incoming.disambiguation is not None:
+                current.disambiguation = incoming.disambiguation
+            if incoming.anonymize is not None:
+                current.anonymize = incoming.anonymize
+            if incoming.use_subclass_when_available is not None:
+                current.use_subclass_when_available = (
+                    incoming.use_subclass_when_available
+                )
+            policies[label] = current
+
+    if request_policies:
+        for label, policy in request_policies.items():
+            incoming = LabelPolicy.model_validate(policy)
+            current = policies.get(label, LabelPolicy())
+            if incoming.disambiguation is not None:
+                current.disambiguation = incoming.disambiguation
+            if incoming.anonymize is not None:
+                current.anonymize = incoming.anonymize
+            if incoming.use_subclass_when_available is not None:
+                current.use_subclass_when_available = (
+                    incoming.use_subclass_when_available
+                )
+            policies[label] = current
+
+    return policies
+
+
+def _merge_render_policy(
+    request_policy: RenderPolicy | None,
+) -> RenderPolicy:
+    """
+    Merges render policies from settings and request, with request policy taking precedence.
+
+    Args:
+        request_policy (RenderPolicy | None): Render policy from request.
+
+    Returns:
+        RenderPolicy: Effective render policy.
+    """
+    policy = RenderPolicy.model_validate(DEFAULT_RENDER_POLICY)
+
+    def apply(incoming: RenderPolicy) -> None:
+        nonlocal policy
+        if incoming.suffix_mode is not None:
+            policy.suffix_mode = incoming.suffix_mode
+        if incoming.suffix_threshold is not None:
+            policy.suffix_threshold = incoming.suffix_threshold
+
+    if settings.RENDER_POLICY:
+        apply(RenderPolicy.model_validate(settings.RENDER_POLICY))
+
+    if request_policy:
+        apply(RenderPolicy.model_validate(request_policy))
+
+    return policy
+
+
+def _resolve_token_base(
+    label: DocLabel,
+    label_policy: LabelPolicy,
+) -> str:
+    """
+    Resolves the base token label for rendering.
+
+    Args:
+        label (DocLabel): Label to render.
+        label_policy (LabelPolicy): Label policy rules.
+
+    Returns:
+        str: Base token label (e.g., PER, DENUNCIANTE).
+    """
+    attrs = label.attrs
+    if attrs is None:
+        return label.text
+
+    subclass = None
+    if attrs.aymurai_label_subclass:
+        subclass = attrs.aymurai_label_subclass[0]
+
+    if label_policy.use_subclass_when_available and subclass:
+        return subclass.upper()
+
+    return attrs.aymurai_label
+
+
+def _build_render_context(
+    annotations: list[DocumentInformation],
+    render_policy: RenderPolicy,
+    label_policies: dict[str, LabelPolicy],
+) -> dict:
+    """
+    Builds render context with per-entity indices and counts.
+
+    Args:
+        annotations (list[DocumentInformation]): Document annotations.
+        render_policy (RenderPolicy): Render policy rules.
+        label_policies (dict[str, LabelPolicy]): Per-label policies.
+
+    Returns:
+        dict: Render context with policy, indices, and counts.
+    """
+    occurrences: list[tuple[int, int, str, str]] = []
+
+    for p_idx, paragraph in enumerate(annotations):
+        for label in paragraph.labels or []:
+            label_policy = label_policies.get(
+                label.attrs.aymurai_label
+                if label.attrs and label.attrs.aymurai_label
+                else None,
+                LabelPolicy(),
+            )
+            base = _resolve_token_base(label, label_policy)
+            entity_id = (
+                str(label.attrs.canonical_entity_id)
+                if label.attrs and label.attrs.canonical_entity_id
+                else label.text
+            )
+            occurrences.append((p_idx, label.start_char, base, entity_id))
+
+    occurrences.sort(key=lambda item: (item[0], item[1]))
+
+    index_by_entity: dict[tuple[str, str], int] = {}
+    next_index_by_base: dict[str, int] = {}
+
+    for _, _, base, entity_id in occurrences:
+        key = (base, entity_id)
+        if key not in index_by_entity:
+            next_index_by_base[base] = next_index_by_base.get(base, 0) + 1
+            index_by_entity[key] = next_index_by_base[base]
+
+    count_by_base = {base: count for base, count in next_index_by_base.items()}
+
+    return {
+        "render_policy": render_policy,
+        "label_policies": label_policies,
+        "index_by_entity": index_by_entity,
+        "count_by_base": count_by_base,
+    }
+
+
+def _should_anonymize_label(
+    label: DocLabel,
+    label_policies: dict[str, LabelPolicy],
+) -> bool:
+    """
+    Determines whether a given label should be anonymized based on its attributes and the effective label policies.
+
+    Args:
+        label (DocLabel): The document label to evaluate for anonymization.
+        label_policies (dict[str, LabelPolicy]): Effective per-label policies that may override default anonymization behavior.
+
+    Returns:
+        bool: True if the label should be anonymized, False otherwise.
+    """
+    if label.attrs and label.attrs.aymurai_anonymize is not None:
+        return bool(label.attrs.aymurai_anonymize)
+
+    policy = (
+        label_policies.get(str(label.attrs.aymurai_label).strip().upper())
+        if label.attrs and label.attrs.aymurai_label
+        else None
+    )
+    if policy is None:
+        return True
+
+    if policy.anonymize is None:
+        return True
+
+    return bool(policy.anonymize)
 
 
 # MARK: Predict
@@ -78,8 +362,8 @@ async def anonymizer_paragraph_predict(
         logger.info(f"cache loaded from key: {paragraph_id}")
         logger.debug(f"{cached_prediction}")
 
-        labels = cached_prediction.prediction
-        return DocumentInformation(document=cached_prediction.text, labels=labels or [])
+        labels = _entities_to_doclabels(cached_prediction.prediction or [])
+        return DocumentInformation(document=cached_prediction.text, labels=labels)
 
     logger.info("Running prediction")
     item = [{"path": "empty", "data": {"doc.text": text_request.text}}]
@@ -93,18 +377,153 @@ async def anonymizer_paragraph_predict(
         processed = pipeline.postprocess([processed])
 
     text = get_element(processed[0], ["data", "doc.text"]) or ""
-    labels = get_element(processed[0], ["predictions", "entities"]) or []
+    raw_entities = get_element(processed[0], ["predictions", "entities"]) or []
+    labels = _entities_to_doclabels(raw_entities)
 
     if use_cache:
         logger.info(f"saving in cache: {paragraph_id}")
-        paragraph = AnonymizationParagraph(
-            id=paragraph_id,
+        paragraph = AnonymizationParagraphCreate(
             text=text,
             prediction=labels,
         )
         paragraph = anonymization_paragraph_create(paragraph, session=session)
 
-    return DocumentInformation(document=text, labels=paragraph.prediction)
+    return DocumentInformation(document=text, labels=labels)
+
+
+# MARK: Disambiguate
+@router.post("/disambiguate", response_model=DocumentAnnotations)
+async def anonymizer_disambiguate(
+    paragraphs: list[DocumentInformation] = Body(
+        ...,
+        description=(
+            "List of per-paragraph predictions returned by /anonymizer/predict."
+        ),
+    ),
+    label_policies: dict[str, LabelPolicy] | None = Body(
+        None,
+        description=(
+            "Optional per-label policy overrides for disambiguation/anonymization."
+        ),
+    ),
+    session: Session = Depends(get_session),
+) -> DocumentAnnotations:
+    """
+    Performs canonical entity disambiguation using fuzzy matching.
+
+    Args:
+        paragraphs: A list of DocumentInformation objects containing the NER
+            predictions per paragraph that need to be disambiguated.
+        label_policies: Optional per-label disambiguation/anonymization policies.
+        session: Database session dependency for caching results.
+    Returns:
+        DocumentAnnotations: The original annotations enriched with
+            'canonical_entity_id' and 'role' fields for each resolved mention.
+    """
+    logger.info(
+        "disambiguation start: paragraphs=%d",
+        len(paragraphs),
+    )
+
+    labels = [label for paragraph in paragraphs for label in (paragraph.labels or [])]
+    effective_label_policies = _merge_label_policies(label_policies)
+    logger.info("disambiguation labels: %d", len(labels))
+
+    all_detected_labels = {
+        label.attrs.aymurai_label
+        for label in labels
+        if label.attrs
+        and label.attrs.aymurai_label
+        and effective_label_policies.get(label.attrs.aymurai_label)
+        and effective_label_policies.get(label.attrs.aymurai_label).anonymize
+    }
+
+    fuzzy_labels: set[str] = set()
+
+    for label in all_detected_labels:
+        policy = effective_label_policies.get(label)
+        if policy and policy.disambiguation == "fuzzy":
+            fuzzy_labels.add(label)
+            continue
+        if policy and policy.disambiguation == "none":
+            continue
+
+        fuzzy_labels.add(label)
+
+    effective_disambiguation_by_label: dict[str, str] = {}
+    for label in all_detected_labels:
+        if label in fuzzy_labels:
+            effective_disambiguation_by_label[label] = "fuzzy"
+        else:
+            effective_disambiguation_by_label[label] = "none"
+    logger.info(
+        "disambiguation targets: detected=%s fuzzy=%s",
+        sorted(all_detected_labels),
+        sorted(fuzzy_labels),
+    )
+
+    canonical_entities = (
+        build_canonical_entities(
+            labels,
+            target_labels=[label for label in fuzzy_labels if label != "FECHA"]
+            if fuzzy_labels
+            else None,
+            threshold=settings.THRESHOLD,
+        )
+        if fuzzy_labels
+        else []
+    )
+
+    logger.info("canonical entities detected were: %s", canonical_entities)
+
+    if "FECHA" in fuzzy_labels:
+        canonical_entities += get_canonical_dates(labels)
+
+    logger.info("canonical entities after adding dates: %s", canonical_entities)
+
+    logger.info(
+        "fuzzy clustering produced %d canonical entities", len(canonical_entities)
+    )
+
+    logger.info(
+        "disambiguation merge: total=%d",
+        len(canonical_entities),
+    )
+
+    predictions = map_canonical_entities_ner_preds(
+        predictions=paragraphs,
+        canonical_entities=canonical_entities,
+    )
+
+    for document in predictions:
+        document.labels = _dedupe_doclabels(document.labels or [])
+        for label in document.labels or []:
+            label.attrs.aymurai_disambiguation = effective_disambiguation_by_label.get(
+                label.attrs.aymurai_label, "fuzzy"
+            )
+
+            policy = effective_label_policies.get(label.attrs.aymurai_label)
+            label.attrs.aymurai_anonymize = (
+                policy.anonymize if policy and policy.anonymize is not None else True
+            )
+
+    paragraph_updates = [
+        AnonymizationParagraphCreate(
+            text=paragraph.document,
+            prediction=paragraph.labels or [],
+        )
+        for paragraph in predictions
+    ]
+    anonymization_paragraph_batch_create_update(paragraph_updates, session=session)
+    logger.info(
+        "disambiguation persisted predictions for %d paragraphs",
+        len(paragraph_updates),
+    )
+
+    return DocumentAnnotations(
+        data=predictions,
+        label_policies=effective_label_policies if effective_label_policies else None,
+    )
 
 
 # MARK: Validate
@@ -155,11 +574,21 @@ async def anonymizer_compile_document(
     """
     logger.info(f"receiving => {file.filename}")
     extension = MIMETYPE_EXTENSION_MAPPER.get(file.content_type)
-    logger.info(f"detection extension: {extension} ({file.content_type})")
+    file_suffix = os.path.splitext(file.filename or "")[1].lower()
+
+    if extension is None and file_suffix:
+        extension = file_suffix.lstrip(".")
+
+    if extension not in {"docx", "pdf"}:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported format for anonymization: {extension or 'unknown'}",
+        )
+
+    logger.info(f"detected extension: {extension} ({file.content_type})")
 
     # Create a temporary file
-    _, suffix = os.path.splitext(file.filename)
-    suffix = suffix if suffix == ".docx" else ".txt"
+    suffix = f".{extension}"
     tmp_dir = tempfile.gettempdir()
 
     # Use delete=False to avoid the file being deleted when the NamedTemporaryFile object is closed
@@ -178,13 +607,14 @@ async def anonymizer_compile_document(
 
     annots_json = json.loads(annotations)
     annots = DocumentAnnotations.model_validate(annots_json)
-    logger.info(f"processing annotations => {annots}")
+
+    effective_label_policies = _merge_label_policies(annots.label_policies)
+    effective_render_policy = _merge_render_policy(annots.render_policy)
 
     # Add paragraphs to the database
     # validation MUST be at least an empty list, to remember user feedback
     paragraphs = [
-        AnonymizationParagraph(
-            id=text_to_uuid(paragraph.document),
+        AnonymizationParagraphCreate(
             text=paragraph.document,
             validation=paragraph.labels or [],
         )
@@ -202,35 +632,54 @@ async def anonymizer_compile_document(
         override=False,
     )
 
-    # Anonymize the document
-    doc_anonymizer = DocAnonymizer()
-
-    if suffix == ".docx":
-        item = {"path": tmp_filename}
-        doc_anonymizer(
-            item,
-            [document_information.model_dump() for document_information in annots.data],
-            tmp_dir,
-        )
-        logger.info(f"saved temp file on local storage => {tmp_filename}")
-
-    else:
-        # Export as raw document
-        anonymized_doc = [
-            doc_anonymizer.replace_labels_in_text(document_information.model_dump())
-            .replace("&lt;", "<")
-            .replace("&gt;", ">")
-            for document_information in annots.data
+    filtered_annotations = []
+    for paragraph in annots.data:
+        filtered_labels = [
+            label
+            for label in (paragraph.labels or [])
+            if _should_anonymize_label(label, effective_label_policies)
         ]
-        with open(tmp_filename, "w") as f:
-            f.write("\n".join(anonymized_doc))
-
-            # Add watermark to the end of the document
-            f.write(
-                "\n\nDocumento anonimizado por AymurAI\n\nhttps://www.aymurai.info/"
+        filtered_annotations.append(
+            DocumentInformation(
+                document=paragraph.document,
+                labels=filtered_labels,
             )
+        )
 
-    # Convert to ODT
+    render_context = _build_render_context(
+        filtered_annotations, effective_render_policy, effective_label_policies
+    )
+
+    preds = [
+        document_information.model_dump(mode="json", exclude_none=True)
+        for document_information in filtered_annotations
+    ]
+
+    try:
+        anonymizer = get_anonymizer(extension)
+        anonymized_path = anonymizer(
+            {"path": tmp_filename},
+            preds,
+            tmp_dir,
+            render_context=render_context,
+        )
+    except (ValueError, InvalidDocumentAnonymizer) as exc:
+        if os.path.exists(tmp_filename):
+            os.remove(tmp_filename)
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    if extension == "pdf":
+        if os.path.exists(tmp_filename):
+            os.remove(tmp_filename)
+
+        return FileResponse(
+            anonymized_path,
+            background=BackgroundTask(os.remove, anonymized_path),
+            media_type="application/pdf",
+            filename=f"{os.path.splitext(file.filename)[0]}.pdf",
+        )
+
+    # DOCX flow keeps ODT output
     cmd = [
         settings.LIBREOFFICE_BIN,
         "--headless",
@@ -238,9 +687,8 @@ async def anonymizer_compile_document(
         "odt",
         "--outdir",
         tmp_dir,
-        tmp_filename,
+        anonymized_path,
     ]
-
     logger.info(f"Executing: {' '.join(cmd)}")
 
     try:
@@ -248,19 +696,19 @@ async def anonymizer_compile_document(
             cmd, shell=False, encoding="utf-8", errors="ignore"
         )
         logger.info(f"LibreOffice output: {output}")
-    except subprocess.CalledProcessError as e:
+    except subprocess.CalledProcessError as exc:
         raise RuntimeError(
-            f"LibreOffice conversion failed: {e.output.decode('utf-8', errors='ignore')}"
-        )
+            f"LibreOffice conversion failed: {exc.output.decode('utf-8', errors='ignore')}"
+        ) from exc
+    finally:
+        if os.path.exists(tmp_filename):
+            os.remove(tmp_filename)
 
-    odt = tmp_filename.replace(suffix, ".odt")
+    odt = f"{os.path.splitext(anonymized_path)[0]}.odt"
     logger.info(f"Expected output file path: {odt}")
 
     if not os.path.exists(odt):
         raise RuntimeError(f"File at path {odt} does not exist.")
-
-    # Ensure the temporary file is deleted
-    os.remove(tmp_filename)
 
     return FileResponse(
         odt,

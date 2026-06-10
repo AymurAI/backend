@@ -1,9 +1,7 @@
 from fastapi.routing import APIRouter
 
 from .endpoints.routers.anonymizer import anonymizer
-from .endpoints.routers.anonymizer import database as anonymizer_database
 from .endpoints.routers.datapublic import datapublic
-
 from .endpoints.routers.misc import convert, document_extract
 from .endpoints.routers.server import stats
 
@@ -23,11 +21,6 @@ router.include_router(
     prefix="/anonymizer",
     tags=["anonymization/model"],
 )
-# router.include_router(
-#     anonymizer_database.router,
-#     prefix="/anonymizer/database",
-#     tags=["anonymization/database"],
-# )
 
 # Datapublic
 router.include_router(

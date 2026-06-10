@@ -3,7 +3,9 @@ import sys
 import json
 import decimal
 import datetime
+from typing import Any
 
+import numpy as np
 import pandas as pd
 
 from aymurai.logger import get_logger
@@ -12,7 +14,22 @@ logger = get_logger(__name__)
 
 
 class EnhancedJSONEncoder(json.JSONEncoder):
-    def default(self, obj):
+    """JSON encoder with support for datetime, timedelta, decimal, and NA values."""
+
+    def default(self, obj: Any) -> Any:
+        """
+        Encode unsupported Python objects into JSON-serializable payloads.
+
+        Args:
+            obj (Any): Object to encode.
+
+        Returns:
+            Any: JSON-serializable representation of `obj`.
+
+        Raises:
+            TypeError: If `obj` cannot be encoded by the custom logic or parent
+                JSON encoder.
+        """
         if isinstance(obj, datetime.datetime):
             ARGS = ("year", "month", "day", "hour", "minute", "second", "microsecond")
             return {
@@ -44,6 +61,10 @@ class EnhancedJSONEncoder(json.JSONEncoder):
                     str(obj),
                 ],
             }
+        elif isinstance(obj, np.integer):
+            return int(obj)
+        elif isinstance(obj, np.floating):
+            return float(obj)
         elif pd.isna(obj):
             return "null"
         else:
@@ -55,10 +76,28 @@ class EnhancedJSONEncoder(json.JSONEncoder):
 
 
 class EnhancedJSONDecoder(json.JSONDecoder):
-    def __init__(self, *args, **kwargs):
+    """JSON decoder that reconstructs objects serialized by `EnhancedJSONEncoder`."""
+
+    def __init__(self, *args, **kwargs) -> None:
+        """
+        Initialize decoder with a custom object hook.
+
+        Args:
+            *args: Positional arguments forwarded to `json.JSONDecoder`.
+            **kwargs: Keyword arguments forwarded to `json.JSONDecoder`.
+        """
         super().__init__(*args, object_hook=self.object_hook, **kwargs)
 
-    def object_hook(self, d):
+    def object_hook(self, d: dict) -> Any:
+        """
+        Decode typed payloads into native Python objects.
+
+        Args:
+            d (dict): Decoded dictionary from JSON.
+
+        Returns:
+            Any: Reconstructed object when `__type__` is present, else `d`.
+        """
         if "__type__" not in d:
             return d
         o = sys.modules[__name__]

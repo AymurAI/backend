@@ -1,0 +1,75 @@
+{
+    "preprocess": [
+        [
+            "aymurai.models.flair.utils.FlairTextNormalize",
+            {}
+        ]
+    ],
+    "models": [
+        [
+            "aymurai.models.flair.core.FlairModel",
+            {
+                "basepath": "aymurai/flair-ner-spanish-judicial",
+                "split_doc": true,
+                "device": "cpu",
+                "use_tokenizer": false
+            }
+        ],
+        [
+            "aymurai.models.decision.binregex.DecisionEmbeddingBagBinRegex",
+            {
+                "model_checkpoint": "https://github.com/AymurAI/backend/releases/download/v2.0.0-alpha.1/tiny-embeddingbag.safetensors",
+                "device": "cpu",
+                "threshold": 0.5,
+                "return_only_with_detalle": true
+            }
+        ]
+    ],
+    "postprocess": [
+        [
+            "aymurai.transforms.entity_subcategories.regex.RegexSubcategorizer",
+            {}
+        ],
+        [
+            "aymurai.transforms.datetime_formatter.core.DatetimeFormatter",
+            {}
+        ],
+        [
+            "aymurai.transforms.entity_subcategories.sentence_transformer.SentenceTransformerSubcategorizer",
+            {
+                "category": "CONDUCTA",
+                "embeddings_path": "conducta.npz",
+                "device": "cpu"
+            }
+        ],
+        [
+            "aymurai.transforms.entity_subcategories.sentence_transformer.SentenceTransformerSubcategorizer",
+            {
+                "category": "CONDUCTA_DESCRIPCION",
+                "embeddings_path": "conducta_descripcion.npz",
+                "device": "cpu"
+            }
+        ],
+        [
+            "aymurai.transforms.entity_subcategories.sentence_transformer.SentenceTransformerSubcategorizer",
+            {
+                "category": "DETALLE",
+                "embeddings_path": "detalle.npz",
+                "device": "cpu"
+            }
+        ],
+        [
+            "aymurai.transforms.entity_subcategories.sentence_transformer.SentenceTransformerSubcategorizer",
+            {
+                "category": "OBJETO_DE_LA_RESOLUCION",
+                "embeddings_path": "objeto_de_la_resolucion.npz",
+                "device": "cpu"
+            }
+        ],
+        [
+            "aymurai.transforms.entity_subcategories.article.ArticleSubcategorizer",
+            {}
+        ]
+    ],
+    "use_cache": false
+}

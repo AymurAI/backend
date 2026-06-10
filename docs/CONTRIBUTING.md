@@ -1,66 +1,101 @@
 # Contributing to AymurAI
 
-We are happy to accept your contributions to make `AymurAI` better and more awesome! To avoid unnecessary work on either
-side, please stick to the following process:
+We are happy to accept contributions that help make `AymurAI` more useful, more robust, and easier to maintain.
+To avoid unnecessary work on either side, please use the following flow.
 
-1. Check if there is already [an issue](https://github.com/AymurAI/dev/issues) for your concern.
-2. If there is not, open a new one to start a discussion. We hate to close finished PRs!
-3. If we decide your concern needs code changes, we would be happy to accept a pull request. Please consider the
-commit guidelines below.
+## Contribution flow
+1. Check whether there is already an issue for your topic: <https://github.com/AymurAI/backend/issues>
+2. If not, open a new issue with context, motivation, and expected outcome.
+3. Once the scope is clear, submit a pull request tied to that issue.
 
-In case you just want to help out and don't know where to start,
-[issues with "help wanted" label](https://github.com/AymurAI/dev/labels/help%20wanted) are good for
-first-time contributors.
+If you want to help and do not know where to start, small documentation fixes, test coverage improvements, and cleanup PRs are all welcome.
 
+## Local development
+If you want to get deeper into the API, we recommend cloning the repository and running the stack locally.
+The codebase is fairly navigable, and most of the important modules are documented or organized by workflow.
 
+### Option A: Docker (recommended)
+You can use the provided compose services directly:
 
-## Developing locally
-
-For contributors looking to get deeper into the API we suggest cloning the repository.
-Nearly all classes and methods are documented, so finding your way around
-the code should hopefully be easy.
-
-### Setup
-
-#### Using Docker and devcontainer (recommended)
-You can use the provided `devcontainer` load all the tools and packages needed. This can be done directly from Visual Studio Code.
-You can check the [devcontainer documentation](https://code.visualstudio.com/docs/remote/containers) for more information.
-
-#### Using jupyterlab image
-If you want just check the notebooks and tutorials you can use the `jupyterlab` docker image. To run the image in `gpu` mode run:
 ```bash
-make jupyter-run
-```
-alternatively you can run in `cpu` mode with:
-```bash
-make jupyter-run-cpu
+make api-up
+# or make api-full-up
 ```
 
+Bundled frontend: `http://localhost:8899/`
 
-#### Install direclty on a your python environment
-create a python environment of your preference and run:
+Swagger UI: `http://localhost:8899/api/docs`
+
+If you prefer working from VS Code, the repository also includes a `.devcontainer/` setup.
+
+### Option B: Local Python environment
+Repository requires Python `3.10`.
+
 ```bash
-pip install src/aymurai
+# if using uv
+uv sync --all-groups
+
+# fallback with pip
+pip install -e .
 ```
 
-You may need to install redis or run it in a docker container. You can use the following command to run it in a docker container:
+For most contributors, Docker is the easiest way to get a working API with the expected runtime dependencies.
+
+### Frontend development
+The frontend supports browser and Electron development. Install its dependencies and run the desired target:
+
 ```bash
-make redis-run
+cd frontend
+pnpm install
+pnpm run dev:web  # browser
+pnpm run dev      # Electron
 ```
 
-### Git pre-commit Hooks
-After installing the dependencies, install `pre-commit` hooks via:
+Before submitting frontend changes, run:
+
+```bash
+pnpm run lint
+pnpm run typecheck
+pnpm test
+```
+
+See [the frontend README](../frontend/README.md) for build and packaging commands.
+
+## Pre-commit hooks
+After installing dependencies, enable the hooks:
+
 ```bash
 pre-commit install
 ```
 
-This will automatically run code formatters black and isort for each git commit. Also it will clear all outputs from the notebooks. If you want to more information about why we do this, please refer to the [data security](docs/DATA_SECURITY.md) section.
+Configured hooks currently include:
+- `ruff`
+- `ruff-format`
+- `nbstripout`
 
+This helps keep code formatting consistent and prevents notebook output from leaking into commits.
 
-### Code Formatting
+## Formatting
+If needed, you can run the formatter manually before committing:
 
-To ensure a standardized code style we use the formatter [black](https://github.com/ambv/black) and for standardizing imports we use [isort](https://github.com/PyCQA/isort).
-If your code is not formatted properly, the tests will fail.
+```bash
+ruff format aymurai/
+```
 
-If you set up pre-commit hooks, every git commit will automatically run these formatters. Otherwise you can also manually run them, or let your IDE run them on every file save.
-Running from the command line works via `black src/aymurai/ && isort src/aymurai/` in the repository root folder.
+## Documentation policy
+When behavior changes in the frontend, API, pipelines, or DB persistence, update the corresponding docs in the same PR:
+- `README.md`
+- `frontend/README.md`
+- `docs/api/README.md`
+- `docs/pipelines/README.md`
+- `docs/pipelines/anonymizer/README.md`
+- `docs/pipelines/datapublic/README.md`
+- `docs/database/README.md`
+- `docs/entities/README.md`
+- `docs/models/README.md`
+
+If the change is user-facing, documentation should land together with the code.
+
+## Community and security
+- Code of conduct: [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
+- Security and ethics: [SECURITY.md](SECURITY.md)

@@ -1,16 +1,11 @@
 repos:
-    - repo: https://github.com/ambv/black
-      rev: 22.6.0
+    - repo: https://github.com/astral-sh/ruff-pre-commit
+      rev: v0.7.2
       hooks:
-          - id: black
-            language_version: python3.10
+          - id: ruff
+          - id: ruff-format
 
     - repo: https://github.com/kynan/nbstripout
       rev: 0.6.0
       hooks:
           - id: nbstripout
-
-    # - repo: https://github.com/pre-commit/pre-commit-hooks
-    #   rev: v2.20.0
-    #   hooks:
-    #       - id: flake8

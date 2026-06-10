@@ -128,3 +128,16 @@ resources
 .venv
 
 aymurai/version.py
+
+.agents
+.opencode.json
+.sisyphus
+notebooks/**
+!notebooks/**/
+!notebooks/**/*.ipynb
+
+# Frontend build output
+frontend-dist/
+
+# pnpm local package store
+.pnpm-store/

@@ -2,9 +2,9 @@ from copy import deepcopy
 
 from datetime_matcher import DatetimeMatcher
 
+from aymurai.meta.pipeline_interfaces import Transform
 from aymurai.meta.types import DataItem
 from aymurai.utils.misc import get_element
-from aymurai.meta.pipeline_interfaces import Transform
 
 from .patterns import patterns
 
@@ -55,7 +55,9 @@ class DatetimeFormatter(Transform):
                 text_repr = datetime.strftime("%d/%m/%Y")
             suggestions.append(text_repr)
 
-        ent["attrs"]["aymurai_label_subclass"] = suggestions
+        ent["attrs"]["aymurai_label_subclass"] = (
+            [max(suggestions)] if suggestions else []
+        )
 
         return ent
 

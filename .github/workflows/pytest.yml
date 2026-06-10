@@ -1,0 +1,87 @@
+name: pytest
+
+on:
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-tests-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pytest:
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}
+    name: pytest (${{ matrix.os }}, py${{ matrix.python-version }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - windows-latest
+        python-version:
+          - "3.10"
+          # - "3.11"
+          # - "3.12"
+          # - "3.13"
+          # - "3.14"
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: latest
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Configure es_AR locale (Ubuntu)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes locales
+          sudo locale-gen es_AR.UTF-8
+          sudo update-locale LANG=es_AR.UTF-8 LC_ALL=es_AR.UTF-8
+          echo "LANG=es_AR.UTF-8" >> "$GITHUB_ENV"
+          echo "LC_ALL=es_AR.UTF-8" >> "$GITHUB_ENV"
+          locale -a
+
+      - name: Install dependencies
+        run: |
+          uv sync --frozen --python python --no-dev --no-python-downloads --group tests
+
+      - name: Run api tests
+        env:
+          DISKCACHE_ROOT: /tmp
+          SQLALCHEMY_DATABASE_URI: sqlite:////tmp/aymurai-test.db
+        run: uv run --no-sync pytest -q --tb=short --disable-warnings --color=yes --maxfail=5 tests/api
+
+      - name: Download pipelines data
+        env:
+          DISKCACHE_ROOT: /tmp
+          RESOURCES_BASEPATH: resources
+          AYMURAI_CACHE_BASEPATH: resources/cache/aymurai
+        run: uv run --no-sync pipeline-download
+
+      - name: Run pipeline tests
+        env:
+          DISKCACHE_ROOT: /tmp
+          RESOURCES_BASEPATH: resources
+          AYMURAI_CACHE_BASEPATH: resources/cache/aymurai
+        run: uv run --no-sync pytest -q --tb=short --disable-warnings --color=yes --maxfail=5 tests/integration/pipelines

@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1.3
-ARG UV_VERSION=0.5.10
+ARG UV_VERSION=latest
 ARG CORE_IMAGE=ubuntu:noble
 
 FROM ghcr.io/astral-sh/uv:${UV_VERSION} AS astral-uv-source
@@ -88,7 +88,11 @@ RUN apt update && apt install -y \
     && rm -rf /tmp/* /var/tmp/* \
     && rm -rf /var/lib/apt/lists/*
 
-
+# Node.js & npm for frontend build
+RUN apt-get update && \
+    apt-get install -y curl && \
+    curl -fsSL https://deb.nodesource.com/setup_24.x | bash - && \
+    apt-get install -y nodejs
 
 WORKDIR /tmp
 
