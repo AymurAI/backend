@@ -111,10 +111,8 @@ CMD uv run fastapi run --port 8899 .venv/lib/python3.10/site-packages/aymurai/ap
 # -----------------------------
 FROM aymurai-api AS aymurai-api-full
 
-# Configure TensorFlow and resources
-ENV TF_CPP_MIN_LOG_LEVEL=3 \
-    TFHUB_CACHE_DIR=resources/cache/tfhub_modules \
-    RESOURCES_BASEPATH=resources
+# Configure resources base path
+ENV RESOURCES_BASEPATH=resources
 
 # Copy additional resources
 COPY ./resources/pipelines/production resources/pipelines/production
