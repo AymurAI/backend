@@ -12,18 +12,18 @@ Este flujo extrae entidades del texto judicial y compila documentos anonimizados
 Fuente editable: [../../../pipelines/anonymizer/pipeline.excalidraw](../../../pipelines/anonymizer/pipeline.excalidraw)
 
 ## Entrypoints de runtime
-- `POST /misc/document-extract`
-- `POST /anonymizer/predict`
-- `POST /anonymizer/disambiguate`
-- `POST /anonymizer/validation`
-- `POST /anonymizer/anonymize-document`
+- `POST /api/misc/document-extract`
+- `POST /api/anonymizer/predict`
+- `POST /api/anonymizer/disambiguate`
+- `POST /api/anonymizer/validation`
+- `POST /api/anonymizer/anonymize-document`
 
 ## Flujo paso a paso
-1. Extracción de texto (`/misc/document-extract`) divide el documento fuente en párrafos normalizados.
-2. Predicción (`/anonymizer/predict`) ejecuta NER por párrafo.
-3. Desambiguación (`/anonymizer/disambiguate`) asigna IDs canónicos y metadatos efectivos para la desambiguación/anonimización.
+1. Extracción de texto (`/api/misc/document-extract`) divide el documento fuente en párrafos normalizados.
+2. Predicción (`/api/anonymizer/predict`) ejecuta NER por párrafo.
+3. Desambiguación (`/api/anonymizer/disambiguate`) asigna IDs canónicos y metadatos efectivos para la desambiguación/anonimización.
 4. Revisión manual en UI para editar etiquetas/políticas.
-5. Compilación (`/anonymizer/anonymize-document`) aplica reemplazos y exporta `.odt` anonimizado.
+5. Compilación (`/api/anonymizer/anonymize-document`) aplica reemplazos preservando el formato de origen: una entrada PDF devuelve PDF y una entrada DOCX se exporta como ODT.
 
 ## Componentes técnicos
 
@@ -57,6 +57,8 @@ Tablas usadas por este flujo:
 - `anonymization_document_paragraph`
 
 ## Notas
+- La anonimización de PDF redacta el texto en el documento y preserva el layout no afectado, las anotaciones, los metadatos y el watermark.
+- La anonimización de DOCX procesa reemplazos antes de convertir el resultado a ODT.
 - Las políticas por label se mergean desde entorno y request.
 - `render_policy` controla el comportamiento de sufijos (`auto`, `always`, `never`).
 

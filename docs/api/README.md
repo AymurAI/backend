@@ -128,7 +128,7 @@ Note: the JSON snippets below are minimal valid examples. Real payloads may incl
 
 ### Server
 
-#### `GET /server/healthcheck`
+#### `GET /api/server/healthcheck`
 - Response `200`:
 
 ```json
@@ -139,7 +139,7 @@ Note: the JSON snippets below are minimal valid examples. Real payloads may incl
 curl -s http://localhost:8899/api/server/healthcheck
 ```
 
-#### `GET /server/stats/summary`
+#### `GET /api/server/stats/summary`
 - Response `200` (shape):
 
 ```json
@@ -158,8 +158,8 @@ curl -s http://localhost:8899/api/server/stats/summary
 
 ### Document Extraction
 
-#### `POST /misc/document-extract`
-#### `POST /document-extract` (deprecated alias)
+#### `POST /api/misc/document-extract`
+#### `POST /api/document-extract` (deprecated alias)
 - Request: `multipart/form-data` with `file`
 - Supported MIME types in extraction flow: DOCX, ODT, PDF
 - Response `200`:
@@ -183,7 +183,7 @@ Common errors:
 
 ### Anonymizer
 
-#### `POST /anonymizer/predict`
+#### `POST /api/anonymizer/predict`
 - Request body: `TextRequest`
 - Query param: `use_cache=true|false` (default `true`)
 - Response `200`: `DocumentInformation`
@@ -194,7 +194,7 @@ curl -s -X POST "http://localhost:8899/api/anonymizer/predict?use_cache=true" \
   -d '{"text":"Acusado: Ramiro Marrón DNI 34.555.666."}'
 ```
 
-#### `POST /anonymizer/disambiguate`
+#### `POST /api/anonymizer/disambiguate`
 - Request body:
 
 ```json
@@ -223,7 +223,7 @@ curl -s -X POST http://localhost:8899/api/anonymizer/disambiguate \
   -d '{"paragraphs":[{"document":"Acusado: Ramiro Marrón DNI 34.555.666.","labels":[]}],"label_policies":{"PER":{"anonymize":true,"disambiguation":"fuzzy"}}}'
 ```
 
-#### `POST /anonymizer/validation`
+#### `POST /api/anonymizer/validation`
 - Request body: `TextRequest`
 - Response `200`: `list[DocLabel] | null`
 
@@ -233,11 +233,11 @@ curl -s -X POST http://localhost:8899/api/anonymizer/validation \
   -d '{"text":"Acusado: Ramiro Marrón DNI 34.555.666."}'
 ```
 
-#### `POST /anonymizer/anonymize-document`
+#### `POST /api/anonymizer/anonymize-document`
 - Request: `multipart/form-data`
-  - `file`: original document (`.docx`, `.pdf`, `.odt`)
+  - `file`: original document (`.docx` or `.pdf`)
   - `annotations`: JSON string serialized from `DocumentAnnotations`
-- Response `200`: binary anonymized `.odt` file
+- Response `200`: anonymized `.odt` for DOCX input or anonymized `.pdf` for PDF input
 
 ```bash
 curl -X POST http://localhost:8899/api/anonymizer/anonymize-document \
@@ -246,12 +246,12 @@ curl -X POST http://localhost:8899/api/anonymizer/anonymize-document \
 ```
 
 Common errors:
-- `400` invalid form payload
+- `400` invalid form payload, unsupported input format, or invalid document
 - `500` conversion/anonymization failures
 
 ### Data-Public
 
-#### `POST /datapublic/predict/{document_id}`
+#### `POST /api/datapublic/predict/{document_id}`
 - Path param: `document_id` (`UUID5`)
 - Request body: `TextRequest`
 - Query param: `use_cache=true|false` (default `true`)
@@ -263,7 +263,7 @@ curl -s -X POST "http://localhost:8899/api/datapublic/predict/7e6b6f35-2f29-58f7
   -d '{"text":"Buenos Aires, 17 de noviembre de 2024"}'
 ```
 
-#### `GET /datapublic/validation/document/{document_id}`
+#### `GET /api/datapublic/validation/document/{document_id}`
 - Response `200`: object or `null`
 - Response `404`: document not found
 
@@ -271,7 +271,7 @@ curl -s -X POST "http://localhost:8899/api/datapublic/predict/7e6b6f35-2f29-58f7
 curl -s http://localhost:8899/api/datapublic/validation/document/7e6b6f35-2f29-58f7-9f8e-fd1d9026a6bc
 ```
 
-#### `POST /datapublic/validation/document/{document_id}`
+#### `POST /api/datapublic/validation/document/{document_id}`
 - Request body: free-form JSON object (stored as document-level validation)
 - Response `200`: empty body
 
@@ -300,7 +300,7 @@ For PDF input endpoints, optional query param:
 Example:
 
 ```bash
-curl -X POST "http://localhost:8899/convert/pdf/docx?backend=libreoffice" \
+curl -X POST "http://localhost:8899/api/convert/pdf/docx?backend=libreoffice" \
   -F "file=@input.pdf" -o output.docx
 ```
 

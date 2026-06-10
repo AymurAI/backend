@@ -17,8 +17,8 @@ Esta sección documenta los pipelines de producción del backend por flujo.
 - Config datapublic: `resources/pipelines/production/datapublic/pipeline.json`
 
 ## Mapeo con API
-- `POST /anonymizer/predict` -> `flair-anonymizer`
-- `POST /datapublic/predict/{document_id}` -> `datapublic`
+- `POST /api/anonymizer/predict` -> `flair-anonymizer`
+- `POST /api/datapublic/predict/{document_id}` -> `datapublic`
 
 ## Documentación relacionada
 - Referencia API: [../api/README.md](../api/README.md)

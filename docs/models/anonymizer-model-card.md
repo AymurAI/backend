@@ -53,10 +53,10 @@ Its raw span predictions are then post-processed by:
 
 Those predictions feed the rest of the anonymization flow:
 
-1. `POST /anonymizer/predict` runs span extraction.
-2. `POST /anonymizer/disambiguate` assigns canonical entity IDs and effective per-label metadata.
+1. `POST /api/anonymizer/predict` runs span extraction.
+2. `POST /api/anonymizer/disambiguate` assigns canonical entity IDs and effective per-label metadata.
 3. Manual review may edit labels, `label_policies`, and `render_policy`.
-4. `POST /anonymizer/anonymize-document` applies replacements in the output document.
+4. `POST /api/anonymizer/anonymize-document` applies replacements in the output document.
 
 # Usage
 

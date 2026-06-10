@@ -86,28 +86,28 @@ Primary key is composite over `id`, `document_id`, `paragraph_id`.
 ## Endpoint to Persistence Mapping
 
 ### Anonymizer
-- `POST /anonymizer/predict`
+- `POST /api/anonymizer/predict`
   - Reads `anonymization_paragraph` by paragraph UUID.
   - Writes `anonymization_paragraph.prediction` when cache is enabled.
-- `POST /anonymizer/disambiguate`
+- `POST /api/anonymizer/disambiguate`
   - Writes disambiguated predictions to `anonymization_paragraph.prediction`.
-- `POST /anonymizer/validation`
+- `POST /api/anonymizer/validation`
   - Reads `anonymization_paragraph.validation`.
-- `POST /anonymizer/anonymize-document`
+- `POST /api/anonymizer/anonymize-document`
   - Writes `anonymization_paragraph.validation`.
   - Creates `anonymization_document` keyed by uploaded file content hash.
   - Creates link rows in `anonymization_document_paragraph`.
 
 ### Data-public
-- `POST /datapublic/predict/{document_id}`
+- `POST /api/datapublic/predict/{document_id}`
   - Uses caller-provided `document_id` as the document primary key.
   - Ensures `datapublic_document` exists when `use_cache=true`.
   - Writes `datapublic_paragraph.prediction` when `use_cache=true`.
   - Writes link row in `datapublic_document_paragraph` when `use_cache=true`.
-- `GET /datapublic/validation/document/{document_id}`
+- `GET /api/datapublic/validation/document/{document_id}`
   - Reads `datapublic_document.validation`.
-- `POST /datapublic/validation/document/{document_id}`
+- `POST /api/datapublic/validation/document/{document_id}`
   - Upserts `datapublic_document.validation`.
 
 ## Legacy Note
-Route modules for dataset CRUD (`/datapublic/dataset/*`) exist in code but are not mounted in the public router. Do not treat them as active public API until exposed in `core.router`.
+Route modules for dataset CRUD (`/api/datapublic/dataset/*`) exist in code but are not mounted in the public router. Do not treat them as active public API until exposed in `core.router`.

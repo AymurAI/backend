@@ -10,14 +10,14 @@ This flow extracts structured information from paragraphs and supports document-
 ![Datapublic pipeline diagram](pipeline.png)
 
 ## Runtime entrypoints
-- `POST /misc/document-extract`
-- `POST /datapublic/predict/{document_id}`
-- `GET /datapublic/validation/document/{document_id}`
-- `POST /datapublic/validation/document/{document_id}`
+- `POST /api/misc/document-extract`
+- `POST /api/datapublic/predict/{document_id}`
+- `GET /api/datapublic/validation/document/{document_id}`
+- `POST /api/datapublic/validation/document/{document_id}`
 
 ## Step-by-step flow
-1. Text extraction (`/misc/document-extract`) splits source document into normalized paragraphs.
-2. Prediction (`/datapublic/predict/{document_id}`) processes each paragraph and returns predictions; cache persistence happens only when `use_cache=true` (default).
+1. Text extraction (`/api/misc/document-extract`) splits source document into normalized paragraphs.
+2. Prediction (`/api/datapublic/predict/{document_id}`) processes each paragraph and returns predictions; cache persistence happens only when `use_cache=true` (default).
 3. UI review aggregates document-level validated output.
 4. Validation read/write endpoints persist and retrieve document-level validation payload.
 
@@ -61,8 +61,8 @@ Tables touched by this flow:
 - Current production pipeline directory name is `datapublic`.
 - `document_id` is the document-level grouping key used to associate paragraph predictions and validation payloads.
 - Validation persistence is document-level and intentionally accepts a free-form JSON object.
-- `GET /datapublic/validation/document/{document_id}` returns `404` when the document does not exist; `POST` upserts the validation payload.
-- Public router currently does not mount `/datapublic/dataset/*` routes.
+- `GET /api/datapublic/validation/document/{document_id}` returns `404` when the document does not exist; `POST` upserts the validation payload.
+- Public router currently does not mount `/api/datapublic/dataset/*` routes.
 - Paragraph-level validation route exists in code as commented legacy logic and is not part of the public flow.
 
 ## Models used by this flow

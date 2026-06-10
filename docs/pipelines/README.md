@@ -17,8 +17,8 @@ This section documents AymurAI backend production pipelines by workflow.
 - Datapublic config: `resources/pipelines/production/datapublic/pipeline.json`
 
 ## API mapping
-- `POST /anonymizer/predict` -> `flair-anonymizer`
-- `POST /datapublic/predict/{document_id}` -> `datapublic`
+- `POST /api/anonymizer/predict` -> `flair-anonymizer`
+- `POST /api/datapublic/predict/{document_id}` -> `datapublic`
 
 ## Related docs
 - API reference: [../api/README.md](../api/README.md)

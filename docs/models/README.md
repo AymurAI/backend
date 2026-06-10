@@ -10,7 +10,7 @@ This section documents the individual models used by the backend.
 
 ## Current production usage
 - `flair-anonymizer` uses the anonymizer NER model card documented here.
-- `datapublic` uses the Flair NER model and the decision classifier.
+- `datapublic` uses the Flair NER model, the decision classifier, and multilingual sentence-transformer encoders for embedding-based subcategorization.
 
 ## Related docs
 - Documentation index: [../README.md](../README.md)

@@ -12,18 +12,18 @@ This flow extracts entities from judicial text and compiles anonymized output do
 Editable source: [pipeline.excalidraw](pipeline.excalidraw)
 
 ## Runtime entrypoints
-- `POST /misc/document-extract`
-- `POST /anonymizer/predict`
-- `POST /anonymizer/disambiguate`
-- `POST /anonymizer/validation`
-- `POST /anonymizer/anonymize-document`
+- `POST /api/misc/document-extract`
+- `POST /api/anonymizer/predict`
+- `POST /api/anonymizer/disambiguate`
+- `POST /api/anonymizer/validation`
+- `POST /api/anonymizer/anonymize-document`
 
 ## Step-by-step flow
-1. Text extraction (`/misc/document-extract`) splits source document into normalized paragraphs.
-2. Prediction (`/anonymizer/predict`) runs NER on each paragraph.
-3. Disambiguation (`/anonymizer/disambiguate`) assigns canonical entity IDs and effective anonymization/disambiguation metadata.
+1. Text extraction (`/api/misc/document-extract`) splits source document into normalized paragraphs.
+2. Prediction (`/api/anonymizer/predict`) runs NER on each paragraph.
+3. Disambiguation (`/api/anonymizer/disambiguate`) assigns canonical entity IDs and effective anonymization/disambiguation metadata.
 4. Manual review in UI edits labels and optional policies.
-5. Compilation (`/anonymizer/anonymize-document`) applies replacements and exports anonymized `.odt`.
+5. Compilation (`/api/anonymizer/anonymize-document`) applies replacements while preserving the source format: PDF input returns PDF, while DOCX input is exported as ODT.
 
 ## Technical components
 
@@ -57,6 +57,8 @@ Tables touched by this flow:
 - `anonymization_document_paragraph`
 
 ## Notes
+- PDF anonymization redacts text in place and preserves unaffected layout, annotations, metadata, and watermark behavior.
+- DOCX anonymization handles replacements before conversion to ODT.
 - Label policies are merged from environment and request payload.
 - Render policy controls suffix behavior (`auto`, `always`, `never`) during replacement.
 

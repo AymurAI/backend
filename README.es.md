@@ -1,17 +1,17 @@
-# AymurAI Backend
+# AymurAI
 Idioma: [English](README.md) | **Español**
 
-AymurAI Backend provee la API y los pipelines de ML usados para procesar resoluciones judiciales en dos flujos principales:
+AymurAI provee una aplicación integrada, una API y pipelines de ML para procesar resoluciones judiciales mediante dos flujos principales:
 
 - `anonymizer`: extracción de entidades y generación de documentos anonimizados.
 - `data-public`: extracción de información estructurada para curación de dataset público.
 
-Este repositorio contiene el servicio FastAPI, configuraciones de pipelines de producción y persistencia en base de datos para ambos flujos.
+Este repositorio contiene el frontend React/Electron, el servicio FastAPI, las configuraciones de pipelines de producción y la persistencia en base de datos para ambos flujos.
 
 ## Qué es AymurAI
-AymurAI es un proyecto orientado a facilitar la generación de datos judiciales anonimizados y estructurados para casos de violencia de género (VG) en América Latina. El backend orquesta la ingesta de documentos, la inferencia de modelos, la persistencia de validaciones y la exportación de resultados para usos operativos y de investigación.
+AymurAI es un proyecto orientado a facilitar la generación de datos judiciales anonimizados y estructurados para casos de violencia de género (VG) en América Latina. La aplicación guía la ingesta de documentos, la inferencia de modelos, la revisión manual, la validación y la exportación de resultados para usos operativos y de investigación.
 
-Este repositorio está enfocado en el backend: expone APIs consumidas por el frontend y ejecuta los pipelines de producción de `anonymizer` y `data-public`.
+El frontend puede ejecutarse como aplicación web servida por FastAPI o como aplicación de escritorio Electron. Permite cargar y previsualizar documentos, revisar anotaciones, configurar políticas de entidades, exportar documentos anonimizados y validar datasets estructurados.
 
 ## Documentación
 - Índice técnico: [docs/es/README.md](docs/es/README.md)
@@ -20,6 +20,7 @@ Este repositorio está enfocado en el backend: expone APIs consumidas por el fro
 - Flujo anonymizer: [docs/es/pipelines/anonymizer/README.md](docs/es/pipelines/anonymizer/README.md)
 - Flujo datapublic: [docs/es/pipelines/datapublic/README.md](docs/es/pipelines/datapublic/README.md)
 - Esquema de base de datos interna: [docs/es/database/README.md](docs/es/database/README.md)
+- Desarrollo y empaquetado del frontend: [frontend/README.md](frontend/README.md)
 
 ## Inicio Rápido (imagen Docker)
 Ejecutar la imagen full de la API (incluye recursos de producción):
@@ -50,7 +51,13 @@ docker run -d --name aymurai-backend-gpu --gpus all \
 Abrir Swagger UI:
 
 ```text
-http://localhost:8899/docs
+http://localhost:8899/api/docs
+```
+
+Abrir el frontend integrado:
+
+```text
+http://localhost:8899/
 ```
 
 ## Inicio Rápido (Docker Compose)
@@ -80,6 +87,8 @@ make api-logs
 ## Resumen de runtime
 - Framework: `FastAPI`
 - Puerto por defecto: `8899`
+- Ruta del frontend integrado: `GET /`
+- Implementaciones del frontend: navegador y Electron
 - Motor de DB: `SQLModel` + migraciones Alembic al iniciar
 - URI de DB por defecto: `sqlite:////resources/cache/sqlite/database.db`
 - Configs de pipeline de producción:
@@ -87,16 +96,16 @@ make api-logs
   - `resources/pipelines/production/datapublic/pipeline.json`
 
 ## Endpoints públicos principales
-- `GET /server/healthcheck`
-- `GET /server/stats/summary`
-- `POST /misc/document-extract` (y alias deprecado `POST /document-extract`)
-- `POST /anonymizer/predict`
-- `POST /anonymizer/disambiguate`
-- `POST /anonymizer/validation`
-- `POST /anonymizer/anonymize-document`
-- `POST /datapublic/predict/{document_id}`
-- `GET /datapublic/validation/document/{document_id}`
-- `POST /datapublic/validation/document/{document_id}`
+- `GET /api/server/healthcheck`
+- `GET /api/server/stats/summary`
+- `POST /api/misc/document-extract` (y alias deprecado `POST /api/document-extract`)
+- `POST /api/anonymizer/predict`
+- `POST /api/anonymizer/disambiguate`
+- `POST /api/anonymizer/validation`
+- `POST /api/anonymizer/anonymize-document`
+- `POST /api/datapublic/predict/{document_id}`
+- `GET /api/datapublic/validation/document/{document_id}`
+- `POST /api/datapublic/validation/document/{document_id}`
 
 Para contratos request/response y ejemplos completos, ver [docs/es/api/README.md](docs/es/api/README.md).
 
@@ -121,6 +130,9 @@ Las contribuciones son bienvenidas en documentación, API y mejoras de pipelines
 - **Sofía del Pozo** - [@sofiadelpozo](https://github.com/sofiadelpozo) at [collective.ai](https://collectiveai.io) ([email](mailto:sofia.delpozo@collectiveai.io))
 - **Paolo Donizetti** - [@padonizetti](https://github.com/padonizetti) at [collective.ai](https://collectiveai.io) ([email](mailto:paolo@collectiveai.io))
 - **Conrado Beatriz** - [@conrabeatriz](https://github.com/conrabeatriz) at [collective.ai](https://collectiveai.io) ([email](mailto:conrado@collectiveai.io))
+- **Lionel Chamorro** - [@lionelchamorro](https://github.com/lionelchamorro) at [collective.ai](https://collectiveai.io) ([email](mailto:lio@collectiveai.io))
+- **Damián Mazzini** - [@
+dmazzini](https://github.com/dmazzini) at [collective.ai](https://collectiveai.io) ([email](mailto:dami@collectiveai.io))
 
 ## Citar AymurAI
 Si usás AymurAI en investigación o publicaciones, por favor citá:

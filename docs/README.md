@@ -10,6 +10,7 @@ This index covers operational documentation for `v1.5.0`.
 - Anonymizer flow: [pipelines/anonymizer/README.md](pipelines/anonymizer/README.md)
 - Datapublic flow: [pipelines/datapublic/README.md](pipelines/datapublic/README.md)
 - Internal database schema: [database/README.md](database/README.md)
+- Frontend development and packaging: [../frontend/README.md](../frontend/README.md)
 
 ## Entities
 - Entities index: [entities/README.md](entities/README.md)

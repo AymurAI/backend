@@ -10,6 +10,7 @@ Este índice cubre la documentación operativa para `v1.5.0`.
 - Flujo anonymizer: [pipelines/anonymizer/README.md](pipelines/anonymizer/README.md)
 - Flujo datapublic: [pipelines/datapublic/README.md](pipelines/datapublic/README.md)
 - Esquema de base de datos interna: [database/README.md](database/README.md)
+- Desarrollo y empaquetado del frontend: [../../frontend/README.md](../../frontend/README.md)
 
 ## Entidades
 - Índice de entidades: [entities/README.md](entities/README.md)

@@ -53,10 +53,10 @@ Sus predicciones de spans se postprocesan luego con:
 
 Esas predicciones alimentan el resto del flujo de anonimización:
 
-1. `POST /anonymizer/predict` ejecuta la extracción de spans.
-2. `POST /anonymizer/disambiguate` asigna IDs canónicos y metadatos efectivos por label.
+1. `POST /api/anonymizer/predict` ejecuta la extracción de spans.
+2. `POST /api/anonymizer/disambiguate` asigna IDs canónicos y metadatos efectivos por label.
 3. La revisión manual puede editar labels, `label_policies` y `render_policy`.
-4. `POST /anonymizer/anonymize-document` aplica los reemplazos sobre el documento de salida.
+4. `POST /api/anonymizer/anonymize-document` aplica los reemplazos sobre el documento de salida.
 
 # Uso
 

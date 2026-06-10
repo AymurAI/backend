@@ -128,7 +128,7 @@ Nota: los snippets JSON de abajo son ejemplos mínimos válidos. Los payloads re
 
 ### Server
 
-#### `GET /server/healthcheck`
+#### `GET /api/server/healthcheck`
 - Respuesta `200`:
 
 ```json
@@ -139,7 +139,7 @@ Nota: los snippets JSON de abajo son ejemplos mínimos válidos. Los payloads re
 curl -s http://localhost:8899/api/server/healthcheck
 ```
 
-#### `GET /server/stats/summary`
+#### `GET /api/server/stats/summary`
 - Respuesta `200` (forma):
 
 ```json
@@ -158,8 +158,8 @@ curl -s http://localhost:8899/api/server/stats/summary
 
 ### Extracción de documentos
 
-#### `POST /misc/document-extract`
-#### `POST /document-extract` (alias deprecado)
+#### `POST /api/misc/document-extract`
+#### `POST /api/document-extract` (alias deprecado)
 - Request: `multipart/form-data` con `file`
 - MIME types soportados en extracción: DOCX, ODT, PDF
 - Respuesta `200`:
@@ -183,7 +183,7 @@ Errores comunes:
 
 ### Anonymizer
 
-#### `POST /anonymizer/predict`
+#### `POST /api/anonymizer/predict`
 - Body: `TextRequest`
 - Query param: `use_cache=true|false` (default `true`)
 - Respuesta `200`: `DocumentInformation`
@@ -194,7 +194,7 @@ curl -s -X POST "http://localhost:8899/api/anonymizer/predict?use_cache=true" \
   -d '{"text":"Acusado: Ramiro Marrón DNI 34.555.666."}'
 ```
 
-#### `POST /anonymizer/disambiguate`
+#### `POST /api/anonymizer/disambiguate`
 - Body request:
 
 ```json
@@ -223,7 +223,7 @@ curl -s -X POST http://localhost:8899/api/anonymizer/disambiguate \
   -d '{"paragraphs":[{"document":"Acusado: Ramiro Marrón DNI 34.555.666.","labels":[]}],"label_policies":{"PER":{"anonymize":true,"disambiguation":"fuzzy"}}}'
 ```
 
-#### `POST /anonymizer/validation`
+#### `POST /api/anonymizer/validation`
 - Body: `TextRequest`
 - Respuesta `200`: `list[DocLabel] | null`
 
@@ -233,11 +233,11 @@ curl -s -X POST http://localhost:8899/api/anonymizer/validation \
   -d '{"text":"Acusado: Ramiro Marrón DNI 34.555.666."}'
 ```
 
-#### `POST /anonymizer/anonymize-document`
+#### `POST /api/anonymizer/anonymize-document`
 - Request: `multipart/form-data`
-  - `file`: documento original (`.docx`, `.pdf`, `.odt`)
+  - `file`: documento original (`.docx` o `.pdf`)
   - `annotations`: string JSON serializado de `DocumentAnnotations`
-- Respuesta `200`: archivo `.odt` anonimizado (binario)
+- Respuesta `200`: `.odt` anonimizado para entrada DOCX o `.pdf` anonimizado para entrada PDF
 
 ```bash
 curl -X POST http://localhost:8899/api/anonymizer/anonymize-document \
@@ -246,12 +246,12 @@ curl -X POST http://localhost:8899/api/anonymizer/anonymize-document \
 ```
 
 Errores comunes:
-- `400` payload multipart inválido
+- `400` payload multipart inválido, formato no soportado o documento inválido
 - `500` errores de anonimización/conversión
 
 ### Data-Public
 
-#### `POST /datapublic/predict/{document_id}`
+#### `POST /api/datapublic/predict/{document_id}`
 - Path param: `document_id` (`UUID5`)
 - Body: `TextRequest`
 - Query param: `use_cache=true|false` (default `true`)
@@ -263,7 +263,7 @@ curl -s -X POST "http://localhost:8899/api/datapublic/predict/7e6b6f35-2f29-58f7
   -d '{"text":"Buenos Aires, 17 de noviembre de 2024"}'
 ```
 
-#### `GET /datapublic/validation/document/{document_id}`
+#### `GET /api/datapublic/validation/document/{document_id}`
 - Respuesta `200`: objeto o `null`
 - Respuesta `404`: documento inexistente
 
@@ -271,7 +271,7 @@ curl -s -X POST "http://localhost:8899/api/datapublic/predict/7e6b6f35-2f29-58f7
 curl -s http://localhost:8899/api/datapublic/validation/document/7e6b6f35-2f29-58f7-9f8e-fd1d9026a6bc
 ```
 
-#### `POST /datapublic/validation/document/{document_id}`
+#### `POST /api/datapublic/validation/document/{document_id}`
 - Body: objeto JSON libre (se persiste como validación a nivel documento)
 - Respuesta `200`: body vacío
 
@@ -300,7 +300,7 @@ Para endpoints con input PDF, query param opcional:
 Ejemplo:
 
 ```bash
-curl -X POST "http://localhost:8899/convert/pdf/docx?backend=libreoffice" \
+curl -X POST "http://localhost:8899/api/convert/pdf/docx?backend=libreoffice" \
   -F "file=@input.pdf" -o output.docx
 ```
 

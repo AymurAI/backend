@@ -86,28 +86,28 @@ La clave primaria es compuesta por `id`, `document_id`, `paragraph_id`.
 ## Mapeo endpoint -> persistencia
 
 ### Anonymizer
-- `POST /anonymizer/predict`
+- `POST /api/anonymizer/predict`
   - Lee `anonymization_paragraph` por UUID de párrafo.
   - Escribe `anonymization_paragraph.prediction` cuando el cache está activo.
-- `POST /anonymizer/disambiguate`
+- `POST /api/anonymizer/disambiguate`
   - Escribe predicciones desambiguadas en `anonymization_paragraph.prediction`.
-- `POST /anonymizer/validation`
+- `POST /api/anonymizer/validation`
   - Lee `anonymization_paragraph.validation`.
-- `POST /anonymizer/anonymize-document`
+- `POST /api/anonymizer/anonymize-document`
   - Escribe `anonymization_paragraph.validation`.
   - Crea `anonymization_document` con clave derivada del hash del contenido binario subido.
   - Crea vínculos en `anonymization_document_paragraph`.
 
 ### Data-public
-- `POST /datapublic/predict/{document_id}`
+- `POST /api/datapublic/predict/{document_id}`
   - Usa el `document_id` provisto por el cliente como primary key del documento.
   - Asegura existencia de `datapublic_document` cuando `use_cache=true`.
   - Escribe `datapublic_paragraph.prediction` cuando `use_cache=true`.
   - Escribe vínculo en `datapublic_document_paragraph` cuando `use_cache=true`.
-- `GET /datapublic/validation/document/{document_id}`
+- `GET /api/datapublic/validation/document/{document_id}`
   - Lee `datapublic_document.validation`.
-- `POST /datapublic/validation/document/{document_id}`
+- `POST /api/datapublic/validation/document/{document_id}`
   - Hace upsert de `datapublic_document.validation`.
 
 ## Nota legacy
-Los módulos de rutas para CRUD de dataset (`/datapublic/dataset/*`) existen en código pero no están montados en el router público. No deben tratarse como API pública activa hasta su exposición en `core.router`.
+Los módulos de rutas para CRUD de dataset (`/api/datapublic/dataset/*`) existen en código pero no están montados en el router público. No deben tratarse como API pública activa hasta su exposición en `core.router`.

@@ -22,7 +22,9 @@ make api-up
 # or make api-full-up
 ```
 
-Swagger UI: `http://localhost:8899/docs`
+Bundled frontend: `http://localhost:8899/`
+
+Swagger UI: `http://localhost:8899/api/docs`
 
 If you prefer working from VS Code, the repository also includes a `.devcontainer/` setup.
 
@@ -38,6 +40,26 @@ pip install -e .
 ```
 
 For most contributors, Docker is the easiest way to get a working API with the expected runtime dependencies.
+
+### Frontend development
+The frontend supports browser and Electron development. Install its dependencies and run the desired target:
+
+```bash
+cd frontend
+pnpm install
+pnpm run dev:web  # browser
+pnpm run dev      # Electron
+```
+
+Before submitting frontend changes, run:
+
+```bash
+pnpm run lint
+pnpm run typecheck
+pnpm test
+```
+
+See [the frontend README](../frontend/README.md) for build and packaging commands.
 
 ## Pre-commit hooks
 After installing dependencies, enable the hooks:
@@ -61,8 +83,9 @@ ruff format aymurai/
 ```
 
 ## Documentation policy
-When behavior changes in API, pipelines, or DB persistence, update the corresponding docs in the same PR:
+When behavior changes in the frontend, API, pipelines, or DB persistence, update the corresponding docs in the same PR:
 - `README.md`
+- `frontend/README.md`
 - `docs/api/README.md`
 - `docs/pipelines/README.md`
 - `docs/pipelines/anonymizer/README.md`

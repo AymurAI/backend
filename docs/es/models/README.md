@@ -10,7 +10,7 @@ Esta sección documenta los modelos individuales utilizados por el backend.
 
 ## Uso actual en producción
 - `flair-anonymizer` usa la model card del NER de anonymizer documentada aquí.
-- `datapublic` usa el modelo Flair NER y el clasificador de decisiones.
+- `datapublic` usa el modelo Flair NER, el clasificador de decisiones y encoders sentence-transformer multilingües para subcategorización basada en embeddings.
 
 ## Documentación relacionada
 - Índice de documentación: [../README.md](../README.md)

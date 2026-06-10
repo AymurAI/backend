@@ -1,17 +1,17 @@
-# AymurAI Backend
+# AymurAI
 Language: **English** | [Español](README.es.md)
 
-AymurAI Backend provides the API and ML pipelines used to process judicial rulings for two main workflows:
+AymurAI provides an integrated application, API, and ML pipelines for processing judicial rulings through two main workflows:
 
 - `anonymizer`: extract named entities and produce anonymized documents.
 - `data-public`: extract structured information for public dataset curation.
 
-This repository contains the FastAPI service, production pipeline configs, and database persistence used by both workflows.
+This repository contains the React/Electron frontend, FastAPI service, production pipeline configurations, and database persistence used by both workflows.
 
 ## About AymurAI
-AymurAI is a project focused on supporting the generation of anonymized and structured judicial data for gender-based violence (GBV) cases in Latin America. The backend service orchestrates document ingestion, ML inference, validation persistence, and document export for downstream operational and research uses.
+AymurAI is a project focused on supporting the generation of anonymized and structured judicial data for gender-based violence (GBV) cases in Latin America. The application guides users through document ingestion, ML inference, manual review, validation, and export for operational and research uses.
 
-This repository is backend-focused: it exposes APIs consumed by the frontend and runs the production pipelines for `anonymizer` and `data-public`.
+The frontend can run as a web application served by FastAPI or as an Electron desktop application. It supports document upload and preview, interactive annotation review, entity policy configuration, anonymized document export, and structured dataset validation.
 
 ## Documentation
 - Technical docs index: [docs/README.md](docs/README.md)
@@ -20,6 +20,7 @@ This repository is backend-focused: it exposes APIs consumed by the frontend and
 - Anonymizer flow: [docs/pipelines/anonymizer/README.md](docs/pipelines/anonymizer/README.md)
 - Datapublic flow: [docs/pipelines/datapublic/README.md](docs/pipelines/datapublic/README.md)
 - Internal database schema: [docs/database/README.md](docs/database/README.md)
+- Frontend development and packaging: [frontend/README.md](frontend/README.md)
 
 ## Quick Start (Docker Image)
 Run the full API image (includes production resources):
@@ -87,6 +88,7 @@ make api-logs
 - Framework: `FastAPI`
 - Default API port: `8899`
 - Bundled frontend path: `GET /`
+- Frontend implementations: browser and Electron
 - DB engine: `SQLModel` + Alembic migrations on startup
 - Default DB URI: `sqlite:////resources/cache/sqlite/database.db`
 - Production pipeline configs:
@@ -128,7 +130,9 @@ Contributions are welcome across documentation, API, and pipeline improvements.
 - **Sofía del Pozo** - [@sofiadelpozo](https://github.com/sofiadelpozo) at [collective.ai](https://collectiveai.io) ([email](mailto:sofia.delpozo@collectiveai.io))
 - **Paolo Donizetti** - [@padonizetti](https://github.com/padonizetti) at [collective.ai](https://collectiveai.io) ([email](mailto:paolo@collectiveai.io))
 - **Conrado Beatriz** - [@conrabeatriz](https://github.com/conrabeatriz) at [collective.ai](https://collectiveai.io) ([email](mailto:conrado@collectiveai.io))
-
+- **Lionel Chamorro** - [@lionelchamorro](https://github.com/lionelchamorro) at [collective.ai](https://collectiveai.io) ([email](mailto:lio@collectiveai.io))
+- **Damián Mazzini** - [@
+dmazzini](https://github.com/dmazzini) at [collective.ai](https://collectiveai.io) ([email](mailto:dami@collectiveai.io))
 
 ## Citing AymurAI
 If you use AymurAI in research or publications, please cite:
