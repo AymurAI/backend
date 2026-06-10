@@ -69,6 +69,7 @@ jobs:
       - name: Run api tests
         env:
           DISKCACHE_ROOT: /tmp
+          SQLALCHEMY_DATABASE_URI: sqlite:////tmp/aymurai-test.db
         run: uv run --no-sync pytest -q --tb=short --disable-warnings --color=yes --maxfail=5 tests/api
 
       - name: Download pipelines data
