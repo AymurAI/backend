@@ -11,4 +11,4 @@ AymurAI is guided by a strong ethical position that considers the complexities o
 We acknowledge that every line of code that we write may potentially contain security issues. We are trying to deal with it responsibly and provide patches as quickly as possible.
 
 ## Reporting a Vulnerability
-If you have found a security vulnerability, please open a new [issue](https://github.com/AymurAI/dev/issues/new) or report it to us by sending an [email](aymurai@datagenero.org). We will respond to you as soon as possible.
+If you have found a security vulnerability, please open a new [issue](https://github.com/AymurAI/backend/issues/new) or report it to us by sending an [email](mailto:aymurai@datagenero.org). We will respond to you as soon as possible.

@@ -1,25 +1,31 @@
 import re
-from typing import Any, Union
+from typing import Any
 
 
 def get_element(
-    obj,
-    levels: Union[list, Any] = [],
+    obj: Any,
+    levels: list[Any] | Any = [],
     default: Any = None,
     *,
     ignore_errors: bool = True,
-):
+) -> Any:
     """
-    retrieve element hierarchically
+    Retrieve an element from a nested object using hierarchical keys.
 
     Args:
-        obj (object): parent object to retrieve to
-        levels (Union[list, Any], optional): hierarchy levels. Defaults to [].
-        default (Any, optional): default value to return
-        ignore_errors (str, optional): raise errors or ignore them. Defaults to True.
+        obj (Any): Parent object to traverse.
+        levels (list[Any] | Any, optional): Hierarchy levels to access. Defaults to [].
+        default (Any, optional): Value returned when traversal fails and
+            `ignore_errors` is True. Defaults to None.
+        ignore_errors (bool, optional): Whether to suppress lookup errors.
+            Defaults to True.
 
     Returns:
-        _type_: element or None (in case child element doesnt exist and `ignore_errors=True`)
+        Any: Retrieved element, or `default` when traversal fails and
+            `ignore_errors` is True.
+
+    Raises:
+        Exception: Propagates the underlying error when `ignore_errors` is False.
     """
 
     # if levels not a list handle it has a key
@@ -40,7 +46,16 @@ def get_element(
             raise
 
 
-def is_url(text: str):
+def is_url(text: str) -> bool:
+    """
+    Check whether a string contains a URL-like pattern.
+
+    Args:
+        text (str): Text to evaluate.
+
+    Returns:
+        bool: True when a URL-like pattern is found, otherwise False.
+    """
     match = re.findall(
         r"(http(s)?:\/\/.)(www\.)?[-a-zA-Z0-9@:%._\+~#=]{2,256}\.[a-z]{2,6}\b([-a-zA-Z0-9@:%_\+.~#?&//=]*)",
         text,
@@ -49,11 +64,16 @@ def is_url(text: str):
 
 
 # Taken from https://stackoverflow.com/a/20254842
-def get_recursively(search_dict: dict, field: str) -> list:
+def get_recursively(search_dict: dict, field: str) -> list[Any]:
     """
-    Takes a dict with nested lists and dicts,
-    and searches all dicts for a key of the field
-    provided.
+    Search nested dictionaries and lists for values under a target key.
+
+    Args:
+        search_dict (dict): Dictionary to search recursively.
+        field (str): Key name to collect.
+
+    Returns:
+        list[Any]: Values found for `field` across the nested structure.
     """
     fields_found = []
 

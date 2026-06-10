@@ -1,7 +1,7 @@
 #!/bin/sh
 
 # install dependencies
-uv sync --frozen --all-extras
+uv sync --frozen --all-extras --all-groups
 
 # configure precommit
 uv run pre-commit install

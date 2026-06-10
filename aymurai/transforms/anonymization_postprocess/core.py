@@ -1,10 +1,10 @@
 import re
 from copy import deepcopy
-from string import punctuation
 
+from aymurai.meta.pipeline_interfaces import Transform
 from aymurai.meta.types import DataItem
 from aymurai.utils.misc import get_element
-from aymurai.meta.pipeline_interfaces import Transform
+from aymurai.transforms.anonymization_postprocess.exact_labels import EXACT_LABELS
 
 
 class AnonymizationEntityCleaner(Transform):
@@ -33,6 +33,7 @@ class AnonymizationEntityCleaner(Transform):
         original_text = ent["text"]
         start_char = ent["start_char"]
         end_char = ent["end_char"]
+        label = ent["attrs"]["aymurai_label"]
 
         # Match leading and trailing non-alphanumeric characters
         leading_match = re.match(r"^\W+", original_text)
@@ -45,10 +46,27 @@ class AnonymizationEntityCleaner(Transform):
         # Clean the text
         cleaned_text = pattern.sub("", original_text)
 
+        if not cleaned_text:
+            return None
+
+        raw_subclass = ent["attrs"]["aymurai_label_subclass"]
+        if isinstance(raw_subclass, list):
+            aymurai_label_subclass = raw_subclass.copy()
+        elif raw_subclass:
+            aymurai_label_subclass = [raw_subclass]
+        else:
+            aymurai_label_subclass = []
+
+        if label in EXACT_LABELS:
+            flattened_text = re.sub(r"[^a-zA-Z0-9]", "", cleaned_text)
+            if flattened_text and flattened_text not in aymurai_label_subclass:
+                aymurai_label_subclass.append(flattened_text)
+
         # Update the entity's alt text and indices
         ent["attrs"]["aymurai_alt_text"] = cleaned_text
         ent["attrs"]["aymurai_alt_start_char"] = start_char + leading_chars_removed
         ent["attrs"]["aymurai_alt_end_char"] = end_char - trailing_chars_removed
+        ent["attrs"]["aymurai_label_subclass"] = aymurai_label_subclass
 
         return ent
 
@@ -61,11 +79,11 @@ class AnonymizationEntityCleaner(Transform):
             DataItem: processed item
         """
         item = deepcopy(item)
-
         ents = get_element(item, [self.field, "entities"]) or []
 
-        # Filter out predictions that are punctuation marks only
-        ents = [ent for ent in ents if ent["text"] not in punctuation]
-        ents = [self.process(ent) for ent in ents]
+        # Filter out predictions with empty alt text and update the rest
+        item[self.field]["entities"] = [
+            out for ent in ents if (out := self.process(ent)) is not None
+        ]
 
         return item

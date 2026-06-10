@@ -1,29 +1,72 @@
+x-api-lite: &api-lite
+    image: ghcr.io/aymurai/api:latest
+    build:
+        context: .
+        dockerfile: ./docker/api/Dockerfile
+        target: aymurai-api
+    shm_size: "2gb"
+    ports:
+        - "8899:8899"
+    volumes:
+        - ./resources/cache:/resources/cache
+    env_file:
+        - .env
+        - .env.common
+
+x-api-full: &api-full
+    image: ghcr.io/aymurai/api:full
+    build:
+        context: .
+        dockerfile: ./docker/api/Dockerfile
+        target: aymurai-api-full
+    shm_size: "2gb"
+    ports:
+        - "8899:8899"
+    restart: always
+    deploy:
+        resources:
+            limits:
+                memory: 4g
+                cpus: "4.0"
+
 services:
     aymurai-api:
-        image: ghcr.io/aymurai/api:latest
-        ports:
-            - "8899:8899"
-        build:
-            context: .
-            dockerfile: ./docker/api/Dockerfile
-            target: aymurai-api
-        env_file:
-            - .env
-            - .env.common
-        volumes:
-            - ./resources/cache:/resources/cache
+        <<: *api-lite
+        container_name: aymurai-api
+        environment:
+            TORCH_DEVICE: cpu
 
-    aymurai-api-full:
-        image: ghcr.io/aymurai/api:full
-        ports:
-            - "8899:8899"
-        build:
-            context: .
-            dockerfile: ./docker/api/Dockerfile
-            target: aymurai-api-full
-        restart: always
+    aymurai-api-gpu:
+        <<: *api-lite
+        container_name: aymurai-api-gpu
+        environment:
+            TORCH_DEVICE: cuda
         deploy:
             resources:
+                reservations:
+                    devices:
+                        - driver: nvidia
+                          count: all
+                          capabilities: [gpu]
+
+    aymurai-api-full:
+        <<: *api-full
+        container_name: aymurai-api-full
+        environment:
+            TORCH_DEVICE: cpu
+
+    aymurai-api-full-gpu:
+        <<: *api-full
+        container_name: aymurai-api-full-gpu
+        environment:
+            TORCH_DEVICE: cuda
+        deploy:
+            resources:
+                reservations:
+                    devices:
+                        - driver: nvidia
+                          count: all
+                          capabilities: [gpu]
                 limits:
                     memory: 4g
                     cpus: "4.0"

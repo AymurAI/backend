@@ -2,18 +2,19 @@ import os
 import time
 from contextlib import asynccontextmanager
 
-import torch
 from alembic import command
 from alembic.config import Config
 from fastapi import FastAPI, Request
-from fastapi.responses import RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.formparsers import MultiPartParser
 
 from aymurai.api import core
-from aymurai.logger import get_logger
-from aymurai.settings import settings
-from aymurai.pipeline import AymurAIPipeline
+from aymurai.api.endpoints.routers.frontend import frontend
 from aymurai.api.startup.database import check_db_connection
+from aymurai.api.utils import configure_torch_threads
+from aymurai.logger import get_logger
+from aymurai.pipeline import AymurAIPipeline
+from aymurai.settings import settings
 
 try:
     from aymurai.version import __version__
@@ -23,9 +24,25 @@ except ImportError:
 logger = get_logger(__name__)
 
 
-torch.set_num_threads = 100  # FIXME: polemic ?
+configure_torch_threads()
 
 RESOURCES_BASEPATH = settings.RESOURCES_BASEPATH
+
+MULTIPART_MAX_PART_SIZE = 10 * 1024 * 1024  # 10 MB
+
+
+def _set_kwdefault(func, name: str, value: int) -> None:
+    kwdefaults = getattr(func, "__kwdefaults__", None)
+    if kwdefaults and name in kwdefaults:
+        kwdefaults[name] = value
+
+
+# FastAPI parses Form(...) before endpoint execution. Starlette defaults each
+# non-file multipart field to 1MB, which is too small for annotations JSON.
+MultiPartParser.max_part_size = MULTIPART_MAX_PART_SIZE
+_set_kwdefault(MultiPartParser.__init__, "max_part_size", MULTIPART_MAX_PART_SIZE)
+_set_kwdefault(Request.form, "max_part_size", MULTIPART_MAX_PART_SIZE)
+_set_kwdefault(Request._get_form, "max_part_size", MULTIPART_MAX_PART_SIZE)
 
 
 @asynccontextmanager
@@ -37,8 +54,9 @@ async def lifespan(app: FastAPI):
         logger.info(">> Running Alembic migrations")
         alembic_cfg = Config(str(settings.ALEMBIC_INI_PATH))
         command.upgrade(alembic_cfg, "head")
-    except Exception as error:
-        logger.error("Error while starting up:", error)
+    except Exception:
+        logger.exception("Error while starting up")
+        raise
 
     yield
 
@@ -47,6 +65,9 @@ api = FastAPI(
     title="AymurAI API",
     version=__version__,
     lifespan=lifespan,
+    docs_url="/api/docs",
+    redoc_url="/api/redoc",
+    openapi_url="/api/openapi.json",
 )
 
 
@@ -73,33 +94,20 @@ async def add_process_time_header(request: Request, call_next):
     return response
 
 
-@api.get("/", response_class=RedirectResponse, include_in_schema=False)
-async def index():
-    return "/docs"
-
-
-# @api.get("/docs", include_in_schema=False)
-# async def custom_swagger_ui_html():
-#     return get_swagger_ui_html(
-#         openapi_url=api.openapi_url,
-#         title=f"{api.title} - Swagger UI",
-#         swagger_css_url="https://cdn.jsdelivr.net/gh/danielperezrubio/swagger-dark-theme@main/assets/swagger-ui.min.css",
-#     )
-
-
 ################################################################################
 # MARK: API ENDPOINTS
 ################################################################################
 
 
 # Healthcheck
-@api.get("/server/healthcheck", status_code=200, tags=["server"])
+@api.get("/api/server/healthcheck", status_code=200, tags=["server"])
 def healthcheck():
     return {"status": "ok"}
 
 
 # Api endpoints
-api.include_router(core.router)
+api.include_router(core.router, prefix="/api")
+api.include_router(frontend.router)
 
 
 if __name__ == "__main__":
@@ -109,5 +117,5 @@ if __name__ == "__main__":
         os.path.join(RESOURCES_BASEPATH, "pipelines", "production", "flair-anonymizer")
     )
     AymurAIPipeline.load(
-        os.path.join(RESOURCES_BASEPATH, "pipelines", "production", "full-paragraph")
+        os.path.join(RESOURCES_BASEPATH, "pipelines", "production", "datapublic")
     )

@@ -1,0 +1,124 @@
+PER:
+  disambiguation: fuzzy
+  anonymize: true
+  use_subclass_when_available: true
+
+NUM_EXPEDIENTE:
+  disambiguation: fuzzy
+  anonymize: true
+  use_subclass_when_available: false
+
+CUIJ:
+  disambiguation: fuzzy
+  anonymize: true
+  use_subclass_when_available: false
+
+NUM_ACTUACION:
+  disambiguation: fuzzy
+  anonymize: true
+  use_subclass_when_available: false
+
+DNI:
+  disambiguation: fuzzy
+  anonymize: true
+  use_subclass_when_available: false
+
+LINK:
+  disambiguation: fuzzy
+  anonymize: true
+  use_subclass_when_available: false
+
+TELEFONO:
+  disambiguation: fuzzy
+  anonymize: true
+  use_subclass_when_available: false
+
+FECHA:
+  disambiguation: fuzzy
+  anonymize: true
+  use_subclass_when_available: false
+
+DIRECCION:
+  disambiguation: fuzzy
+  anonymize: true
+  use_subclass_when_available: false
+
+TEXTO_ANONIMIZAR:
+  disambiguation: fuzzy
+  anonymize: true
+  use_subclass_when_available: false
+
+LOC:
+  disambiguation: fuzzy
+  anonymize: true
+  use_subclass_when_available: false
+
+CORREO_ELECTRONICO:
+  disambiguation: fuzzy
+  anonymize: true
+  use_subclass_when_available: false
+
+CUIT_CUIL:
+  disambiguation: fuzzy
+  anonymize: true
+  use_subclass_when_available: false
+
+NACIONALIDAD:
+  disambiguation: fuzzy
+  anonymize: true
+  use_subclass_when_available: false
+
+EDAD:
+  disambiguation: fuzzy
+  anonymize: true
+  use_subclass_when_available: false
+
+NOMBRE_ARCHIVO:
+  disambiguation: fuzzy
+  anonymize: true
+  use_subclass_when_available: false
+
+BANCO:
+  disambiguation: fuzzy
+  anonymize: true
+  use_subclass_when_available: false
+
+NUM_MATRICULA:
+  disambiguation: fuzzy
+  anonymize: true
+  use_subclass_when_available: false
+
+ESTUDIOS:
+  disambiguation: fuzzy
+  anonymize: true
+  use_subclass_when_available: false
+
+IP:
+  disambiguation: fuzzy
+  anonymize: true
+  use_subclass_when_available: false
+
+USUARIX:
+  disambiguation: fuzzy
+  anonymize: true
+  use_subclass_when_available: false
+
+CBU:
+  disambiguation: fuzzy
+  anonymize: true
+  use_subclass_when_available: false
+
+MARCA_AUTOMOVIL:
+  disambiguation: fuzzy
+  anonymize: true
+  use_subclass_when_available: false
+
+PATENTE_DOMINIO:
+  disambiguation: fuzzy
+  anonymize: true
+  use_subclass_when_available: false
+
+NUM_CAJA_AHORRO:
+  disambiguation: fuzzy
+  anonymize: true
+  use_subclass_when_available: false
