@@ -23,7 +23,7 @@ def test_should_return_prediction_when_valid_document_id_and_text(
 
     document_id = uuid.uuid5(uuid.NAMESPACE_URL, "datapublic-predict-valid")
     response = client.post(
-        f"/datapublic/predict/{document_id}",
+        f"/api/datapublic/predict/{document_id}",
         json={"text": "Sample datapublic text"},
         params={"use_cache": False},
     )
@@ -55,7 +55,7 @@ def test_should_return_cached_prediction_when_text_in_cache(
 
     document_id = uuid.uuid5(uuid.NAMESPACE_URL, "datapublic-cached-text")
     response = client.post(
-        f"/datapublic/predict/{document_id}",
+        f"/api/datapublic/predict/{document_id}",
         json={"text": text},
         params={"use_cache": True},
     )
@@ -79,7 +79,7 @@ def test_should_store_paragraph_and_document_when_use_cache_true(
     text = "New datapublic paragraph"
 
     response = client.post(
-        f"/datapublic/predict/{document_id}",
+        f"/api/datapublic/predict/{document_id}",
         json={"text": text},
         params={"use_cache": True},
     )
@@ -118,7 +118,7 @@ def test_should_return_prediction_without_storing_when_use_cache_false(
     text = "No datapublic storage text"
 
     response = client.post(
-        f"/datapublic/predict/{document_id}",
+        f"/api/datapublic/predict/{document_id}",
         json={"text": text},
         params={"use_cache": False},
     )
@@ -136,7 +136,7 @@ def test_should_return_prediction_without_storing_when_use_cache_false(
 @pytest.mark.integration
 def test_should_return_422_when_document_id_not_uuid(client):
     response = client.post(
-        "/datapublic/predict/not-a-uuid",
+        "/api/datapublic/predict/not-a-uuid",
         json={"text": "Sample text"},
     )
 
@@ -156,13 +156,13 @@ def test_should_associate_multiple_paragraphs_with_same_document(
     text2 = "Second paragraph for association"
 
     response1 = client.post(
-        f"/datapublic/predict/{document_id}",
+        f"/api/datapublic/predict/{document_id}",
         json={"text": text1},
         params={"use_cache": True},
     )
 
     response2 = client.post(
-        f"/datapublic/predict/{document_id}",
+        f"/api/datapublic/predict/{document_id}",
         json={"text": text2},
         params={"use_cache": True},
     )
@@ -192,7 +192,7 @@ def test_should_associate_multiple_paragraphs_with_same_document(
 def test_should_return_404_when_validation_document_not_found(client):
     document_id = uuid.uuid5(uuid.NAMESPACE_URL, "datapublic-validation-missing")
 
-    response = client.get(f"/datapublic/validation/document/{document_id}")
+    response = client.get(f"/api/datapublic/validation/document/{document_id}")
 
     assert response.status_code == 404
 
@@ -203,7 +203,7 @@ def test_should_return_none_when_validation_not_set(client, db_session):
     db_session.add(DataPublicDocument(id=document_id))
     db_session.commit()
 
-    response = client.get(f"/datapublic/validation/document/{document_id}")
+    response = client.get(f"/api/datapublic/validation/document/{document_id}")
 
     assert response.status_code == 200
     assert response.json() is None
@@ -219,7 +219,7 @@ def test_should_upsert_and_read_document_validation(client, db_session):
     }
 
     post_response = client.post(
-        f"/datapublic/validation/document/{document_id}",
+        f"/api/datapublic/validation/document/{document_id}",
         json=payload,
     )
     assert post_response.status_code == 200
@@ -228,6 +228,6 @@ def test_should_upsert_and_read_document_validation(client, db_session):
     assert stored_doc is not None
     assert stored_doc.validation == payload
 
-    get_response = client.get(f"/datapublic/validation/document/{document_id}")
+    get_response = client.get(f"/api/datapublic/validation/document/{document_id}")
     assert get_response.status_code == 200
     assert get_response.json() == payload

@@ -50,7 +50,13 @@ docker run -d --name aymurai-backend-gpu --gpus all \
 Open Swagger UI:
 
 ```text
-http://localhost:8899/docs
+http://localhost:8899/api/docs
+```
+
+Open the bundled frontend:
+
+```text
+http://localhost:8899/
 ```
 
 ## Quick Start (Docker Compose)
@@ -80,6 +86,7 @@ make api-logs
 ## Runtime Overview
 - Framework: `FastAPI`
 - Default API port: `8899`
+- Bundled frontend path: `GET /`
 - DB engine: `SQLModel` + Alembic migrations on startup
 - Default DB URI: `sqlite:////resources/cache/sqlite/database.db`
 - Production pipeline configs:
@@ -87,16 +94,16 @@ make api-logs
   - `resources/pipelines/production/datapublic/pipeline.json`
 
 ## Main Public Endpoints
-- `GET /server/healthcheck`
-- `GET /server/stats/summary`
-- `POST /misc/document-extract` (and deprecated alias `POST /document-extract`)
-- `POST /anonymizer/predict`
-- `POST /anonymizer/disambiguate`
-- `POST /anonymizer/validation`
-- `POST /anonymizer/anonymize-document`
-- `POST /datapublic/predict/{document_id}`
-- `GET /datapublic/validation/document/{document_id}`
-- `POST /datapublic/validation/document/{document_id}`
+- `GET /api/server/healthcheck`
+- `GET /api/server/stats/summary`
+- `POST /api/misc/document-extract` (and deprecated alias `POST /api/document-extract`)
+- `POST /api/anonymizer/predict`
+- `POST /api/anonymizer/disambiguate`
+- `POST /api/anonymizer/validation`
+- `POST /api/anonymizer/anonymize-document`
+- `POST /api/datapublic/predict/{document_id}`
+- `GET /api/datapublic/validation/document/{document_id}`
+- `POST /api/datapublic/validation/document/{document_id}`
 
 For full request/response contracts and examples, see [docs/api/README.md](docs/api/README.md).
 

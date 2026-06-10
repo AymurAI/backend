@@ -14,6 +14,7 @@ os.environ.setdefault("RESOURCES_BASEPATH", "resources")
 from aymurai.api.endpoints.routers.anonymizer import anonymizer
 from aymurai.api.endpoints.routers.datapublic import datapublic
 from aymurai.api.endpoints.routers.misc import document_extract
+from aymurai.api.endpoints.routers.misc import convert
 from aymurai.database.meta.anonymization.paragraph import AnonymizationParagraphCreate
 from aymurai.database.meta.datapublic.paragraph import DataPublicParagraphCreate
 from aymurai.database.session import get_session
@@ -27,16 +28,21 @@ def app() -> FastAPI:
     test_app = FastAPI()
     test_app.include_router(
         anonymizer.router,
-        prefix="/anonymizer",
+        prefix="/api/anonymizer",
         tags=["anonymization/model"],
     )
     test_app.include_router(
         datapublic.router,
-        prefix="/datapublic",
+        prefix="/api/datapublic",
         tags=["datapublic/model"],
     )
-    test_app.include_router(document_extract.router, tags=["document"], deprecated=True)
-    test_app.include_router(document_extract.router, prefix="/misc", tags=["document"])
+    test_app.include_router(
+        document_extract.router, prefix="/api", tags=["document"], deprecated=True
+    )
+    test_app.include_router(
+        document_extract.router, prefix="/api/misc", tags=["document"]
+    )
+    test_app.include_router(convert.router, prefix="/api", tags=["Document conversion"])
     return test_app
 
 

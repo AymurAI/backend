@@ -135,3 +135,9 @@ aymurai/version.py
 notebooks/**
 !notebooks/**/
 !notebooks/**/*.ipynb
+
+# Frontend build output
+frontend-dist/
+
+# pnpm local package store
+.pnpm-store/

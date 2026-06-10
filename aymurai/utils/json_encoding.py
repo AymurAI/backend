@@ -5,6 +5,7 @@ import decimal
 import datetime
 from typing import Any
 
+import numpy as np
 import pandas as pd
 
 from aymurai.logger import get_logger
@@ -60,6 +61,10 @@ class EnhancedJSONEncoder(json.JSONEncoder):
                     str(obj),
                 ],
             }
+        elif isinstance(obj, np.integer):
+            return int(obj)
+        elif isinstance(obj, np.floating):
+            return float(obj)
         elif pd.isna(obj):
             return "null"
         else:

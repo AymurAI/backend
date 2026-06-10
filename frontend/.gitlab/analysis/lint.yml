@@ -1,0 +1,12 @@
+---
+lint:
+  stage: analysis
+  image: node:14
+  cache:
+    paths:
+      - node_modules
+      - .npm
+  before_script:
+    - npm ci
+  script:
+    - npm run lint

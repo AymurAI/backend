@@ -1,0 +1,7 @@
+allowBuilds:
+  "@biomejs/biome": true
+  electron-winstaller: true
+  electron: true
+  esbuild: true
+
+blockExoticSubdeps: false

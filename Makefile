@@ -44,3 +44,19 @@ alembic-regenerate:
 	cd aymurai && \
 	uv run alembic revision --autogenerate -m "Create database" && \
 	uv run alembic upgrade head
+
+# --- Frontend build ---
+FRONTEND_DIR=frontend
+FRONTEND_DIST_DIR=frontend-dist
+
+frontend-install:
+	cd $(FRONTEND_DIR) && pnpm install
+
+frontend-build: frontend-install
+	cd $(FRONTEND_DIR) && pnpm run build:web
+	# Copy build output to frontend-dist
+	rm -rf $(FRONTEND_DIST_DIR)
+	cp -r $(FRONTEND_DIR)/out/renderer $(FRONTEND_DIST_DIR)
+
+frontend-clean:
+	rm -rf $(FRONTEND_DIST_DIR)

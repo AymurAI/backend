@@ -1,3 +1,24 @@
+# syntax=docker/dockerfile:1.7
+
+# -------------------
+# Frontend Build Stage
+# -------------------
+FROM node:lts-bookworm AS frontend-builder
+
+WORKDIR /frontend
+
+RUN npm install --global corepack@latest && \
+    corepack enable pnpm && \
+    corepack prepare pnpm@latest --activate
+
+COPY frontend/ ./
+
+RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
+    pnpm install --frozen-lockfile
+
+RUN pnpm run build:web
+
+
 # -------------------
 # Build Stage
 # -------------------
@@ -74,9 +95,12 @@ COPY --from=builder --chown=app:app /app/.venv /app/.venv
 
 # Copy static resources
 COPY resources/pipelines /resources/pipelines
+COPY --from=frontend-builder /frontend/out/renderer /app/frontend-dist
 
 # Set working directory
 WORKDIR /app
+
+ENV FRONTEND_DIST_DIR=/app/frontend-dist
 
 # Define start command
 CMD uv run fastapi run --port 8899 .venv/lib/python3.10/site-packages/aymurai/api/main.py

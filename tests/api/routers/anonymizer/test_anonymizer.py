@@ -11,9 +11,11 @@ import pymupdf
 import pytest
 from docx import Document
 
+from aymurai.api.endpoints.routers.anonymizer import anonymizer as anonymizer_module
 from aymurai.database.schema import AnonymizationParagraph
 from aymurai.database.utils import text_to_uuid
 from aymurai.meta.api_interfaces import LabelPolicy, RenderPolicy
+from aymurai.settings import Settings
 from aymurai.text.anonymization import DocxAnonymizer, PdfAnonymizer, get_anonymizer
 from aymurai.text.anonymization.alignment import index_paragraphs
 from aymurai.text.anonymization.pdf.ops import _refine_signature_text_rect
@@ -697,7 +699,7 @@ def test_should_return_prediction_when_text_provided(mock_load_pipeline, client)
     mock_load_pipeline.return_value = mock_pipeline
 
     response = client.post(
-        "/anonymizer/predict",
+        "/api/anonymizer/predict",
         json={"text": "Sample anonymization text"},
     )
 
@@ -727,7 +729,7 @@ def test_should_return_cached_prediction_when_text_in_cache(
     db_session.commit()
 
     response = client.post(
-        "/anonymizer/predict",
+        "/api/anonymizer/predict",
         json={"text": text},
         params={"use_cache": True},
     )
@@ -749,7 +751,7 @@ def test_should_store_prediction_in_db_when_use_cache_true(
 
     text = "New prediction to cache"
     response = client.post(
-        "/anonymizer/predict",
+        "/api/anonymizer/predict",
         json={"text": text},
         params={"use_cache": True},
     )
@@ -772,14 +774,14 @@ def test_should_return_cached_result_when_calling_twice(mock_load_pipeline, clie
     text = "Repeated query text"
 
     response1 = client.post(
-        "/anonymizer/predict",
+        "/api/anonymizer/predict",
         json={"text": text},
         params={"use_cache": True},
     )
     data1 = response1.json()
 
     response2 = client.post(
-        "/anonymizer/predict",
+        "/api/anonymizer/predict",
         json={"text": text},
         params={"use_cache": True},
     )
@@ -801,7 +803,7 @@ def test_should_return_prediction_without_storing_when_use_cache_false(
 
     text = "No cache storage text"
     response = client.post(
-        "/anonymizer/predict",
+        "/api/anonymizer/predict",
         json={"text": text},
         params={"use_cache": False},
     )
@@ -819,7 +821,7 @@ def test_should_return_prediction_without_storing_when_use_cache_false(
 @pytest.mark.integration
 def test_should_return_422_when_payload_is_invalid_json(client):
     response = client.post(
-        "/anonymizer/predict",
+        "/api/anonymizer/predict",
         content="not json",
         headers={"Content-Type": "application/json"},
     )
@@ -837,7 +839,7 @@ def test_should_use_cache_by_default_when_param_omitted(
 
     text = "Default cache behavior"
     response = client.post(
-        "/anonymizer/predict",
+        "/api/anonymizer/predict",
         json={"text": text},
     )
 
@@ -873,13 +875,13 @@ def test_should_isolate_cache_when_different_texts(
     db_session.commit()
 
     response1 = client.post(
-        "/anonymizer/predict",
+        "/api/anonymizer/predict",
         json={"text": text1},
         params={"use_cache": True},
     )
 
     response2 = client.post(
-        "/anonymizer/predict",
+        "/api/anonymizer/predict",
         json={"text": text2},
         params={"use_cache": True},
     )
@@ -923,7 +925,7 @@ def test_should_dedupe_duplicate_labels_when_returning_cached_prediction(
     db_session.commit()
 
     response = client.post(
-        "/anonymizer/predict",
+        "/api/anonymizer/predict",
         json={"text": text},
         params={"use_cache": True},
     )
@@ -975,7 +977,7 @@ def test_should_merge_cached_duplicate_labels_for_same_span_and_label(
     db_session.commit()
 
     response = client.post(
-        "/anonymizer/predict",
+        "/api/anonymizer/predict",
         json={"text": text},
         params={"use_cache": True},
     )
@@ -1019,7 +1021,7 @@ def test_should_disambiguate_and_persist_paragraphs(
         },
     }
 
-    response = client.post("/anonymizer/disambiguate", json=body)
+    response = client.post("/api/anonymizer/disambiguate", json=body)
 
     assert response.status_code == 200
     payload = response.json()
@@ -1070,7 +1072,7 @@ def test_should_dedupe_duplicate_labels_when_disambiguating_and_persisting(
         },
     }
 
-    response = client.post("/anonymizer/disambiguate", json=body)
+    response = client.post("/api/anonymizer/disambiguate", json=body)
 
     assert response.status_code == 200
     labels = response.json()["data"][0]["labels"]
@@ -1097,7 +1099,7 @@ def test_should_dedupe_duplicate_labels_when_disambiguating_and_persisting(
 @pytest.mark.integration
 def test_should_return_null_validation_when_paragraph_not_found(client):
     response = client.post(
-        "/anonymizer/validation",
+        "/api/anonymizer/validation",
         json={"text": "Paragraph without validation"},
     )
 
@@ -1118,7 +1120,7 @@ def test_should_return_validation_when_paragraph_exists(client, db_session):
     )
     db_session.commit()
 
-    response = client.post("/anonymizer/validation", json={"text": text})
+    response = client.post("/api/anonymizer/validation", json={"text": text})
 
     assert response.status_code == 200
     assert response.json() == labels
@@ -1149,7 +1151,7 @@ def test_should_return_application_pdf_when_pdf_document_is_anonymized(
     }
 
     response = client.post(
-        "/anonymizer/anonymize-document",
+        "/api/anonymizer/anonymize-document",
         data={"annotations": json.dumps(annotations)},
         files={"file": ("sample.pdf", b"%PDF-1.4 fake", "application/pdf")},
     )
@@ -1157,6 +1159,54 @@ def test_should_return_application_pdf_when_pdf_document_is_anonymized(
     assert response.status_code == 200
     assert response.headers["content-type"] == "application/pdf"
     assert len(response.content) > 0
+
+
+@pytest.mark.integration
+@patch("aymurai.api.endpoints.routers.anonymizer.anonymizer.get_anonymizer")
+def test_should_pass_resolved_default_policies_to_document_anonymizer(
+    mock_get_anonymizer,
+    client,
+    tmp_path,
+    monkeypatch,
+):
+    monkeypatch.delenv("DISAMBIGUATION_LABEL_POLICIES", raising=False)
+    monkeypatch.delenv("RENDER_POLICY", raising=False)
+    monkeypatch.setattr(anonymizer_module, "settings", Settings())
+
+    anonymized_path = _write_pdf(
+        tmp_path / "output.pdf",
+        lambda _doc, page: page.insert_text((72, 72), "Anonymized PDF output"),
+    )
+    mock_anonymizer = MagicMock(return_value=str(anonymized_path))
+    mock_get_anonymizer.return_value = mock_anonymizer
+
+    annotations = {
+        "data": [
+            {
+                "document": "Ana Perez presento el escrito",
+                "labels": [build_label("PER", "Ana Perez").model_dump(mode="json")],
+            }
+        ],
+        "label_policies": None,
+        "render_policy": None,
+    }
+
+    response = client.post(
+        "/api/anonymizer/anonymize-document",
+        data={"annotations": json.dumps(annotations)},
+        files={"file": ("sample.pdf", b"%PDF-1.4 fake", "application/pdf")},
+    )
+
+    assert response.status_code == 200
+    render_context = mock_anonymizer.call_args.kwargs["render_context"]
+    assert render_context["render_policy"] == RenderPolicy(
+        suffix_mode="auto", suffix_threshold=1
+    )
+    assert render_context["label_policies"]["PER"] == LabelPolicy(
+        disambiguation="fuzzy",
+        anonymize=True,
+        use_subclass_when_available=True,
+    )
 
 
 @patch("aymurai.api.endpoints.routers.anonymizer.anonymizer.subprocess.check_output")
@@ -1193,7 +1243,7 @@ def test_should_anonymize_document_when_annotations_are_valid(
     }
 
     response = client.post(
-        "/anonymizer/anonymize-document",
+        "/api/anonymizer/anonymize-document",
         data={"annotations": json.dumps(annotations)},
         files={
             "file": (
@@ -1243,7 +1293,7 @@ def test_should_exclude_null_alt_attrs_from_anonymize_document_preds(
     }
 
     response = client.post(
-        "/anonymizer/anonymize-document",
+        "/api/anonymizer/anonymize-document",
         data={"annotations": json.dumps(annotations)},
         files={
             "file": (
@@ -1290,7 +1340,7 @@ def test_should_return_500_when_anonymize_document_conversion_fails(
     }
 
     response = client.post(
-        "/anonymizer/anonymize-document",
+        "/api/anonymizer/anonymize-document",
         data={"annotations": json.dumps(annotations)},
         files={
             "file": (
