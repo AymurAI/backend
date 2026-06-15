@@ -5,7 +5,7 @@ experiment:
 data:
   # input_documents_dir: resources/data/restricted/disambiguation-eval/docs
   # input_paragraphs_jsonl: "/workspace/data/paragraphs.jsonl"
-  input_bio_txt: "resources/outputs/data-augmentation/20260518_230843/augmented_train.txt"
+  input_bio_txt: "resources/outputs/synthetic-paragraph-generation/20260611_161248/synthetic_samples.txt" #"resources/outputs/data-augmentation/20260518_230843/augmented_train.txt"
   include_extensions:
   - .pdf
   - .docx

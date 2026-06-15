@@ -4,13 +4,21 @@ experiment:
 
 data:
   source_paths:
-    - "resources/data/restricted/anonymization/train.txt"
-    - "resources/data/restricted/ner-langextract-alignment/curated/curated/train_candidates.jsonl"
+    - "resources/data/restricted/training-datasets/private/defensoria_train_candidates.txt"
+    - "resources/data/restricted/training-datasets/private/j10_new_train_candidates.txt"
+    - "resources/data/restricted/training-datasets/private/pj_jujuy_train_candidates.txt"
+    - "resources/data/restricted/training-datasets/private/saij_train_candidates.txt"
+    - "resources/data/restricted/training-datasets/private/J10-new-data/train.txt"
+    - "resources/data/restricted/training-datasets/private/J10-new-data/dev.txt"
+    - "resources/data/restricted/training-datasets/private/J10-new-data/test.txt"
+    - "resources/data/restricted/training-datasets/public/augmented_train_candidates.txt"
+    - "resources/data/restricted/training-datasets/public/cm_train_candidates.txt"
+    - "resources/data/restricted/training-datasets/public/pii_train_candidates.txt"
   guidelines_path: null
   text_field: "text"
   labels_field: "final_entities"
   max_examples: 500
-  examples_per_label: 2
+  examples_per_label: 3
   normalized_labels_path: notebooks/data-preparation/new-datasets/original-train-unique-labels.txt
 
 llm:
@@ -31,19 +39,19 @@ faker:
     - "TEXTO_ANONIMIZAR"
 
 sampling:
-  target_total_synthetic: 3
+  target_total_synthetic: 20
   desired_target_labels:
-    - NUM_CAJA_AHORRO
-    # - IP
-    # - NUM_MATRICULA
+    # - NUM_CAJA_AHORRO
+    - IP
+    - NUM_MATRICULA
     # - USUARIX
-    # - NOMBRE_ARCHIVO
-    # - CBU
-    # - ESTUDIOS
+    - NOMBRE_ARCHIVO
+    - CBU
+    - ESTUDIOS
     # - CUIT_CUIL
-    # - PATENTE_DOMINIO
-    # - MARCA_AUTOMOVIL
-    # - NACIONALIDAD
+    - PATENTE_DOMINIO
+    - MARCA_AUTOMOVIL
+    - NACIONALIDAD
     # - BANCO
     # - CORREO_ELECTRONICO
     # - LINK
@@ -57,10 +65,10 @@ similarity:
   threshold: 95.0
   internal_enabled: true
   internal_threshold: 95.0
-  train_set_path: resources/data/restricted/anonymization/train.txt
-  dev_set_path: resources/data/restricted/anonymization/dev.txt
-  test_set_path: resources/data/restricted/anonymization/test.txt
-  extra_bio_paths: []
+  train_set_path: resources/data/restricted/training-datasets/private/J10-new-data/train.txt
+  dev_set_path: resources/data/restricted/training-datasets/private/J10-new-data/dev.txt
+  test_set_path: resources/data/restricted/training-datasets/private/J10-new-data/test.txt
+  extra_bio_paths: [resources/data/restricted/training-datasets/private/defensoria_train_candidates.txt,resources/data/restricted/training-datasets/private/j10_new_train_candidates.txt,resources/data/restricted/training-datasets/private/pj_jujuy_train_candidates.txt,resources/data/restricted/training-datasets/private/saij_train_candidates.txt, resources/data/restricted/training-datasets/public/augmented_train_candidates.txt, resources/data/restricted/training-datasets/public/cm_train_candidates.txt, resources/data/restricted/training-datasets/public/pii_train_candidates.txt]
 
 outputs:
   base_dir: "resources/outputs/synthetic-paragraph-generation"
@@ -74,5 +82,5 @@ outputs:
 logging:
   mlflow:
     enabled: true
-    tracking_uri: "http://localhost:5000"
+    tracking_uri: "http://localhost:5005"
     experiment_name: "synthetic-paragraph-generation"
