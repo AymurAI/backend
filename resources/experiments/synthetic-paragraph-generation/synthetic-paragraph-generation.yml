@@ -42,16 +42,16 @@ sampling:
   target_total_synthetic: 20
   desired_target_labels:
     # - NUM_CAJA_AHORRO
-    - IP
-    - NUM_MATRICULA
+    # - IP
+    # - NUM_MATRICULA
     # - USUARIX
     - NOMBRE_ARCHIVO
-    - CBU
-    - ESTUDIOS
+    # - CBU
+    # - ESTUDIOS
     # - CUIT_CUIL
-    - PATENTE_DOMINIO
-    - MARCA_AUTOMOVIL
-    - NACIONALIDAD
+    # - PATENTE_DOMINIO
+    # - MARCA_AUTOMOVIL
+    # - NACIONALIDAD
     # - BANCO
     # - CORREO_ELECTRONICO
     # - LINK
