@@ -28,61 +28,59 @@ router = APIRouter()
 logger = get_logger(__name__)
 
 
-def get_transcribe_ws_uri() -> str:
+def get_transcribe_base_url() -> str:
     """
-    Get the WebSocket URI for the transcription service from settings.
+    Get the coro base URL for the transcription service from settings.
 
     Raises:
-        ConfigurationError: If the WebSocket URI is not configured in settings.
+        ConfigurationError: If the base URL is not configured in settings.
 
     Returns:
-        str: The WebSocket URI for the transcription service.
+        str: The coro base URL (e.g. http://localhost:8000/v1).
     """
-    ws_uri = settings.TRANSCRIBE_WS_URI
-    if not ws_uri:
-        raise ConfigurationError(detail="TRANSCRIBE_WS_URI is not configured")
-    return ws_uri
+    base_url = settings.TRANSCRIBE_BASE_URL
+    if not base_url:
+        raise ConfigurationError(detail="TRANSCRIBE_BASE_URL is not configured")
+    return base_url
 
 
 async def _transcribe_audio_bytes_with_error_handling(
     data: bytes,
+    filename: str,
+    content_type: str,
 ) -> list[ASRParagraph]:
     """
-    Transcribes audio bytes into a list of ASRParagraph objects.
+    Transcribe audio bytes into a list of ASRParagraph objects via coro.
 
     Args:
         data (bytes): The audio data to be transcribed.
+        filename (str): The uploaded file name.
+        content_type (str): The uploaded file MIME type.
 
     Raises:
-        UpstreamServiceError: If there is an error with the upstream transcription service.
+        UpstreamServiceError: If the coro service errors or returns no result.
         AymuraiAPIException: If there is an unexpected error during transcription.
 
     Returns:
-        list[ASRParagraph]: A list of ASRParagraph objects representing the transcribed audio.
+        list[ASRParagraph]: The transcribed paragraphs.
     """
     try:
-        status = await transcribe_audio_bytes(data)
+        segments = await transcribe_audio_bytes(data, filename, content_type)
     except RuntimeError as exc:
-        message = str(exc)
-        if "websocket" in message.lower():
-            raise UpstreamServiceError(detail=message) from exc
-        raise AymuraiAPIException(detail=message) from exc
+        raise UpstreamServiceError(detail=str(exc)) from exc
     except Exception as exc:
         raise AymuraiAPIException(
             detail="Unexpected error during transcription"
         ) from exc
 
-    if not status:
-        raise AymuraiAPIException(detail="No transcription result received")
-
     return [
         ASRParagraph(
-            speaker_no=line.speaker,
-            start=line.start,
-            end=line.end,
-            text=line.text,
+            speaker_no=int(segment.speaker),
+            start=segment.start,
+            end=segment.end,
+            text=segment.text,
         )
-        for line in status.lines
+        for segment in segments
     ]
 
 
@@ -90,7 +88,7 @@ async def _transcribe_audio_bytes_with_error_handling(
 async def transcribe(
     file: UploadFile,
     use_cache: bool = True,
-    ws_uri: str = Depends(get_transcribe_ws_uri),
+    base_url: str = Depends(get_transcribe_base_url),
     session: Session = Depends(get_session),
 ) -> ASRDocument:
     """
@@ -99,7 +97,7 @@ async def transcribe(
     Args:
         file (UploadFile): The audio file to be transcribed.
         use_cache (bool, optional): Whether to use cached transcription results. Defaults to True.
-        ws_uri (str, optional): The WebSocket URI for the transcription service. Defaults to Depends(get_transcribe_ws_uri).
+        base_url (str, optional): The coro base URL for the transcription service. Defaults to Depends(get_transcribe_base_url).
         session (Session, optional): The database session. Defaults to Depends(get_session).
 
     Returns:
@@ -120,7 +118,11 @@ async def transcribe(
             )
             return cached_document
 
-    transcription_items = await _transcribe_audio_bytes_with_error_handling(data)
+    transcription_items = await _transcribe_audio_bytes_with_error_handling(
+        data,
+        file.filename or str(document_id),
+        file.content_type or "application/octet-stream",
+    )
     document = ASRDocument(document_id=document_id, document=transcription_items)
     audio_transcription_create_or_update(
         transcription_id=document_id,
