@@ -61,6 +61,28 @@ docker load -i aymurai-api.tar
 For more information on Docker deployment, refer to the [Docker documentation](https://docs.docker.com/). If you need further assistance, feel free to contact us at [aymurai@datagenero.org](mailto:aymurai@datagenero.org).
 
 
+## Running the ASR server (coro)
+Audio transcription is handled by [coro](https://github.com/collectiveai-team/coro), an OpenAI-compatible ASR + speaker-diarization server. It runs as an isolated host process via `uv tool` (no dependency conflicts with the API), and the API talks to it over HTTP/SSE.
+
+Prerequisites (both modes): `ffmpeg` on the host, [`uv`](https://docs.astral.sh/uv/) installed, and a real-disk `CORO_TRANSCRIPT_SPILL_DIR` (not a tmpfs path) so host RAM stays flat on long audio.
+
+```bash
+# GPU (NVIDIA): parakeet fp32 + NeMo diarization
+./scripts/run-coro.sh gpu
+
+# CPU: parakeet int8
+./scripts/run-coro.sh cpu
+```
+
+Then point the API at it via the `TRANSCRIBE_BASE_URL` environment variable (see `.env`):
+
+```
+TRANSCRIBE_BASE_URL=http://localhost:8000/v1
+```
+
+The API connects over HTTP/SSE and is hardware-agnostic — coro's device is independent of the API container's `TORCH_DEVICE`.
+
+
 ## Pipeline
 AymurAI’s backend utilizes a structured data processing pipeline to handle anonymized legal rulings and extract relevant information. This data is processed and made accessible via the API. For more details, please refer to the [pipeline documentation](docs/pipeline/README.md).
 
