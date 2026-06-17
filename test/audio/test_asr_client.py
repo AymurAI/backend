@@ -1,3 +1,4 @@
+import asyncio
 import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -33,8 +34,7 @@ def _patched_client(events):
     return patch("aymurai.audio.asr_client.AsyncOpenAI", return_value=client)
 
 
-@pytest.mark.asyncio
-async def test_should_return_segments_when_done_frame_received(monkeypatch):
+def test_should_return_segments_when_done_frame_received(monkeypatch):
     monkeypatch.setattr(settings, "TRANSCRIBE_BASE_URL", "http://coro.local/v1")
     done_text = json.dumps(
         {
@@ -49,7 +49,9 @@ async def test_should_return_segments_when_done_frame_received(monkeypatch):
         _FakeEvent("transcript.text.done", done_text),
     ]
     with _patched_client(events):
-        result = await transcribe_audio_bytes(b"audio", "sample.wav", "audio/wav")
+        result = asyncio.run(
+            transcribe_audio_bytes(b"audio", "sample.wav", "audio/wav")
+        )
 
     assert result == [
         CoroSegment(start=0.0, end=1.0, text="Hola", speaker="1"),
@@ -57,17 +59,15 @@ async def test_should_return_segments_when_done_frame_received(monkeypatch):
     ]
 
 
-@pytest.mark.asyncio
-async def test_should_raise_when_stream_has_no_done_frame(monkeypatch):
+def test_should_raise_when_stream_has_no_done_frame(monkeypatch):
     monkeypatch.setattr(settings, "TRANSCRIBE_BASE_URL", "http://coro.local/v1")
     events = [_FakeEvent("transcript.text.delta", None)]
     with _patched_client(events):
         with pytest.raises(RuntimeError, match="done frame"):
-            await transcribe_audio_bytes(b"audio", "sample.wav", "audio/wav")
+            asyncio.run(transcribe_audio_bytes(b"audio", "sample.wav", "audio/wav"))
 
 
-@pytest.mark.asyncio
-async def test_should_raise_when_base_url_not_configured(monkeypatch):
+def test_should_raise_when_base_url_not_configured(monkeypatch):
     monkeypatch.setattr(settings, "TRANSCRIBE_BASE_URL", None)
     with pytest.raises(RuntimeError, match="not configured"):
-        await transcribe_audio_bytes(b"audio", "sample.wav", "audio/wav")
+        asyncio.run(transcribe_audio_bytes(b"audio", "sample.wav", "audio/wav"))
