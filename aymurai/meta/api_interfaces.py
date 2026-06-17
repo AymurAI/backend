@@ -100,6 +100,8 @@ class Document(BaseModel):
 
 
 class ASRParagraph(BaseModel):
+    """A speaker-attributed transcription paragraph (persisted and anonymized)."""
+
     model_config: ClassVar[ConfigDict] = ConfigDict(from_attributes=True)
 
     speaker_no: int
