@@ -19,8 +19,8 @@ def test_should_anonymize_audio_document_when_running_real_asr_and_anonymizer_en
     isolated_diskcache,
     integration_audio_bytes,
 ):
-    if not settings.TRANSCRIBE_WS_URI:
-        pytest.skip("TRANSCRIBE_WS_URI is required for real ASR integration test")
+    if not settings.TRANSCRIBE_BASE_URL:
+        pytest.skip("TRANSCRIBE_BASE_URL is required for real ASR integration test")
 
     if shutil.which(settings.LIBREOFFICE_BIN) is None:
         pytest.skip("LibreOffice binary is required for /anonymizer/anonymize-document")
