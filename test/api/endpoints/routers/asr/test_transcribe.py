@@ -4,10 +4,7 @@ from unittest.mock import AsyncMock, patch
 
 from sqlmodel import Session
 
-from aymurai.api.meta.asr.websocket import (
-    WLKMessageStatus,
-    WLKMessageTranscriptionLine,
-)
+from aymurai.api.meta.asr.coro import CoroSegment
 from aymurai.database.meta.audio_transcription import AudioTranscription
 from aymurai.database.utils import data_to_uuid
 from aymurai.meta.api_interfaces import ASRDocument, ASRParagraph
@@ -22,27 +19,13 @@ def test_should_transcribe_and_persist_document_when_service_returns_paragraphs(
     audio_bytes = make_wav_bytes()
     document_id = data_to_uuid(audio_bytes)
 
-    fake_status = WLKMessageStatus(
-        status="active_transcription",
-        lines=[
-            WLKMessageTranscriptionLine(
-                speaker=1,
-                text="Hola mundo",
-                start=timedelta(seconds=0),
-                end=timedelta(seconds=1),
-            )
-        ],
-        buffer_transcription="",
-        buffer_diarization="",
-        buffer_translation="",
-        remaining_time_transcription=0.0,
-        remaining_time_diarization=0.0,
-        speaker_ids={},
-    )
+    fake_segments = [
+        CoroSegment(start=0.0, end=1.0, text="Hola mundo", speaker="1"),
+    ]
 
     with patch(
         "aymurai.api.endpoints.routers.asr.transcribe.transcribe_audio_bytes",
-        new=AsyncMock(return_value=fake_status),
+        new=AsyncMock(return_value=fake_segments),
     ):
         response = client.post(
             "/asr/transcribe?use_cache=false",
