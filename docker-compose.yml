@@ -48,7 +48,10 @@ services:
             [
                 "/bin/sh",
                 "-c",
-                "pip install --no-cache-dir psycopg2-binary boto3 && mlflow server --host 0.0.0.0 --port 5000 --backend-store-uri postgresql://mlflow:mlflow@postgres:5432/mlflow --default-artifact-root ${MLFLOW_ARTIFACT_ROOT}",
+                "pip install --no-cache-dir psycopg2-binary boto3 && mlflow
+                  server --host 0.0.0.0 --port 5000 --backend-store-uri
+                  postgresql://mlflow:mlflow@postgres:5432/mlflow
+                  --default-artifact-root ${MLFLOW_ARTIFACT_ROOT}",
             ]
         depends_on:
             postgres:
@@ -61,7 +64,8 @@ services:
                     "CMD",
                     "python",
                     "-c",
-                    "import urllib.request; urllib.request.urlopen('http://localhost:5000')",
+                    "import urllib.request;
+                      urllib.request.urlopen('http://localhost:5000')",
                 ]
             interval: 10s
             timeout: 5s
@@ -79,7 +83,7 @@ services:
         volumes:
             - postgres-data:/var/lib/postgresql/data
         healthcheck:
-            test: ["CMD-SHELL", "pg_isready -U mlflow"]
+            test: [ "CMD-SHELL", "pg_isready -U mlflow" ]
             interval: 10s
             timeout: 5s
             retries: 6
@@ -93,7 +97,7 @@ services:
         environment:
             MINIO_ROOT_USER: ${AWS_ACCESS_KEY_ID}
             MINIO_ROOT_PASSWORD: ${AWS_SECRET_ACCESS_KEY}
-        command: ["server", "/data", "--console-address", ":9001"]
+        command: [ "server", "/data", "--console-address", ":9001" ]
         volumes:
             - minio-data:/data
         # Healthcheck removed; minio image lacks wget and minio-mc already waits for readiness.
@@ -108,7 +112,10 @@ services:
             [
                 "/bin/sh",
                 "-c",
-                "until (/usr/bin/mc alias set local http://minio:9000 ${AWS_ACCESS_KEY_ID} ${AWS_SECRET_ACCESS_KEY}) do sleep 1; done; /usr/bin/mc mb -p local/mlflow; /usr/bin/mc anonymous set none local/mlflow; exit 0;",
+                "until (/usr/bin/mc alias set local http://minio:9000
+                  ${AWS_ACCESS_KEY_ID} ${AWS_SECRET_ACCESS_KEY}) do sleep 1;
+                  done; /usr/bin/mc mb -p local/mlflow; /usr/bin/mc anonymous
+                  set none local/mlflow; exit 0;",
             ]
 
     # CPU-friendly API
