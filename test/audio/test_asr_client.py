@@ -2,7 +2,9 @@ import asyncio
 import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import httpx
 import pytest
+from openai import APIConnectionError
 
 from aymurai.api.meta.asr.coro import CoroSegment
 from aymurai.audio.asr_client import transcribe_audio_bytes
@@ -71,3 +73,14 @@ def test_should_raise_when_base_url_not_configured(monkeypatch):
     monkeypatch.setattr(settings, "TRANSCRIBE_BASE_URL", None)
     with pytest.raises(RuntimeError, match="not configured"):
         asyncio.run(transcribe_audio_bytes(b"audio", "sample.wav", "audio/wav"))
+
+
+def test_should_map_openai_connection_error_to_runtime_error(monkeypatch):
+    monkeypatch.setattr(settings, "TRANSCRIBE_BASE_URL", "http://coro.local/v1")
+    request = httpx.Request("POST", "http://coro.local/v1/audio/transcriptions")
+    create = AsyncMock(side_effect=APIConnectionError(request=request))
+    client = MagicMock()
+    client.audio.transcriptions.create = create
+    with patch("aymurai.audio.asr_client.AsyncOpenAI", return_value=client):
+        with pytest.raises(RuntimeError, match="Transcription service error"):
+            asyncio.run(transcribe_audio_bytes(b"audio", "sample.wav", "audio/wav"))
