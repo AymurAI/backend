@@ -80,7 +80,13 @@ Then point the API at it via the `TRANSCRIBE_BASE_URL` environment variable (see
 TRANSCRIBE_BASE_URL=http://localhost:8000/v1
 ```
 
-The API connects over HTTP/SSE and is hardware-agnostic — coro's device is independent of the API container's `TORCH_DEVICE`.
+The API connects over HTTP/SSE and is hardware-agnostic — coro's device is independent of the API container's `TORCH_DEVICE`. (`run-coro.sh` pins `uvx --python 3.12`, since NeMo/`kaldialign` lack wheels on newer Pythons.)
+
+To verify the whole path end-to-end (start coro, transcribe a sample over SSE via both the OpenAI SDK and aymurai's client):
+
+```bash
+rtk uv run python scripts/smoke_coro.py cpu   # or: gpu
+```
 
 
 ## Pipeline

@@ -30,5 +30,6 @@ case "$MODE" in
     ;;
 esac
 
-exec uvx --from "coro[$EXTRA] @ git+https://github.com/collectiveai-team/coro" \
+exec uvx --python 3.12 \
+  --from "coro[$EXTRA] @ git+https://github.com/collectiveai-team/coro" \
   coro --port "$PORT"
