@@ -21,6 +21,7 @@ from aymurai.experiments.training_dataset_generation.config import (
     render_run_dir_name,
 )
 from aymurai.experiments.training_dataset_generation.core import (
+    build_dataset_composition_report,
     calculate_train_set_stats,
     export_jsonl,
     filter_labeled_candidates,
@@ -160,6 +161,9 @@ def run_pipeline(config: TrainingDatasetGenerationConfig) -> dict:
     selected_candidates_path = run_dir / config.paths.selected_candidates_filename
     final_bio_path = run_dir / config.paths.final_bio_filename
     report_path = run_dir / config.paths.report_filename
+    dataset_composition_report_path = (
+        run_dir / config.paths.dataset_composition_report_filename
+    )
     low_frequency_labels_output_path = (
         run_dir / config.paths.low_frequency_labels_filename
     )
@@ -177,6 +181,16 @@ def run_pipeline(config: TrainingDatasetGenerationConfig) -> dict:
         output_path=final_bio_path,
         include_original_train=config.assembly.include_original_train,
     )
+
+    dataset_composition_report = build_dataset_composition_report(
+        generated_dataset_path=final_bio_path,
+        base_train_path=config.paths.train_set_path,
+    )
+    dataset_composition_report_path.write_text(
+        json.dumps(dataset_composition_report, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    log_step(f"Saved dataset composition report to {dataset_composition_report_path}")
 
     report = {
         "run_dir": str(run_dir),
@@ -216,8 +230,10 @@ def run_pipeline(config: TrainingDatasetGenerationConfig) -> dict:
             "final_bio_path": str(final_bio_path),
             "low_frequency_labels_path": str(low_frequency_labels_output_path),
             "report_path": str(report_path),
+            "dataset_composition_report_path": str(dataset_composition_report_path),
         },
         "bio_write_stats": bio_write_stats,
+        "dataset_composition_report": dataset_composition_report,
     }
 
     report_path.write_text(
@@ -241,6 +257,28 @@ def run_pipeline(config: TrainingDatasetGenerationConfig) -> dict:
                     bio_write_stats["appended_candidates"]
                 ),
                 "bio_skipped_candidates": float(bio_write_stats["skipped_candidates"]),
+                "generated_dataset_paragraphs": float(
+                    dataset_composition_report["generated_dataset_stats"]["paragraphs"]
+                ),
+                "generated_dataset_labeled_paragraphs": float(
+                    dataset_composition_report["generated_dataset_stats"][
+                        "labeled_paragraphs"
+                    ]
+                ),
+                "generated_dataset_unlabeled_paragraphs": float(
+                    dataset_composition_report["generated_dataset_stats"][
+                        "unlabeled_paragraphs"
+                    ]
+                ),
+                "generated_dataset_n_labels": float(
+                    dataset_composition_report["generated_dataset_stats"]["n_labels"]
+                ),
+                "required_labels_present": float(
+                    dataset_composition_report["required_labels_present"]
+                ),
+                "required_labels_missing": float(
+                    dataset_composition_report["required_labels_missing"]
+                ),
             }
         )
         safe_log_artifacts(run_dir, artifact_path="outputs")

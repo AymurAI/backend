@@ -1,10 +1,10 @@
 experiment:
-  name: ner-baseline-evaluation-test
+  name: ner-baseline-evaluation-dev
   run_name: "{model}-{timestamp}"
 
 data:
   format: "conll_bio"
-  input_path: "resources/data/restricted/ner-review/labeled-dataset/test-review-cb.txt"
+  input_path: "resources/data/restricted/training-datasets/private/J10-new-data/dev.txt"
   sample_id_field: "sample_id"
   text_field: "text"
   tokens_field: "tokens"
@@ -30,7 +30,7 @@ api:
 
 langextract:
   provider: "ollama"
-  model_id: "qwen2.5:7b"
+  model_id: "qwen3:8b"
   base_url: "http://localhost:11434/v1"
   api_key_env: "OLLAMA_API_KEY"
   api_key_fallback: "ollama"
@@ -59,8 +59,8 @@ metrics:
 logging:
   mlflow:
     enabled: True
-    tracking_uri: "http://localhost:5000"
-    experiment_name: "ner-holdout-evaluation-test"
+    tracking_uri: "http://localhost:5005"
+    experiment_name: "ner-holdout-evaluation-dev"
     enable_openai_autolog: False
     request_timeout_s: 15
     request_max_retries: 2
@@ -71,7 +71,7 @@ logging:
     redact_sensitive_fields: false
 
 outputs:
-  base_dir: "resources/outputs/ner-holdout-evaluation-test"
+  base_dir: "resources/outputs/ner-holdout-evaluation-dev"
   samples_gold_jsonl: "samples_gold.jsonl"
   predictions_jsonl: "predictions.jsonl"
   per_sample_scores_jsonl: "per_sample_scores.jsonl"

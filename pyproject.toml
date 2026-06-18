@@ -90,6 +90,7 @@ dependencies = [
     "marker-pdf==1.10.1",
     "docx2txt>=0.9",
     "opf",
+    "rapidfuzz>=3.10.1",
 ]
 
 [project.urls]

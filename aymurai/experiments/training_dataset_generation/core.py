@@ -190,6 +190,100 @@ def calculate_train_set_stats(
     )
 
 
+def collect_bio_token_paragraph_stats(
+    paragraphs: list[tuple[list[str], list[str]]]
+) -> dict[str, Any]:
+    label_token_counts: dict[str, int] = {}
+    entity_counts: dict[str, int] = {}
+    paragraph_lengths: list[int] = []
+    labeled_paragraphs = 0
+
+    for tokens, labels in paragraphs:
+        paragraph_lengths.append(len(tokens))
+        _, entities = entities_from_bio_tokens(tokens, labels)
+        if entities:
+            labeled_paragraphs += 1
+        for entity in entities:
+            label = entity["label"]
+            entity_counts[label] = entity_counts.get(label, 0) + 1
+        for label in labels:
+            normalized = normalize_bio_label(label)
+            if normalized and normalized != "O":
+                label_token_counts[normalized] = (
+                    label_token_counts.get(normalized, 0) + 1
+                )
+
+    total_paragraphs = len(paragraphs)
+    tokens_total = sum(paragraph_lengths)
+    labeled_tokens = sum(label_token_counts.values())
+
+    return {
+        "paragraphs": total_paragraphs,
+        "labeled_paragraphs": labeled_paragraphs,
+        "unlabeled_paragraphs": total_paragraphs - labeled_paragraphs,
+        "labeled_paragraph_rate": (
+            labeled_paragraphs / total_paragraphs if total_paragraphs else 0.0
+        ),
+        "tokens": tokens_total,
+        "labeled_tokens": labeled_tokens,
+        "labeled_token_rate": labeled_tokens / tokens_total if tokens_total else 0.0,
+        "entity_mentions": sum(entity_counts.values()),
+        "labels": sorted(entity_counts),
+        "n_labels": len(entity_counts),
+        "label_token_counts": dict(sorted(label_token_counts.items())),
+        "entity_counts": dict(sorted(entity_counts.items())),
+    }
+
+
+def collect_bio_file_dataset_stats(path: str | Path) -> dict[str, Any]:
+    return collect_bio_token_paragraph_stats(parse_bio_token_paragraphs(path))
+
+
+def required_label_coverage_table(
+    dataset_stats: dict[str, Any],
+    base_train_stats: dict[str, Any],
+) -> list[dict[str, Any]]:
+    required_labels = sorted(base_train_stats["entity_counts"])
+    coverage: list[dict[str, Any]] = []
+    for label in required_labels:
+        dataset_mentions = dataset_stats["entity_counts"].get(label, 0)
+        coverage.append(
+            {
+                "required_label": label,
+                "base_train_mentions": base_train_stats["entity_counts"].get(label, 0),
+                "dataset_mentions": dataset_mentions,
+                "present_in_dataset": dataset_mentions > 0,
+            }
+        )
+    return coverage
+
+
+def build_dataset_composition_report(
+    *,
+    generated_dataset_path: str | Path,
+    base_train_path: str | Path,
+) -> dict[str, Any]:
+    """Step 8 style report: composition + label-coverage of a generated BIO dataset
+    against the base train set used as the required-label floor."""
+    base_train_stats = collect_bio_file_dataset_stats(base_train_path)
+    generated_dataset_stats = collect_bio_file_dataset_stats(generated_dataset_path)
+    coverage = required_label_coverage_table(generated_dataset_stats, base_train_stats)
+    missing_labels = [
+        row["required_label"] for row in coverage if not row["present_in_dataset"]
+    ]
+
+    return {
+        "base_train_path": str(base_train_path),
+        "generated_dataset_path": str(generated_dataset_path),
+        "base_train_stats": base_train_stats,
+        "generated_dataset_stats": generated_dataset_stats,
+        "required_label_coverage": coverage,
+        "required_labels_present": len(coverage) - len(missing_labels),
+        "required_labels_missing": len(missing_labels),
+        "missing_labels": missing_labels,
+    }
+
+
 def load_jsonl_candidates(jsonl_path: str | Path) -> list[dict[str, Any]]:
     candidates: list[dict[str, Any]] = []
     source_path = Path(jsonl_path)
@@ -496,6 +590,9 @@ def sample_unlabeled_candidates(
 ) -> list[dict[str, Any]]:
     if mode == "none":
         return []
+
+    if mode == "all":
+        return list(clean_unlabeled)
 
     base_labeled = original_train_stats.labeled_count if include_original_train else 0
     base_unlabeled = (

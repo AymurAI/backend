@@ -4,7 +4,7 @@ experiment:
 
 
 data:
-  input_path: "resources/outputs/training-dataset-generation/new_only__all_clean_labeled__ratio_to_selected_labeled_your_run_name/train_generated.txt"
+  input_path: "resources/data/restricted/training-datasets/private/finetuning-private"
 
 
 backend:
@@ -64,7 +64,7 @@ logging:
 
 
 outputs:
-  base_dir: "/Users/MacConra/Documents/Collective/AymurAI/backend/resources/outputs/ner-flair-finetunning"
+  base_dir: "/Users/MacConra/Documents/Collective/AymurAI/backend/resources/outputs/ner-flair-finetuning"
   create_run_subdir: true
   run_subdir_template: "{run_name}"
   samples_gold_jsonl: "samples_gold.jsonl"

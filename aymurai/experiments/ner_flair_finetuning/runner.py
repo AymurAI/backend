@@ -79,6 +79,7 @@ def _ensure_dirs(config: NERFinetuningConfig) -> dict[str, Path]:
         "base": base,
         "manifest": base / config.outputs.manifest_json,
         "dev_root": base / "dev_epochs",
+        "dev_final": base / "dev_final",
         "test_root": base / "test_final",
         "best_model": base / "best-model.pt",
         "final_model": base / "final-model.pt",
@@ -86,8 +87,8 @@ def _ensure_dirs(config: NERFinetuningConfig) -> dict[str, Path]:
     }
 
     paths["dev_root"].mkdir(parents=True, exist_ok=True)
+    paths["dev_final"].mkdir(parents=True, exist_ok=True)
     paths["test_root"].mkdir(parents=True, exist_ok=True)
-    (base / "reports").mkdir(parents=True, exist_ok=True)
 
     return paths
 
@@ -628,6 +629,19 @@ def run_experiment(config_path: str) -> None:
                 )
 
         best_model = SequenceTagger.load(model_for_test_path)
+        dev_final_eval = _evaluate_split(
+            model=best_model,
+            split_name="dev",
+            split_sentences=list(corpus.dev),
+            backend_mode=config.backend.mode,
+            config=config,
+            out_dir=paths["dev_final"],
+            epoch=None,
+            trace_logging_enabled=(
+                mlflow_enabled and config.logging.mlflow.enable_span_comparison_traces
+            ),
+            trace_max_samples=config.logging.mlflow.max_traces_per_split,
+        )
         test_eval = _evaluate_split(
             model=best_model,
             split_name="test",
@@ -643,8 +657,12 @@ def run_experiment(config_path: str) -> None:
         )
 
         if mlflow_enabled:
+            safe_log_metrics(
+                {f"dev_final_{k}": v for k, v in dev_final_eval["metrics"].items()}
+            )
             safe_log_metrics({f"test_{k}": v for k, v in test_eval["metrics"].items()})
             safe_log_artifact(str(model_for_test_path), artifact_path="model")
+            safe_log_artifacts(str(paths["dev_final"]), artifact_path="dev_final")
             safe_log_artifacts(str(paths["test_root"]), artifact_path="test_final")
             if paths["loss_tsv"].exists():
                 safe_log_artifact(str(paths["loss_tsv"]), artifact_path="training")

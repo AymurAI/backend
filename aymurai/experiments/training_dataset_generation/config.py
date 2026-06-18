@@ -29,6 +29,7 @@ class PathsConfig(BaseModel):
     final_bio_filename: str = "train_generated.txt"
     report_filename: str = "report.json"
     low_frequency_labels_filename: str = "resolved_low_frequency_labels.txt"
+    dataset_composition_report_filename: str = "dataset_composition_report.json"
 
 
 class DeduplicationConfig(BaseModel):
@@ -69,6 +70,7 @@ class UnlabeledSamplingConfig(BaseModel):
     def validate_mode(self) -> "UnlabeledSamplingConfig":
         allowed_modes = {
             "none",
+            "all",
             "ratio_to_selected_labeled",
             "target_total_background_ratio",
             "preserve_original_background_ratio",
