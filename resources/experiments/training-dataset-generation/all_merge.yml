@@ -1,0 +1,41 @@
+paths:
+  train_set_path: resources/data/restricted/training-datasets/private/J10-revised-data/train.txt
+  dev_set_path: resources/data/restricted/training-datasets/private/J10-revised-data/dev.txt
+  test_set_path: resources/data/restricted/training-datasets/private/J10-revised-data/test.txt
+  candidate_input_paths:
+    - resources/data/restricted/training-datasets/private/defensoria_train_candidates.txt
+    - resources/data/restricted/training-datasets/private/j10_new_train_candidates.txt
+    - resources/data/restricted/training-datasets/public/pj_jujuy_train_candidates.txt
+    - resources/data/restricted/training-datasets/public/saij_train_candidates.txt
+    - resources/data/restricted/training-datasets/public/augmented_train_candidates.txt
+    - resources/data/restricted/training-datasets/public/cm_train_candidates.txt
+    - resources/data/restricted/training-datasets/public/pii_train_candidates.txt
+    - resources/data/restricted/training-datasets/public/synthetic_train_candidates.txt
+  output_dir: resources/outputs/training-dataset-generation
+  low_frequency_labels_path:
+  final_bio_filename: train_generated_all_merge.txt
+  dataset_composition_report_filename: dataset_composition_report.json
+
+deduplication:
+  internal_threshold: 95.0
+  corpus_threshold: 95.0
+
+label_selection:
+  mode: all_clean_labeled
+  low_frequency_top_k: 15
+  min_target_labels_per_candidate: 1
+
+unlabeled_sampling:
+  mode: all
+  target_background_to_labeled_ratio: 1.0
+
+assembly:
+  include_original_train: true
+  shuffle_selected_candidates: true
+  seed: 42
+
+logging:
+  mlflow:
+    enabled: true
+    tracking_uri: "http://localhost:5005"
+    experiment_name: "training-dataset-generation"

@@ -1,0 +1,78 @@
+experiment:
+  name: "aymurai-ner-flair-finetuning"
+  run_name: "{backend}-{model}-{timestamp}"
+
+
+data:
+  input_path: "resources/data/restricted/training-datasets/private/all-data"
+
+
+backend:
+  mode: "pretrained_flair"
+
+flair_model:
+  finetune_from: "aymurai/anonymizer-beto-cased-flair"
+  model_id: "dccuchile/bert-base-spanish-wwm-cased"
+  layers: "-1"
+  subtoken_pooling: "first"
+  fine_tune: true
+  use_context: true
+  allow_long_sentences: true
+  hidden_size: 256
+  use_crf: true
+  use_rnn: true
+  reproject_embeddings: true
+  dropout: 0.0
+  flair_forward: "es-forward"
+  flair_backward: "es-backward"
+
+
+training:
+  device: "auto"
+  learning_rate: 0.00001
+  mini_batch_size: 4
+  mini_batch_chunk_size: 1
+  max_epochs: 1
+  weight_decay: 0.0
+  anneal_factor: 0.5
+  patience: 3
+  min_learning_rate: 0.0000001
+  embeddings_storage_mode: "none"
+  save_model_each_k_epochs: 1
+  dev_eval_start_epoch: 1
+  dev_eval_every_k_epochs: 1
+  test_eval_epoch: null
+
+
+comparison:
+  normalize_case: true
+  normalize_accents: true
+  normalize_punctuation: true
+
+
+logging:
+  mlflow:
+    enabled: true
+    tracking_uri: "http://localhost:5005"
+    experiment_name: "aymurai-ner-flair-finetuning"
+    enable_span_comparison_traces: true
+    max_traces_per_split: null
+  privacy:
+    log_predictions: true
+    log_metrics: true
+    redact_sensitive_fields: false
+
+
+outputs:
+  base_dir: "/Users/MacConra/Documents/Collective/AymurAI/backend/resources/outputs/ner-flair-finetuning"
+  create_run_subdir: true
+  run_subdir_template: "{run_name}"
+  samples_gold_jsonl: "samples_gold.jsonl"
+  predictions_jsonl: "predictions.jsonl"
+  per_sample_scores_jsonl: "sample_scores.jsonl"
+  comparisons_csv: "comparisons.csv"
+  comparisons_html: "comparisons.html"
+  metrics_summary_json: "summary.json"
+  strict_label_metrics_csv: "label_metrics.csv"
+  token_relaxed_confusion_csv: "confusion_matrix.csv"
+  manifest_json: "manifest.json"
