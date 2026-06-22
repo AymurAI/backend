@@ -54,6 +54,7 @@ async def transcribe_audio_bytes(
             model="whisper-1",
             language="es",
             stream=True,
+            response_format="diarized_json",
         )
         async for event in stream:
             if event.type == DONE_EVENT_TYPE:
@@ -107,6 +108,7 @@ async def stream_transcribe_audio_bytes(
             model="whisper-1",
             language="es",
             stream=True,
+            response_format="diarized_json",
         )
         async for event in stream:
             if event.type == DELTA_EVENT_TYPE:
