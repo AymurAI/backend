@@ -60,3 +60,18 @@ class CoroSegment(BaseModel):
     end: float
     text: str
     speaker: str
+
+
+class CoroStreamDelta(BaseModel):
+    """An incremental transcription text fragment from a coro delta event."""
+
+    text: str
+
+
+class CoroStreamSegments(BaseModel):
+    """The final speaker-attributed segments parsed from the coro done frame."""
+
+    segments: list[CoroSegment]
+
+
+CoroStreamEvent = CoroStreamDelta | CoroStreamSegments
