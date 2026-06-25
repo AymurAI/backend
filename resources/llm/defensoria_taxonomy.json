@@ -1,0 +1,1120 @@
+[
+  {
+    "area": "ACC",
+    "tema": "DERECHOS DE LAS PERSONAS CON DISCAPACIDAD",
+    "subtemas": [
+      {
+        "codigo": "ACC20221",
+        "descripcion": "Accesibilidad y movilidad"
+      },
+      {
+        "codigo": "ACC20222",
+        "descripcion": "Certificados para personas con discapacidad (CUD)"
+      },
+      {
+        "codigo": "ACC20223",
+        "descripcion": "Cupo laboral, pequeños comercios y políticas de inclusión"
+      },
+      {
+        "codigo": "ACC20224",
+        "descripcion": "Curatela"
+      },
+      {
+        "codigo": "ACC20225",
+        "descripcion": "Exenciones y franquicias impositivas"
+      },
+      {
+        "codigo": "ACC20226",
+        "descripcion": "Gestión de elementos ortopédicos y prestaciones de salud (COPIDIS y Prog. Federal Incluir Salud)"
+      },
+      {
+        "codigo": "ACC20227",
+        "descripcion": "Pensiones no contributivas. Certificado médico oficial"
+      },
+      {
+        "codigo": "ACC20228",
+        "descripcion": "Reclamos de personas con CUD a obras sociales y empresas de medicina prepaga"
+      }
+    ]
+  },
+  {
+    "area": "AMB",
+    "tema": "AMBIENTE y CAMBIO CLIMÁTICO",
+    "subtemas": [
+      {
+        "codigo": "AMB20221",
+        "descripcion": "ACUMAR. Seguimiento de Plan Integral de Saneamiento"
+      },
+      {
+        "codigo": "AMB20222",
+        "descripcion": "Cambio climático. Energías renovables y eficiencia energética"
+      },
+      {
+        "codigo": "AMB20223",
+        "descripcion": "Cementerio de Autos"
+      },
+      {
+        "codigo": "AMB20224",
+        "descripcion": "Contaminación Sonora"
+      },
+      {
+        "codigo": "AMB20225",
+        "descripcion": "Contaminación con efluentes líquidos, emanaciones y olores nauseabundos"
+      },
+      {
+        "codigo": "AMB20226",
+        "descripcion": "Evaluación de Impacto y Seguro Ambiental"
+      },
+      {
+        "codigo": "AMB20227",
+        "descripcion": "Inundaciones"
+      },
+      {
+        "codigo": "AMB20228",
+        "descripcion": "Manejo de sustancias peligrosas"
+      },
+      {
+        "codigo": "AMB20229",
+        "descripcion": "Restauración ecológica y reservas"
+      },
+      {
+        "codigo": "AMB202210",
+        "descripcion": "Reciclado y recuperación de residuos domicialiarios"
+      },
+      {
+        "codigo": "AMB202211",
+        "descripcion": "Residuos peligrosos y patogénicos"
+      },
+      {
+        "codigo": "AMB202212",
+        "descripcion": "Ruidos molestos (fuente no difusa)"
+      },
+      {
+        "codigo": "AMB202213",
+        "descripcion": "Fauna urbana (silvestre y sinantrópica)"
+      },
+      {
+        "codigo": "AMB202214",
+        "descripcion": "Animales de compañía. Tenencia responsable y casos de maltrato"
+      },
+      {
+        "codigo": "AMB202215",
+        "descripcion": "Problemas con el Inst. Pasteur y atención veterinaria"
+      }
+    ]
+  },
+  {
+    "area": "COM",
+    "tema": "COMUNICACIONES",
+    "subtemas": [
+      {
+        "codigo": "COM20221",
+        "descripcion": "Control de antenas"
+      },
+      {
+        "codigo": "COM20222",
+        "descripcion": "Correo postal y encomiendas"
+      },
+      {
+        "codigo": "COM20226",
+        "descripcion": "Reclamos colectivos en telecomunicaciones"
+      },
+      {
+        "codigo": "COM20223",
+        "descripcion": "Incumplimientos y reclamos al ENACOM"
+      },
+      {
+        "codigo": "COM20224",
+        "descripcion": "Internet, telefonía fija y televisión"
+      },
+      {
+        "codigo": "COM20225",
+        "descripcion": "Plataformas de contenido"
+      },
+      {
+        "codigo": "COM20227",
+        "descripcion": "Telefonía móvil"
+      }
+    ]
+  },
+  {
+    "area": "CYT",
+    "tema": "EDUCACION, CULTURA, CIENCIA y TECNOLOGIA",
+    "subtemas": [
+      {
+        "codigo": "CYT20221",
+        "descripcion": "Reclamos de centros de estudiantes y cooperadoras escolares"
+      },
+      {
+        "codigo": "CYT20222",
+        "descripcion": "Ciencia y tecnología"
+      },
+      {
+        "codigo": "CYT20223",
+        "descripcion": "Educación privada"
+      },
+      {
+        "codigo": "CYT20224",
+        "descripcion": "Educación estatal. Becas"
+      },
+      {
+        "codigo": "CYT20225",
+        "descripcion": "Educación estatal. Inscripciones y falta de vacantes"
+      },
+      {
+        "codigo": "CYT20226",
+        "descripcion": "Educación estatal. Infraestructura, mantenimiento y seguridad de escuelas"
+      },
+      {
+        "codigo": "CYT20227",
+        "descripcion": "Educación estatal. Falta de materiales e insumos"
+      },
+      {
+        "codigo": "CYT20228",
+        "descripcion": "Educación estatal. Comedores escolares y viandas"
+      },
+      {
+        "codigo": "CYT20229",
+        "descripcion": "Educación sexual integral"
+      },
+      {
+        "codigo": "CYT202210",
+        "descripcion": "Establecimientos de otras jurisdicciones"
+      },
+      {
+        "codigo": "CYT202211",
+        "descripcion": "Inclusión educativa"
+      },
+      {
+        "codigo": "CYT202212",
+        "descripcion": "Netbooks. Plan Sarmiento y Conectar igualdad"
+      },
+      {
+        "codigo": "CYT202213",
+        "descripcion": "Programas socioeducativos"
+      },
+      {
+        "codigo": "CYT202214",
+        "descripcion": "Situaciones de violencia, discriminación, convivencia y medidas disciplinarias"
+      },
+      {
+        "codigo": "CYT202215",
+        "descripcion": "Afectación de clases (extensión de jornada, suspensión, falta de cobertura de cargos)"
+      },
+      {
+        "codigo": "CYT202216",
+        "descripcion": "Títulos, pases, certificados y equivalencias"
+      },
+      {
+        "codigo": "CYT202217",
+        "descripcion": "Transporte escolar y boleto estudiantil"
+      },
+      {
+        "codigo": "CYT202218",
+        "descripcion": "Espacios culturales (bibliotecas, museos, centros culturales, teatros)"
+      },
+      {
+        "codigo": "CYT202219",
+        "descripcion": "Programas y actividades del Ministerio de Cultura"
+      }
+    ]
+  },
+  {
+    "area": "DL",
+    "tema": "DERECHOS LABORALES",
+    "subtemas": [
+      {
+        "codigo": "DL20221",
+        "descripcion": "Derechos laborales en el ámbito privado"
+      },
+      {
+        "codigo": "DL20223",
+        "descripcion": "Violencia laboral en el ámbito privado"
+      },
+      {
+        "codigo": "DL20227",
+        "descripcion": "Trabajo irregular y no registración"
+      },
+      {
+        "codigo": "DL202211",
+        "descripcion": "Aportes previsionales y seguridad social"
+      },
+      {
+        "codigo": "DL20228",
+        "descripcion": "Políticas de promoción del empleo y economía popular"
+      },
+      {
+        "codigo": "DL20225",
+        "descripcion": "Seguridad, higiene y salud ocupacional en el ámbito privado"
+      },
+      {
+        "codigo": "DL20226",
+        "descripcion": "Seguridad, higiene y salud ocupacional en el ámbito público"
+      },
+      {
+        "codigo": "DL20229",
+        "descripcion": "Asignaciones familiares"
+      },
+      {
+        "codigo": "DL202210",
+        "descripcion": "Seguro de desempleo"
+      },
+      {
+        "codigo": "DL20222",
+        "descripcion": "Empleo público"
+      },
+      {
+        "codigo": "DL20224",
+        "descripcion": "Violencia laboral en el ámbito público"
+      }
+    ]
+  },
+  {
+    "area": "DPD",
+    "tema": "DEMOCRACIA, PARTICIPACIÓN y DESCENTRALIZACIÓN",
+    "subtemas": [
+      {
+        "codigo": "DPD20221",
+        "descripcion": "Derechos políticos y procesos electorales"
+      },
+      {
+        "codigo": "DPD20222",
+        "descripcion": "Mecanismos de participación ciudadana e iniciativa parlamentaria"
+      },
+      {
+        "codigo": "DPD20223",
+        "descripcion": "Comunas, Consejos Consultivos y programas descentralizados"
+      }
+    ]
+  },
+  {
+    "area": "DPE",
+    "tema": "DATOS PERSONALES y DERECHOS EN ENTORNOS DIGITALES",
+    "subtemas": [
+      {
+        "codigo": "DPE20221",
+        "descripcion": "Dictámenes sobre actividad del Órgano Garante del Derecho de Acceso a la Información"
+      },
+      {
+        "codigo": "DPE20222",
+        "descripcion": "Registro de bases de datos personales"
+      },
+      {
+        "codigo": "DPE20223",
+        "descripcion": "Consultas sobre bases, tratamiento inadecuado de datos personales y derechos de sus titulares"
+      },
+      {
+        "codigo": "DPE20224",
+        "descripcion": "Políticas basadas en tecnologías digitales"
+      },
+      {
+        "codigo": "DPE20225",
+        "descripcion": "Vulneración de derechos en entornos digitales"
+      },
+      {
+        "codigo": "DPE20226",
+        "descripcion": "Violencia de género digital"
+      }
+    ]
+  },
+  {
+    "area": "DR",
+    "tema": "DEPORTES y RECREACIÓN",
+    "subtemas": [
+      {
+        "codigo": "DR20221",
+        "descripcion": "Colonias de vacaciones"
+      },
+      {
+        "codigo": "DR20222",
+        "descripcion": "Deportes y discapacidad"
+      },
+      {
+        "codigo": "DR20223",
+        "descripcion": "Infraestructura deportiva"
+      },
+      {
+        "codigo": "DR20224",
+        "descripcion": "Polideportivos"
+      },
+      {
+        "codigo": "DR20225",
+        "descripcion": "Eventos y actividades deportivas en vía pública"
+      },
+      {
+        "codigo": "DR20226",
+        "descripcion": "Federaciones, clubes y gimnasios"
+      }
+    ]
+  },
+  {
+    "area": "GDS",
+    "tema": "GENERO y DIVERSIDAD SEXUAL",
+    "subtemas": [
+      {
+        "codigo": "GDS20224",
+        "descripcion": "Afectación de derechos de personas LGBTIQ+"
+      },
+      {
+        "codigo": "GDS20225",
+        "descripcion": "Inscripciones registrales igualitarias"
+      },
+      {
+        "codigo": "GDS20226",
+        "descripcion": "Documentación personal por identidad de género"
+      },
+      {
+        "codigo": "GDS20221",
+        "descripcion": "Explotación sexual, trata y prostitución"
+      },
+      {
+        "codigo": "GDS20222",
+        "descripcion": "Políticas públicas de igualdad de género"
+      },
+      {
+        "codigo": "GDS20223",
+        "descripcion": "Violencia de género"
+      }
+    ]
+  },
+  {
+    "area": "IS",
+    "tema": "POLÍTICAS DE INCLUSIÓN SOCIAL",
+    "subtemas": [
+      {
+        "codigo": "IS20221",
+        "descripcion": "Asignaciones universales"
+      },
+      {
+        "codigo": "IS20222",
+        "descripcion": "Ciudadanía Porteña y Ticket Social"
+      },
+      {
+        "codigo": "IS20223",
+        "descripcion": "Comedores comunitarios"
+      },
+      {
+        "codigo": "IS20224",
+        "descripcion": "Pedidos de asistencia inmediata (bolsa de comida, leche, pañales, colchones)"
+      },
+      {
+        "codigo": "IS20225",
+        "descripcion": "Programas del GCBA (Adolescencia, Nuestras Familias, FIT, Preasis)"
+      },
+      {
+        "codigo": "IS20226",
+        "descripcion": "Programas del Gobierno Nacional (Tarjeta Alimentar, Progresar, Potenciar Trabajo)"
+      }
+    ]
+  },
+  {
+    "area": "JPD",
+    "tema": "DERECHOS HUMANOS, ACCESO A LA JUSTICIA Y PROTECCIÓN CONTRA LA DISCRIMINACIÓN",
+    "subtemas": [
+      {
+        "codigo": "JPD20227",
+        "descripcion": "Implementación de la Ley contra la Discriminación (Ley 5.261)"
+      },
+      {
+        "codigo": "JPD20223",
+        "descripcion": "Identidad biológica"
+      },
+      {
+        "codigo": "JPD20221",
+        "descripcion": "Difusión, promoción, asesoramiento e investigación sobre derechos humanos"
+      },
+      {
+        "codigo": "JPD20224",
+        "descripcion": "Patrocinio jurídico. Asesoramiento"
+      },
+      {
+        "codigo": "JPD20222",
+        "descripcion": "Políticas de derechos humanos y programas de subsidios y/o reparación"
+      },
+      {
+        "codigo": "JPD20225",
+        "descripcion": "Patrocinio jurídico. Audiencias y mediaciones"
+      },
+      {
+        "codigo": "JPD20226",
+        "descripcion": "Patrocinio jurídico. Causas Judiciales"
+      }
+    ]
+  },
+  {
+    "area": "MCA",
+    "tema": "MEDIACIÓN, CONCILIACIÓN y ARBITRAJE",
+    "subtemas": [
+      {
+        "codigo": "MCA20221",
+        "descripcion": "Gestión de conflictos vecinales"
+      },
+      {
+        "codigo": "MCA20222",
+        "descripcion": "Conciliaciones con autoridades gubernamentales u organismos públicos"
+      },
+      {
+        "codigo": "MCA20223",
+        "descripcion": "Mediaciones con empresas o instituciones privadas"
+      }
+    ]
+  },
+  {
+    "area": "NAJ",
+    "tema": "NIÑEZ, ADOLESCENCIA y JUVENTUD",
+    "subtemas": [
+      {
+        "codigo": "NAJ20221",
+        "descripcion": "Niñas/os y adolescentes en instituciones y situación de calle"
+      },
+      {
+        "codigo": "NAJ20222",
+        "descripcion": "Niñas/os y adolescentes víctimas de violencia"
+      },
+      {
+        "codigo": "NAJ20223",
+        "descripcion": "Acceso a derechos civiles y sociales de niñas/os y adolescentes"
+      },
+      {
+        "codigo": "NAJ20224",
+        "descripcion": "Organizaciones juveniles"
+      },
+      {
+        "codigo": "NAJ20225",
+        "descripcion": "Jóvenes con derechos vulnerados"
+      }
+    ]
+  },
+  {
+    "area": "OEXT",
+    "tema": "ORGANISMOS EXTERNOS",
+    "subtemas": [
+      {
+        "codigo": "OEXT20221",
+        "descripcion": "Renaper"
+      },
+      {
+        "codigo": "OEXT20222",
+        "descripcion": "PAMI"
+      },
+      {
+        "codigo": "OEXT20223",
+        "descripcion": "ANSES"
+      },
+      {
+        "codigo": "OEXT20224",
+        "descripcion": "Ministerio Público de la Defensa"
+      }
+    ]
+  },
+  {
+    "area": "PMG",
+    "tema": "DERECHOS DE LAS PERSONAS MIGRANTES",
+    "subtemas": [
+      {
+        "codigo": "PMG20221",
+        "descripcion": "Procesos de ciudadanía"
+      },
+      {
+        "codigo": "PMG20222",
+        "descripcion": "Trámites y documentación migratoria"
+      },
+      {
+        "codigo": "PMG20223",
+        "descripcion": "Restricción a derechos por falta de documentación"
+      },
+      {
+        "codigo": "PMG20224",
+        "descripcion": "Diversidad cultural"
+      }
+    ]
+  },
+  {
+    "area": "PMJ",
+    "tema": "DERECHOS DE LAS PERSONAS MAYORES, JUBILADAS",
+    "subtemas": [
+      {
+        "codigo": "PMJ20222",
+        "descripcion": "Geriatricos y hogares. Solicitudes de internación, irregularidades y maltrato"
+      },
+      {
+        "codigo": "PMJ20223",
+        "descripcion": "Jubilaciones, pensiones y retiros por invalidez"
+      },
+      {
+        "codigo": "PMJ20224",
+        "descripcion": "PAMI. Atención médica y vacunación"
+      },
+      {
+        "codigo": "PMJ20225",
+        "descripcion": "PAMI. Afiliación, cambio de cápita y reintegros"
+      },
+      {
+        "codigo": "PMJ20226",
+        "descripcion": "PAMI. Medicamentos, protesis e insumos"
+      },
+      {
+        "codigo": "PMJ20227",
+        "descripcion": "PAMI.Traslados, internaciones y cirugías"
+      },
+      {
+        "codigo": "PMJ20228",
+        "descripcion": "PAMI. Subsidios y prestaciones (alimentaria, bolsón, social, sepelios, persona cuidadora)"
+      },
+      {
+        "codigo": "PMJ20229",
+        "descripcion": "Programas alternativos a internación geriátrica (hogares de día, comedores, vivir en casa)"
+      },
+      {
+        "codigo": "PMJ20221",
+        "descripcion": "Trámites y reclamos a ANSES"
+      }
+    ]
+  },
+  {
+    "area": "PTT",
+    "tema": "VÍA PÚBLICA, TRÁNSITO y TRANSPORTE",
+    "subtemas": [
+      {
+        "codigo": "PTT20224",
+        "descripcion": "Autopistas"
+      },
+      {
+        "codigo": "PTT20225",
+        "descripcion": "Bicicletas - bicisendas"
+      },
+      {
+        "codigo": "PTT20221",
+        "descripcion": "Alumbrado"
+      },
+      {
+        "codigo": "PTT20222",
+        "descripcion": "Aceras y calzadas"
+      },
+      {
+        "codigo": "PTT20223",
+        "descripcion": "Arbolado. Solicitud de corte de ramas y raíces"
+      },
+      {
+        "codigo": "PTT20228",
+        "descripcion": "Multas e infracciones de tránsito"
+      },
+      {
+        "codigo": "PTT20229",
+        "descripcion": "Obstáculos en vía pública (canteros, anclajes, postes, cableados)"
+      },
+      {
+        "codigo": "PTT202212",
+        "descripcion": "Semáforos y señalizaciones"
+      },
+      {
+        "codigo": "PTT20226",
+        "descripcion": "Colectivos, Ómnibus y METROBUS"
+      },
+      {
+        "codigo": "PTT20227",
+        "descripcion": "FFCC"
+      },
+      {
+        "codigo": "PTT202210",
+        "descripcion": "Reclamos a la CNRT"
+      },
+      {
+        "codigo": "PTT202211",
+        "descripcion": "Seguridad víal. Siniestros"
+      },
+      {
+        "codigo": "PTT202213",
+        "descripcion": "Subtes"
+      },
+      {
+        "codigo": "PTT202214",
+        "descripcion": "Tarifa social"
+      },
+      {
+        "codigo": "PTT202215",
+        "descripcion": "Tarjeta SUBE"
+      },
+      {
+        "codigo": "PTT202216",
+        "descripcion": "Taxis y remises"
+      },
+      {
+        "codigo": "PTT202217",
+        "descripcion": "Tránsito pesado"
+      }
+    ]
+  },
+  {
+    "area": "SAL",
+    "tema": "SALUD",
+    "subtemas": [
+      {
+        "codigo": "SAL20221",
+        "descripcion": "Obras sociales. Altas, bajas, opción de cambio, co-pagos"
+      },
+      {
+        "codigo": "SAL20222",
+        "descripcion": "Obras sociales. Atención e internación domiciliaria. Cuidados paliativos"
+      },
+      {
+        "codigo": "SAL20223",
+        "descripcion": "Obras sociales. Demora en turnos"
+      },
+      {
+        "codigo": "SAL20224",
+        "descripcion": "Obras sociales. Problemas en guardias, tratamientos e internaciones"
+      },
+      {
+        "codigo": "SAL20225",
+        "descripcion": "Obras sociales. Maltrato y discriminación en la atención"
+      },
+      {
+        "codigo": "SAL20226",
+        "descripcion": "Obras sociales. Medicamentos, protesis e insumos"
+      },
+      {
+        "codigo": "SAL20227",
+        "descripcion": "Obras sociales. Prestaciones medicas en geriátricos"
+      },
+      {
+        "codigo": "SAL20228",
+        "descripcion": "Medicina prepaga. Altas, bajas, traspasos, co-pagos"
+      },
+      {
+        "codigo": "SAL20229",
+        "descripcion": "Medicina prepaga. Atención e internación domiciliaria. Cuidados paliativos"
+      },
+      {
+        "codigo": "SAL202210",
+        "descripcion": "Medicina prepaga. Demora en turnos"
+      },
+      {
+        "codigo": "SAL202211",
+        "descripcion": "Medicina prepaga. Problemas en guardias, tratamientos e internaciones"
+      },
+      {
+        "codigo": "SAL202212",
+        "descripcion": "Medicina prepaga. Maltrato y discriminación en la atención"
+      },
+      {
+        "codigo": "SAL202213",
+        "descripcion": "Medicina prepaga. Medicamentos, protesis e insumos"
+      },
+      {
+        "codigo": "SAL202214",
+        "descripcion": "Medicina prepaga. Prestaciones médicas en geriátricos"
+      },
+      {
+        "codigo": "SAL202215",
+        "descripcion": "Salud Pública. Atención e internación domiciliaria. Cuidados paliativos"
+      },
+      {
+        "codigo": "SAL202216",
+        "descripcion": "Salud Pública. Demora en turnos"
+      },
+      {
+        "codigo": "SAL202217",
+        "descripcion": "Salud Pública. Problemas en guardias, tratamientos e internaciones"
+      },
+      {
+        "codigo": "SAL202218",
+        "descripcion": "Salud Pública. Establecimientos sanitarios. Infraestructura y mantenimiento"
+      },
+      {
+        "codigo": "SAL202219",
+        "descripcion": "Salud Pública. Medicamentos, protesis e insumos"
+      },
+      {
+        "codigo": "SAL202220",
+        "descripcion": "Salud Pública. Maltrato y discriminación en la atención"
+      },
+      {
+        "codigo": "SAL202221",
+        "descripcion": "SAME"
+      },
+      {
+        "codigo": "SAL202222",
+        "descripcion": "Solicitud de historia clínica, confidencialidad y consentimiento informado"
+      },
+      {
+        "codigo": "SAL202223",
+        "descripcion": "Vacunación"
+      },
+      {
+        "codigo": "SAL202224",
+        "descripcion": "Hisopado y PCR"
+      },
+      {
+        "codigo": "SAL202225",
+        "descripcion": "Violencia obstétrica"
+      }
+    ]
+  },
+  {
+    "area": "SM",
+    "tema": "SALUD MENTAL",
+    "subtemas": [
+      {
+        "codigo": "SM20231",
+        "descripcion": "Activación del protocolo para situaciónes de crisis y  solicitudes de áreas temáticas"
+      },
+      {
+        "codigo": "SM20232",
+        "descripcion": "Conflictos vecinales vinculados a la salud mental"
+      },
+      {
+        "codigo": "SMCA20226",
+        "descripcion": "Salud mental. Problemas de atención, acceso, internación y tratamiento"
+      },
+      {
+        "codigo": "SMCA20224",
+        "descripcion": "Intervención en situaciones de crisis y atención a personas damnificadas"
+      },
+      {
+        "codigo": "SMCA20222",
+        "descripcion": "Adicciones. Problemas de atención, acceso, internación y tratamiento"
+      }
+    ]
+  },
+  {
+    "area": "SP",
+    "tema": "SERVICIOS PÚBLICOS",
+    "subtemas": [
+      {
+        "codigo": "SP20221",
+        "descripcion": "Agua y cloacas"
+      },
+      {
+        "codigo": "SP20222",
+        "descripcion": "Agua y cloacas. Tarifa social y segmentación"
+      },
+      {
+        "codigo": "SP20223",
+        "descripcion": "Cementerios"
+      },
+      {
+        "codigo": "SP20224",
+        "descripcion": "Control de plagas"
+      },
+      {
+        "codigo": "SP20225",
+        "descripcion": "Energía. EDENOR"
+      },
+      {
+        "codigo": "SP20226",
+        "descripcion": "Energía. EDESUR"
+      },
+      {
+        "codigo": "SP20227",
+        "descripcion": "Energía. Tarifa social y segmentación"
+      },
+      {
+        "codigo": "SP20228",
+        "descripcion": "Estacionamiento medido"
+      },
+      {
+        "codigo": "SP20229",
+        "descripcion": "Gas"
+      },
+      {
+        "codigo": "SP202210",
+        "descripcion": "Gas. Tarifa social y segmentación"
+      },
+      {
+        "codigo": "SP202211",
+        "descripcion": "Higiene urbana. Baldíos, predios o casas abandonadas"
+      },
+      {
+        "codigo": "SP202212",
+        "descripcion": "Higiene urbana. Irregularidades en recolección de residuos domiciliarios"
+      },
+      {
+        "codigo": "SP202213",
+        "descripcion": "Vehículos abandonados"
+      },
+      {
+        "codigo": "SP202214",
+        "descripcion": "Verificación Técnica Vehicular (VTV)"
+      }
+    ]
+  },
+  {
+    "area": "TUR",
+    "tema": "TURISMO",
+    "subtemas": [
+      {
+        "codigo": "TUR20221",
+        "descripcion": "Aeropuertos, puertos y terminales de micros"
+      },
+      {
+        "codigo": "TUR20222",
+        "descripcion": "Agencia de viajes. Pasajes, prestaciones y paquetes turísticos"
+      },
+      {
+        "codigo": "TUR20223",
+        "descripcion": "Agencia de viajes. Turismo estudiantil"
+      },
+      {
+        "codigo": "TUR20224",
+        "descripcion": "Alojamiento (reserva directa en hoteles y alquileres temporarios para turistas hasta 3 meses)"
+      },
+      {
+        "codigo": "TUR20225",
+        "descripcion": "Asistencia al viajero y seguros de cancelación"
+      },
+      {
+        "codigo": "TUR20226",
+        "descripcion": "Información y servicios a turistas"
+      },
+      {
+        "codigo": "TUR20227",
+        "descripcion": "Líneas áereas (compra y/o servicio directo)"
+      },
+      {
+        "codigo": "TUR20228",
+        "descripcion": "Medios de transporte (contratación directa de cruceros, bus turístico, alquiler de autos)"
+      },
+      {
+        "codigo": "TUR20229",
+        "descripcion": "Orientación a turista en trámites en migraciones, sanidad de fronteras, aduana, AFIP, RENAPER y consulados"
+      },
+      {
+        "codigo": "TUR202210",
+        "descripcion": "Orientación a turista varado en el país o en el extranjero"
+      },
+      {
+        "codigo": "TUR202211",
+        "descripcion": "Orientación a turista vinculado a delitos y/o contravenciones"
+      },
+      {
+        "codigo": "TUR202212",
+        "descripcion": "Previaje"
+      },
+      {
+        "codigo": "TUR202213",
+        "descripcion": "Turismo accesible y turismo social"
+      }
+    ]
+  },
+  {
+    "area": "UCA",
+    "tema": "DERECHOS DE USUARIOS/AS, CONSUMIDORES/AS y ADMINISTRADOS/AS",
+    "subtemas": [
+      {
+        "codigo": "UCA20225",
+        "descripcion": "Registro No Llame"
+      },
+      {
+        "codigo": "UCA20221",
+        "descripcion": "Automotores"
+      },
+      {
+        "codigo": "UCA20222",
+        "descripcion": "Medicina prepaga. Registro y condiciones de contratación"
+      },
+      {
+        "codigo": "UCA20223",
+        "descripcion": "Quejas contra la atención de la Dir. General de Defensa y Protección al Consumidor"
+      },
+      {
+        "codigo": "UCA20224",
+        "descripcion": "Reclamos ante la Administración Gubernamental de Ingresos Públicos (AGIP) - ABL, Ingresos Brutos, Patentes"
+      },
+      {
+        "codigo": "UCA20226",
+        "descripcion": "Reclamos por incumplimientos de proveedores en relaciones de consumo"
+      },
+      {
+        "codigo": "UCA20227",
+        "descripcion": "Servicios bancarios y financieros"
+      },
+      {
+        "codigo": "UCA20228",
+        "descripcion": "Trámite de documentación personal (DNI, partidas)."
+      },
+      {
+        "codigo": "UCA20229",
+        "descripcion": "Trámite de licencia de conducir"
+      }
+    ]
+  },
+  {
+    "area": "UPC",
+    "tema": "DERECHOS URBANOS, ESPACIO PÚBLICO Y CONTROL COMUNAL",
+    "subtemas": [
+      {
+        "codigo": "UPC202221",
+        "descripcion": "Riesgo de derrumbe"
+      },
+      {
+        "codigo": "UPC20221",
+        "descripcion": "Actividades comerciales e industriales. Permisos, habilitaciones y condiciones de funcionamiento"
+      },
+      {
+        "codigo": "UPC20222",
+        "descripcion": "Cartelería y publicidad en vía pública"
+      },
+      {
+        "codigo": "UPC20223",
+        "descripcion": "Concesiones"
+      },
+      {
+        "codigo": "UPC20224",
+        "descripcion": "Daños edilicios producidos por edificios públicos"
+      },
+      {
+        "codigo": "UPC20225",
+        "descripcion": "Edificios privados. Condiciones de seguridad"
+      },
+      {
+        "codigo": "UPC20226",
+        "descripcion": "Edificios públicos. Administración, mantenimiento y condiciones de seguridad"
+      },
+      {
+        "codigo": "UPC20227",
+        "descripcion": "Ferias"
+      },
+      {
+        "codigo": "UPC20228",
+        "descripcion": "Higiene y salud alimentaria"
+      },
+      {
+        "codigo": "UPC20229",
+        "descripcion": "Hoteles"
+      },
+      {
+        "codigo": "UPC202210",
+        "descripcion": "Locales bailables y discotecas"
+      },
+      {
+        "codigo": "UPC202211",
+        "descripcion": "Mala atención y demora en trámites ante organismos de gobierno y comunas"
+      },
+      {
+        "codigo": "UPC202212",
+        "descripcion": "Obras particulares"
+      },
+      {
+        "codigo": "UPC202213",
+        "descripcion": "Obras públicas"
+      },
+      {
+        "codigo": "UPC202214",
+        "descripcion": "Parques y plazas"
+      },
+      {
+        "codigo": "UPC202215",
+        "descripcion": "Patrimonio Público. Áreas de Protección Histórica y edificios catalogados"
+      },
+      {
+        "codigo": "UPC202216",
+        "descripcion": "Ocupación del espacio público"
+      },
+      {
+        "codigo": "UPC202217",
+        "descripcion": "Puestos de venta en la vía pública y venta ambulante"
+      },
+      {
+        "codigo": "UPC202218",
+        "descripcion": "Proveedores del Gobierno de la Ciudad de Buenos Aires. Legalidad de los contratos"
+      },
+      {
+        "codigo": "UPC202219",
+        "descripcion": "Proyectos urbanísticos"
+      },
+      {
+        "codigo": "UPC202220",
+        "descripcion": "Villas y asentamientos (planes de urbanización)"
+      }
+    ]
+  },
+  {
+    "area": "VIV",
+    "tema": "VIVIENDA",
+    "subtemas": [
+      {
+        "codigo": "VIV202214",
+        "descripcion": "Personas residentes en Hoteles"
+      },
+      {
+        "codigo": "VIV20222",
+        "descripcion": "Complejos Habitacionales"
+      },
+      {
+        "codigo": "VIV20223",
+        "descripcion": "Créditos (Ley 341 a personas y cooperativas, Primera Casa, UVA)"
+      },
+      {
+        "codigo": "VIV20226",
+        "descripcion": "Inconvenientes con inmobiliarias"
+      },
+      {
+        "codigo": "VIV20227",
+        "descripcion": "Programas específicos (Ex AU3, Casa Amarilla, Ley 324, La Boca, Barrio Olímpico, Ley 624)"
+      },
+      {
+        "codigo": "VIV20228",
+        "descripcion": "Registro, inconvenitentes con administraciones de consorcio y expensas"
+      },
+      {
+        "codigo": "VIV202213",
+        "descripcion": "Problemas con el contrato de alquiler y vulneración de derechos de personas inquilinas"
+      },
+      {
+        "codigo": "VIV202212",
+        "descripcion": "Villas y asentamientos (viviendas, servicios, obras de emergencias y relocalizaciones)"
+      },
+      {
+        "codigo": "VIV20224",
+        "descripcion": "Desalojos"
+      },
+      {
+        "codigo": "VIV202210",
+        "descripcion": "Subsidio habitacional. Decreto 690/06 y 960/08"
+      },
+      {
+        "codigo": "VIV202211",
+        "descripcion": "Programas de apoyo habitacional. Decretos 1234/04, 97/05 y 574/09"
+      },
+      {
+        "codigo": "VIV20225",
+        "descripcion": "Hogares"
+      },
+      {
+        "codigo": "VIV20229",
+        "descripcion": "Situación de calle. Centros de Inclusión Social (ex paradores) y Programa Buenos Aires Presente (BAP)"
+      }
+    ]
+  },
+  {
+    "area": "VTS",
+    "tema": "VIOLENCIA INSTITUCIONAL, PREVENCIÓN DE LA TORTURA y SEGURIDAD CIUDADANA",
+    "subtemas": [
+      {
+        "codigo": "VTS20221",
+        "descripcion": "Condiciones de lugares de encierro"
+      },
+      {
+        "codigo": "VTS20222",
+        "descripcion": "Tortura y/o malos tratos en contexto de encierro"
+      },
+      {
+        "codigo": "VTS20223",
+        "descripcion": "Políticas y reclamos sobre seguridad ciudadana"
+      },
+      {
+        "codigo": "VTS20224",
+        "descripcion": "Violencia por las fuerzas de seguridad pública"
+      },
+      {
+        "codigo": "VTS20225",
+        "descripcion": "Corrupción de fuerzas de seguridad pública"
+      },
+      {
+        "codigo": "VTS20226",
+        "descripcion": "Violencia por personal de seguridad privada"
+      }
+    ]
+  }
+]

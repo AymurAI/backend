@@ -1,0 +1,216 @@
+system-prompts:
+  information-extraction: Eres un asistente especializado en el análisis de documentos
+    de la Defensoría del Pueblo. Tu tarea es extraer información clave del documento
+    recibido y generar una síntesis muy concisa.
+  extraction-guidelines: |
+    Reglas de extracción y priorización:
+    1. Extrae destinatarios como una lista de objetos con: nombre, cargo y destinatario_principal.
+    2. `destinatario_principal=true` cuando la medida (recomendación/exhortación/intimación) se dirige directamente a ese destinatario.
+    3. `destinatario_principal=false` cuando la mención sea solo de notificación/comunicación ("notificar", "poner en conocimiento", "remitir copia").
+    4. Prioriza la sección RESUELVE y verbos directivos como "recomendar", "exhortar", "instar", "intimar" para identificar destinatarios principales.
+    5. Para cada destinatario, extrae nombre propio o denominación institucional y cargo/función formal cuando aparezca explícito.
+    6. Si falta nombre o cargo, devuelve `null` en ese campo. No inventes organismos, cargos ni nombres.
+
+fields:
+  numero_recomendacion: Figura como pie de página con la leyenda "Resolución Nro /<AÑO>"
+    o en el nombre del archivo.
+  fecha_recomendacion: Suele aparecer en el encabezado del documento (ej. "Buenos
+    Aires, 01 de enero de 2000").
+  destinatarios:
+    Lista de destinatarios (personas, organismos o entidades) mencionados en la resolución.
+    Para cada destinatario incluir
+      - `nombre` — nombre propio o denominación institucional.
+      - `cargo` — cargo/función formal cuando aparezca explícito.
+      - `destinatario_principal` — true si es destinatario de la recomendación/exhortación;
+        false si solo recibe notificación/comunicación.
+  destinatarios_por_sector:
+    Lista de sectores inferidos para los destinatarios principales (ej. GCBA, organismo
+    nacional, empresa privada, poder judicial, legislativo, etc.). No incluir aquí
+    destinatarios únicamente notificados.
+  tema: Clasificación temática principal del documento. Elegir únicamente uno de los
+    temas listados en la taxonomía.
+  subtema: Clasificación temática secundaria. Elegir uno de los subtemas asociados
+    al tema seleccionado en la taxonomía.
+  datos_personales: Identificar si hay datos personales presentes en el documento
+    (nombres, DNI, direcciones, etc.).
+  contenido_para_publicar: Síntesis muy concisa (1-2 líneas) del contenido del documento,
+    destacando el hecho principal y la medida adoptada. Debe mencionar de forma general
+    a quién se dirige la recomendación/exhortación (`destinatario_principal=true`) y no
+    debe presentar como destinatarios de la medida a quienes solo fueron notificados.
+    No incluir detalles específicos que permitan identificar a las personas involucradas
+    que no ejerzan cargos públicos o funciones institucionales. No mencionar datos personales
+    ni detalles que puedan llevar a la identificación de personas no públicas.
+
+taxonomy: "- DERECHOS DE LAS PERSONAS CON DISCAPACIDAD:\n  - Accesibilidad y movilidad\n\
+  \  - Certificados para personas con discapacidad (CUD)\n  - Cupo laboral, pequeños\
+  \ comercios y políticas de inclusión\n  - Curatela\n  - Exenciones y franquicias\
+  \ impositivas\n  - Gestión de elementos ortopédicos y prestaciones de salud (COPIDIS\
+  \ y Prog. Federal Incluir Salud)\n  - Pensiones no contributivas. Certificado médico\
+  \ oficial\n  - Reclamos de personas con CUD a obras sociales y empresas de medicina\
+  \ prepaga\n- AMBIENTE y CAMBIO CLIMÁTICO:\n  - ACUMAR. Seguimiento de Plan Integral\
+  \ de Saneamiento\n  - Cambio climático. Energías renovables y eficiencia energética\n\
+  \  - Cementerio de Autos\n  - Contaminación Sonora\n  - Contaminación con efluentes\
+  \ líquidos, emanaciones y olores nauseabundos\n  - Evaluación de Impacto y Seguro\
+  \ Ambiental\n  - Inundaciones\n  - Manejo de sustancias peligrosas\n  - Restauración\
+  \ ecológica y reservas\n  - Reciclado y recuperación de residuos domicialiarios\n\
+  \  - Residuos peligrosos y patogénicos\n  - Ruidos molestos (fuente no difusa)\n\
+  \  - Fauna urbana (silvestre y sinantrópica)\n  - Animales de compañía. Tenencia\
+  \ responsable y casos de maltrato\n  - Problemas con el Inst. Pasteur y atención\
+  \ veterinaria\n- COMUNICACIONES:\n  - Control de antenas\n  - Correo postal y encomiendas\n\
+  \  - Reclamos colectivos en telecomunicaciones\n  - Incumplimientos y reclamos al\
+  \ ENACOM\n  - Internet, telefonía fija y televisión\n  - Plataformas de contenido\n\
+  \  - Telefonía móvil\n- EDUCACION, CULTURA, CIENCIA y TECNOLOGIA:\n  - Reclamos\
+  \ de centros de estudiantes y cooperadoras escolares\n  - Ciencia y tecnología\n\
+  \  - Educación privada\n  - Educación estatal. Becas\n  - Educación estatal. Inscripciones\
+  \ y falta de vacantes\n  - Educación estatal. Infraestructura, mantenimiento y seguridad\
+  \ de escuelas\n  - Educación estatal. Falta de materiales e insumos\n  - Educación\
+  \ estatal. Comedores escolares y viandas\n  - Educación sexual integral\n  - Establecimientos\
+  \ de otras jurisdicciones\n  - Inclusión educativa\n  - Netbooks. Plan Sarmiento\
+  \ y Conectar igualdad\n  - Programas socioeducativos\n  - Situaciones de violencia,\
+  \ discriminación, convivencia y medidas disciplinarias\n  - Afectación de clases\
+  \ (extensión de jornada, suspensión, falta de cobertura de cargos)\n  - Títulos,\
+  \ pases, certificados y equivalencias\n  - Transporte escolar y boleto estudiantil\n\
+  \  - Espacios culturales (bibliotecas, museos, centros culturales, teatros)\n  -\
+  \ Programas y actividades del Ministerio de Cultura\n- DERECHOS LABORALES:\n  -\
+  \ Derechos laborales en el ámbito privado\n  - Violencia laboral en el ámbito privado\n\
+  \  - Trabajo irregular y no registración\n  - Aportes previsionales y seguridad\
+  \ social\n  - Políticas de promoción del empleo y economía popular\n  - Seguridad,\
+  \ higiene y salud ocupacional en el ámbito privado\n  - Seguridad, higiene y salud\
+  \ ocupacional en el ámbito público\n  - Asignaciones familiares\n  - Seguro de desempleo\n\
+  \  - Empleo público\n  - Violencia laboral en el ámbito público\n- DEMOCRACIA, PARTICIPACIÓN\
+  \ y DESCENTRALIZACIÓN:\n  - Derechos políticos y procesos electorales\n  - Mecanismos\
+  \ de participación ciudadana e iniciativa parlamentaria\n  - Comunas, Consejos Consultivos\
+  \ y programas descentralizados\n- DATOS PERSONALES y DERECHOS EN ENTORNOS DIGITALES:\n\
+  \  - Dictámenes sobre actividad del Órgano Garante del Derecho de Acceso a la Información\n\
+  \  - Registro de bases de datos personales\n  - Consultas sobre bases, tratamiento\
+  \ inadecuado de datos personales y derechos de sus titulares\n  - Políticas basadas\
+  \ en tecnologías digitales\n  - Vulneración de derechos en entornos digitales\n\
+  \  - Violencia de género digital\n- DEPORTES y RECREACIÓN:\n  - Colonias de vacaciones\n\
+  \  - Deportes y discapacidad\n  - Infraestructura deportiva\n  - Polideportivos\n\
+  \  - Eventos y actividades deportivas en vía pública\n  - Federaciones, clubes y\
+  \ gimnasios\n- GENERO y DIVERSIDAD SEXUAL:\n  - Afectación de derechos de personas\
+  \ LGBTIQ+\n  - Inscripciones registrales igualitarias\n  - Documentación personal\
+  \ por identidad de género\n  - Explotación sexual, trata y prostitución\n  - Políticas\
+  \ públicas de igualdad de género\n  - Violencia de género\n- POLÍTICAS DE INCLUSIÓN\
+  \ SOCIAL:\n  - Asignaciones universales\n  - Ciudadanía Porteña y Ticket Social\n\
+  \  - Comedores comunitarios\n  - Pedidos de asistencia inmediata (bolsa de comida,\
+  \ leche, pañales, colchones)\n  - Programas del GCBA (Adolescencia, Nuestras Familias,\
+  \ FIT, Preasis)\n  - Programas del Gobierno Nacional (Tarjeta Alimentar, Progresar,\
+  \ Potenciar Trabajo)\n- DERECHOS HUMANOS, ACCESO A LA JUSTICIA Y PROTECCIÓN CONTRA\
+  \ LA DISCRIMINACIÓN:\n  - Implementación de la Ley contra la Discriminación (Ley\
+  \ 5.261)\n  - Identidad biológica\n  - Difusión, promoción, asesoramiento e investigación\
+  \ sobre derechos humanos\n  - Patrocinio jurídico. Asesoramiento\n  - Políticas\
+  \ de derechos humanos y programas de subsidios y/o reparación\n  - Patrocinio jurídico.\
+  \ Audiencias y mediaciones\n  - Patrocinio jurídico. Causas Judiciales\n- MEDIACIÓN,\
+  \ CONCILIACIÓN y ARBITRAJE:\n  - Gestión de conflictos vecinales\n  - Conciliaciones\
+  \ con autoridades gubernamentales u organismos públicos\n  - Mediaciones con empresas\
+  \ o instituciones privadas\n- NIÑEZ, ADOLESCENCIA y JUVENTUD:\n  - Niñas/os y adolescentes\
+  \ en instituciones y situación de calle\n  - Niñas/os y adolescentes víctimas de\
+  \ violencia\n  - Acceso a derechos civiles y sociales de niñas/os y adolescentes\n\
+  \  - Organizaciones juveniles\n  - Jóvenes con derechos vulnerados\n- ORGANISMOS\
+  \ EXTERNOS:\n  - Renaper\n  - PAMI\n  - ANSES\n  - Ministerio Público de la Defensa\n\
+  - DERECHOS DE LAS PERSONAS MIGRANTES:\n  - Procesos de ciudadanía\n  - Trámites\
+  \ y documentación migratoria\n  - Restricción a derechos por falta de documentación\n\
+  \  - Diversidad cultural\n- DERECHOS DE LAS PERSONAS MAYORES, JUBILADAS:\n  - Geriatricos\
+  \ y hogares. Solicitudes de internación, irregularidades y maltrato\n  - Jubilaciones,\
+  \ pensiones y retiros por invalidez\n  - PAMI. Atención médica y vacunación\n  -\
+  \ PAMI. Afiliación, cambio de cápita y reintegros\n  - PAMI. Medicamentos, protesis\
+  \ e insumos\n  - PAMI.Traslados, internaciones y cirugías\n  - PAMI. Subsidios y\
+  \ prestaciones (alimentaria, bolsón, social, sepelios, persona cuidadora)\n  - Programas\
+  \ alternativos a internación geriátrica (hogares de día, comedores, vivir en casa)\n\
+  \  - Trámites y reclamos a ANSES\n- VÍA PÚBLICA, TRÁNSITO y TRANSPORTE:\n  - Autopistas\n\
+  \  - Bicicletas - bicisendas\n  - Alumbrado\n  - Aceras y calzadas\n  - Arbolado.\
+  \ Solicitud de corte de ramas y raíces\n  - Multas e infracciones de tránsito\n\
+  \  - Obstáculos en vía pública (canteros, anclajes, postes, cableados)\n  - Semáforos\
+  \ y señalizaciones\n  - Colectivos, Ómnibus y METROBUS\n  - FFCC\n  - Reclamos a\
+  \ la CNRT\n  - Seguridad víal. Siniestros\n  - Subtes\n  - Tarifa social\n  - Tarjeta\
+  \ SUBE\n  - Taxis y remises\n  - Tránsito pesado\n- SALUD:\n  - Obras sociales.\
+  \ Altas, bajas, opción de cambio, co-pagos\n  - Obras sociales. Atención e internación\
+  \ domiciliaria. Cuidados paliativos\n  - Obras sociales. Demora en turnos\n  - Obras\
+  \ sociales. Problemas en guardias, tratamientos e internaciones\n  - Obras sociales.\
+  \ Maltrato y discriminación en la atención\n  - Obras sociales. Medicamentos, protesis\
+  \ e insumos\n  - Obras sociales. Prestaciones medicas en geriátricos\n  - Medicina\
+  \ prepaga. Altas, bajas, traspasos, co-pagos\n  - Medicina prepaga. Atención e internación\
+  \ domiciliaria. Cuidados paliativos\n  - Medicina prepaga. Demora en turnos\n  -\
+  \ Medicina prepaga. Problemas en guardias, tratamientos e internaciones\n  - Medicina\
+  \ prepaga. Maltrato y discriminación en la atención\n  - Medicina prepaga. Medicamentos,\
+  \ protesis e insumos\n  - Medicina prepaga. Prestaciones médicas en geriátricos\n\
+  \  - Salud Pública. Atención e internación domiciliaria. Cuidados paliativos\n \
+  \ - Salud Pública. Demora en turnos\n  - Salud Pública. Problemas en guardias, tratamientos\
+  \ e internaciones\n  - Salud Pública. Establecimientos sanitarios. Infraestructura\
+  \ y mantenimiento\n  - Salud Pública. Medicamentos, protesis e insumos\n  - Salud\
+  \ Pública. Maltrato y discriminación en la atención\n  - SAME\n  - Solicitud de\
+  \ historia clínica, confidencialidad y consentimiento informado\n  - Vacunación\n\
+  \  - Hisopado y PCR\n  - Violencia obstétrica\n- SALUD MENTAL:\n  - Activación del\
+  \ protocolo para situaciónes de crisis y  solicitudes de áreas temáticas\n  - Conflictos\
+  \ vecinales vinculados a la salud mental\n  - Salud mental. Problemas de atención,\
+  \ acceso, internación y tratamiento\n  - Intervención en situaciones de crisis y\
+  \ atención a personas damnificadas\n  - Adicciones. Problemas de atención, acceso,\
+  \ internación y tratamiento\n- SERVICIOS PÚBLICOS:\n  - Agua y cloacas\n  - Agua\
+  \ y cloacas. Tarifa social y segmentación\n  - Cementerios\n  - Control de plagas\n\
+  \  - Energía. EDENOR\n  - Energía. EDESUR\n  - Energía. Tarifa social y segmentación\n\
+  \  - Estacionamiento medido\n  - Gas\n  - Gas. Tarifa social y segmentación\n  -\
+  \ Higiene urbana. Baldíos, predios o casas abandonadas\n  - Higiene urbana. Irregularidades\
+  \ en recolección de residuos domiciliarios\n  - Vehículos abandonados\n  - Verificación\
+  \ Técnica Vehicular (VTV)\n- TURISMO:\n  - Aeropuertos, puertos y terminales de\
+  \ micros\n  - Agencia de viajes. Pasajes, prestaciones y paquetes turísticos\n \
+  \ - Agencia de viajes. Turismo estudiantil\n  - Alojamiento (reserva directa en\
+  \ hoteles y alquileres temporarios para turistas hasta 3 meses)\n  - Asistencia\
+  \ al viajero y seguros de cancelación\n  - Información y servicios a turistas\n\
+  \  - Líneas áereas (compra y/o servicio directo)\n  - Medios de transporte (contratación\
+  \ directa de cruceros, bus turístico, alquiler de autos)\n  - Orientación a turista\
+  \ en trámites en migraciones, sanidad de fronteras, aduana, AFIP, RENAPER y consulados\n\
+  \  - Orientación a turista varado en el país o en el extranjero\n  - Orientación\
+  \ a turista vinculado a delitos y/o contravenciones\n  - Previaje\n  - Turismo accesible\
+  \ y turismo social\n- DERECHOS DE USUARIOS/AS, CONSUMIDORES/AS y ADMINISTRADOS/AS:\n\
+  \  - Registro No Llame\n  - Automotores\n  - Medicina prepaga. Registro y condiciones\
+  \ de contratación\n  - Quejas contra la atención de la Dir. General de Defensa y\
+  \ Protección al Consumidor\n  - Reclamos ante la Administración Gubernamental de\
+  \ Ingresos Públicos (AGIP) - ABL, Ingresos Brutos, Patentes\n  - Reclamos por incumplimientos\
+  \ de proveedores en relaciones de consumo\n  - Servicios bancarios y financieros\n\
+  \  - Trámite de documentación personal (DNI, partidas).\n  - Trámite de licencia\
+  \ de conducir\n- DERECHOS URBANOS, ESPACIO PÚBLICO Y CONTROL COMUNAL:\n  - Riesgo\
+  \ de derrumbe\n  - Actividades comerciales e industriales. Permisos, habilitaciones\
+  \ y condiciones de funcionamiento\n  - Cartelería y publicidad en vía pública\n\
+  \  - Concesiones\n  - Daños edilicios producidos por edificios públicos\n  - Edificios\
+  \ privados. Condiciones de seguridad\n  - Edificios públicos. Administración, mantenimiento\
+  \ y condiciones de seguridad\n  - Ferias\n  - Higiene y salud alimentaria\n  - Hoteles\n\
+  \  - Locales bailables y discotecas\n  - Mala atención y demora en trámites ante\
+  \ organismos de gobierno y comunas\n  - Obras particulares\n  - Obras públicas\n\
+  \  - Parques y plazas\n  - Patrimonio Público. Áreas de Protección Histórica y edificios\
+  \ catalogados\n  - Ocupación del espacio público\n  - Puestos de venta en la vía\
+  \ pública y venta ambulante\n  - Proveedores del Gobierno de la Ciudad de Buenos\
+  \ Aires. Legalidad de los contratos\n  - Proyectos urbanísticos\n  - Villas y asentamientos\
+  \ (planes de urbanización)\n- VIVIENDA:\n  - Personas residentes en Hoteles\n  -\
+  \ Complejos Habitacionales\n  - Créditos (Ley 341 a personas y cooperativas, Primera\
+  \ Casa, UVA)\n  - Inconvenientes con inmobiliarias\n  - Programas específicos (Ex\
+  \ AU3, Casa Amarilla, Ley 324, La Boca, Barrio Olímpico, Ley 624)\n  - Registro,\
+  \ inconvenitentes con administraciones de consorcio y expensas\n  - Problemas con\
+  \ el contrato de alquiler y vulneración de derechos de personas inquilinas\n  -\
+  \ Villas y asentamientos (viviendas, servicios, obras de emergencias y relocalizaciones)\n\
+  \  - Desalojos\n  - Subsidio habitacional. Decreto 690/06 y 960/08\n  - Programas\
+  \ de apoyo habitacional. Decretos 1234/04, 97/05 y 574/09\n  - Hogares\n  - Situación\
+  \ de calle. Centros de Inclusión Social (ex paradores) y Programa Buenos Aires Presente\
+  \ (BAP)\n- VIOLENCIA INSTITUCIONAL, PREVENCIÓN DE LA TORTURA y SEGURIDAD CIUDADANA:\n\
+  \  - Condiciones de lugares de encierro\n  - Tortura y/o malos tratos en contexto\
+  \ de encierro\n  - Políticas y reclamos sobre seguridad ciudadana\n  - Violencia\
+  \ por las fuerzas de seguridad pública\n  - Corrupción de fuerzas de seguridad pública\n\
+  \  - Violencia por personal de seguridad privada"
+
+output-format:
+  type: json
+  schema:
+    numero_recomendacion: <NUM/AÑO o null>
+    fecha_recomendacion: <DD de mes de YYYY o null>
+    destinatarios:
+    - nombre: <nombre o denominacion institucional>
+      cargo: <cargo o null>
+      destinatario_principal: <true o false>
+    tema: <tema de la taxonomía o null>
+    subtema: <subtema de la taxonomía o null>
+    destinatarios_por_sector:
+    - <sector 1>
+    - <sector 2>
+    - '...'
+    datos_personales: <true o false>
+    contenido_para_publicar: <síntesis 1-2 líneas>
