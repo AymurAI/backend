@@ -57,6 +57,8 @@ def test_should_transcribe_and_persist_document_when_service_returns_paragraphs(
     assert str(payload.document_id) == str(document_id)
     assert len(payload.document) == 1
     assert payload.document[0].text == "Hola mundo"
+    assert response.json()["speaker_turns"][0]["text"] == "Hola mundo"
+    assert response.json()["speaker_turns"][0]["speaker"] == "Speaker 1"
 
     with Session(engine) as session:
         record = session.get(AudioTranscription, document_id)
@@ -397,6 +399,8 @@ def test_stream_should_emit_meta_deltas_segments_done_and_persist(
 
     segments_event = next(event for event in parsed if event["type"] == "segments")
     assert segments_event["document"][0]["text"] == "Hola mundo"
+    assert segments_event["speaker_turns"][0]["text"] == "Hola mundo"
+    assert segments_event["speaker_turns"][0]["speaker"] == "Speaker 1"
 
     assert parsed[-1] == {"type": "done", "progress": 1.0}
 
@@ -454,6 +458,7 @@ def test_stream_should_emit_cached_document_without_calling_coro(
     assert types == ["meta", "segments", "done"]
     segments_event = next(event for event in parsed if event["type"] == "segments")
     assert segments_event["document"][0]["text"] == "Texto cacheado"
+    assert segments_event["speaker_turns"][0]["text"] == "Texto cacheado"
 
 
 def test_stream_should_emit_error_event_on_upstream_failure(
