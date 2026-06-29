@@ -156,9 +156,19 @@ class ASRParagraphRequest(BaseModel):
     text: str
 
 
+class ASRSpeakerTurn(BaseModel):
+    speaker: str
+    speaker_no: int
+    start: str
+    end: str
+    text: str
+    segments: list[ASRParagraph]
+
+
 class ASRDocument(BaseModel):
     document: list[ASRParagraph]
     document_id: UUID
+    speaker_turns: list[ASRSpeakerTurn] = Field(default_factory=list)
 
     def to_txt(self) -> str:
         return "\n\n".join([paragraph.to_txt() for paragraph in self.document])

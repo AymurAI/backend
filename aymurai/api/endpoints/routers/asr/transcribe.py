@@ -25,6 +25,7 @@ from aymurai.audio.asr_client import (
     transcribe_audio_bytes,
 )
 from aymurai.audio.duration import probe_audio_duration
+from aymurai.audio.transcript import transcript_turns
 from aymurai.database.crud.audio_transcription import (
     audio_transcription_create_or_update,
     audio_transcription_get,
@@ -36,6 +37,7 @@ from aymurai.meta.api_interfaces import (
     ASRDocument,
     ASRParagraph,
     ASRParagraphRequest,
+    ASRSpeakerTurn,
 )
 from aymurai.settings import settings
 
@@ -95,6 +97,25 @@ def _segments_to_paragraphs(segments: list[CoroSegment]) -> list[ASRParagraph]:
         )
         for segment in segments
     ]
+
+
+def _speaker_turns_for_paragraphs(
+    paragraphs: list[ASRParagraph],
+) -> list[ASRSpeakerTurn]:
+    if not paragraphs:
+        return []
+    return [
+        ASRSpeakerTurn.model_validate(turn)
+        for turn in transcript_turns({"document": paragraphs})
+    ]
+
+
+def _asr_document(document_id: UUID5, paragraphs: list[ASRParagraph]) -> ASRDocument:
+    return ASRDocument(
+        document_id=document_id,
+        document=paragraphs,
+        speaker_turns=_speaker_turns_for_paragraphs(paragraphs),
+    )
 
 
 def _build_sse_message(payload: dict[str, Any]) -> str:
@@ -186,18 +207,18 @@ async def transcribe(
         )
         if cached_record is not None:
             logger.debug("Audio transcription DB hit for %s", file.filename)
-            cached_document = ASRDocument(
-                document_id=document_id,
-                document=cached_record.validation or cached_record.transcription,
-            )
-            return cached_document
+            cached_paragraphs = [
+                ASRParagraph.model_validate(item)
+                for item in (cached_record.validation or cached_record.transcription)
+            ]
+            return _asr_document(document_id, cached_paragraphs)
 
     transcription_items = await _transcribe_audio_bytes_with_error_handling(
         data,
         file.filename or str(document_id),
         file.content_type or "application/octet-stream",
     )
-    document = ASRDocument(document_id=document_id, document=transcription_items)
+    document = _asr_document(document_id, transcription_items)
     audio_transcription_create_or_update(
         transcription_id=document_id,
         name=file.filename or str(document_id),
@@ -272,6 +293,10 @@ async def transcribe_stream(
                         paragraph.model_dump(mode="json")
                         for paragraph in cached_paragraphs
                     ],
+                    "speaker_turns": [
+                        turn.model_dump(mode="json")
+                        for turn in _speaker_turns_for_paragraphs(cached_paragraphs)
+                    ],
                 }
             )
             yield _build_sse_message({"type": "done", "progress": 1.0})
@@ -303,6 +328,10 @@ async def transcribe_stream(
                             "document": [
                                 paragraph.model_dump(mode="json")
                                 for paragraph in paragraphs
+                            ],
+                            "speaker_turns": [
+                                turn.model_dump(mode="json")
+                                for turn in _speaker_turns_for_paragraphs(paragraphs)
                             ],
                         }
                     )
