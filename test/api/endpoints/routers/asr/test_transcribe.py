@@ -68,6 +68,64 @@ def test_should_transcribe_and_persist_document_when_service_returns_paragraphs(
         assert first_item["text"] == "Hola mundo"
 
 
+def test_transcribe_cache_should_merge_speaker_turns_from_transcription_when_no_validation(
+    asr_test_client,
+    make_wav_bytes,
+):
+    client, engine = asr_test_client
+    audio_bytes = make_wav_bytes(freq_hz=224)
+    document_id = data_to_uuid(audio_bytes)
+
+    with Session(engine) as session:
+        session.add(
+            AudioTranscription(
+                id=document_id,
+                name="cached-transcription.wav",
+                transcription=cast(
+                    Any,
+                    [
+                        ASRParagraph(
+                            speaker_no=1,
+                            start=timedelta(seconds=0),
+                            end=timedelta(seconds=1),
+                            text="Nos quedamos,",
+                        ).model_dump(mode="json"),
+                        ASRParagraph(
+                            speaker_no=1,
+                            start=timedelta(seconds=1),
+                            end=timedelta(seconds=2),
+                            text="esperando en el lobby.",
+                        ).model_dump(mode="json"),
+                    ],
+                ),
+                validation=[],
+            )
+        )
+        session.commit()
+
+    def _fail(*args, **kwargs):
+        raise AssertionError("coro must not be called on transcription cache hit")
+
+    with patch(
+        "aymurai.api.endpoints.routers.asr.transcribe.transcribe_audio_bytes",
+        new=_fail,
+    ):
+        response = client.post(
+            "/asr/transcribe",
+            files={"file": ("cached-transcription.wav", audio_bytes, "audio/wav")},
+        )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert [item["text"] for item in body["document"]] == [
+        "Nos quedamos,",
+        "esperando en el lobby.",
+    ]
+    assert [turn["text"] for turn in body["speaker_turns"]] == [
+        "Nos quedamos, esperando en el lobby."
+    ]
+
+
 # MARK: GET Validation
 def test_should_return_validation_document_when_document_exists_in_database(
     asr_test_client,
@@ -114,6 +172,137 @@ def test_should_return_validation_document_when_document_exists_in_database(
     payload = ASRDocument.model_validate(response.json())
     assert str(payload.document_id) == str(document_id)
     assert payload.document[0].text == "Texto validado"
+
+
+def test_transcribe_cache_should_preserve_validation_turns_without_merging(
+    asr_test_client,
+    make_wav_bytes,
+):
+    client, engine = asr_test_client
+    audio_bytes = make_wav_bytes(freq_hz=225)
+    document_id = data_to_uuid(audio_bytes)
+
+    with Session(engine) as session:
+        session.add(
+            AudioTranscription(
+                id=document_id,
+                name="validated-cache.wav",
+                transcription=cast(
+                    Any,
+                    [
+                        ASRParagraph(
+                            speaker_no=1,
+                            start=timedelta(seconds=0),
+                            end=timedelta(seconds=3),
+                            text="Texto original que no debe usarse",
+                        ).model_dump(mode="json")
+                    ],
+                ),
+                validation=cast(
+                    Any,
+                    [
+                        ASRParagraph(
+                            speaker_no=1,
+                            speaker_name="Docente",
+                            start=timedelta(seconds=10),
+                            end=timedelta(seconds=11),
+                            text="Bloque manual uno sin cierre",
+                        ).model_dump(mode="json"),
+                        ASRParagraph(
+                            speaker_no=1,
+                            speaker_name="Docente",
+                            start=timedelta(seconds=11),
+                            end=timedelta(seconds=12.5),
+                            text="Bloque manual dos editado",
+                        ).model_dump(mode="json"),
+                    ],
+                ),
+            )
+        )
+        session.commit()
+
+    def _fail(*args, **kwargs):
+        raise AssertionError("coro must not be called on validation cache hit")
+
+    with patch(
+        "aymurai.api.endpoints.routers.asr.transcribe.transcribe_audio_bytes",
+        new=_fail,
+    ):
+        response = client.post(
+            "/asr/transcribe",
+            files={"file": ("validated-cache.wav", audio_bytes, "audio/wav")},
+        )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert [item["text"] for item in body["document"]] == [
+        "Bloque manual uno sin cierre",
+        "Bloque manual dos editado",
+    ]
+    assert [turn["text"] for turn in body["speaker_turns"]] == [
+        "Bloque manual uno sin cierre",
+        "Bloque manual dos editado",
+    ]
+    assert body["speaker_turns"][0]["speaker"] == "Docente"
+    assert body["speaker_turns"][1]["end"] == "00:00:12.500"
+
+
+def test_get_validation_should_include_source_aware_speaker_turns(
+    asr_test_client,
+    make_wav_bytes,
+):
+    client, engine = asr_test_client
+    audio_bytes = make_wav_bytes(freq_hz=226)
+    document_id = data_to_uuid(audio_bytes)
+
+    with Session(engine) as session:
+        session.add(
+            AudioTranscription(
+                id=document_id,
+                name="read-validation.wav",
+                transcription=cast(
+                    Any,
+                    [
+                        ASRParagraph(
+                            speaker_no=1,
+                            start=timedelta(seconds=0),
+                            end=timedelta(seconds=4),
+                            text="Texto original",
+                        ).model_dump(mode="json")
+                    ],
+                ),
+                validation=cast(
+                    Any,
+                    [
+                        ASRParagraph(
+                            speaker_no=2,
+                            speaker_name="Fiscal",
+                            start=timedelta(seconds=4),
+                            end=timedelta(seconds=5),
+                            text="Validado A",
+                        ).model_dump(mode="json"),
+                        ASRParagraph(
+                            speaker_no=2,
+                            speaker_name="Fiscal",
+                            start=timedelta(seconds=5),
+                            end=timedelta(seconds=6),
+                            text="Validado B",
+                        ).model_dump(mode="json"),
+                    ],
+                ),
+            )
+        )
+        session.commit()
+
+    response = client.get(f"/asr/validation/document/{document_id}")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert [turn["text"] for turn in body["speaker_turns"]] == [
+        "Validado A",
+        "Validado B",
+    ]
+    assert body["speaker_turns"][0]["speaker"] == "Fiscal"
 
 
 # MARK: POST Validation
@@ -321,6 +510,48 @@ def test_should_return_null_speaker_name_when_none_stored(
     assert payload.document[0].speaker_name is None
 
 
+def test_get_validation_should_compute_speaker_turns_from_transcription_when_unvalidated(
+    asr_test_client,
+    make_wav_bytes,
+):
+    client, engine = asr_test_client
+    audio_bytes = make_wav_bytes(freq_hz=881)
+    document_id = data_to_uuid(audio_bytes)
+
+    with Session(engine) as session:
+        session.add(
+            AudioTranscription(
+                id=document_id,
+                name="unvalidated-read.wav",
+                transcription=cast(
+                    Any,
+                    [
+                        ASRParagraph(
+                            speaker_no=1,
+                            start=timedelta(seconds=0),
+                            end=timedelta(seconds=1),
+                            text="Hola,",
+                        ).model_dump(mode="json"),
+                        ASRParagraph(
+                            speaker_no=1,
+                            start=timedelta(seconds=1),
+                            end=timedelta(seconds=2),
+                            text="mundo.",
+                        ).model_dump(mode="json"),
+                    ],
+                ),
+                validation=[],
+            )
+        )
+        session.commit()
+
+    response = client.get(f"/asr/validation/document/{document_id}")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert [turn["text"] for turn in body["speaker_turns"]] == ["Hola, mundo."]
+
+
 # MARK: progress estimation
 def test_progress_should_be_zero_for_no_characters():
     assert _estimate_progress(0, 10.0) == 0.0
@@ -459,6 +690,79 @@ def test_stream_should_emit_cached_document_without_calling_coro(
     segments_event = next(event for event in parsed if event["type"] == "segments")
     assert segments_event["document"][0]["text"] == "Texto cacheado"
     assert segments_event["speaker_turns"][0]["text"] == "Texto cacheado"
+
+
+def test_stream_cache_should_emit_validation_turns_without_merging(
+    asr_test_client,
+    make_wav_bytes,
+):
+    client, engine = asr_test_client
+    audio_bytes = make_wav_bytes(freq_hz=211)
+    document_id = data_to_uuid(audio_bytes)
+
+    with Session(engine) as session:
+        session.add(
+            AudioTranscription(
+                id=document_id,
+                name="cached-validation.wav",
+                transcription=cast(
+                    Any,
+                    [
+                        ASRParagraph(
+                            speaker_no=1,
+                            start=timedelta(seconds=0),
+                            end=timedelta(seconds=2),
+                            text="Texto original",
+                        ).model_dump(mode="json")
+                    ],
+                ),
+                validation=cast(
+                    Any,
+                    [
+                        ASRParagraph(
+                            speaker_no=1,
+                            speaker_name="Defensa",
+                            start=timedelta(seconds=2),
+                            end=timedelta(seconds=3),
+                            text="Turno validado uno",
+                        ).model_dump(mode="json"),
+                        ASRParagraph(
+                            speaker_no=1,
+                            speaker_name="Defensa",
+                            start=timedelta(seconds=3),
+                            end=timedelta(seconds=4),
+                            text="Turno validado dos",
+                        ).model_dump(mode="json"),
+                    ],
+                ),
+            )
+        )
+        session.commit()
+
+    def _fail(*args, **kwargs):
+        raise AssertionError("coro must not be called on validation cache hit")
+
+    with patch(
+        "aymurai.api.endpoints.routers.asr.transcribe.stream_transcribe_audio_bytes",
+        new=_fail,
+    ):
+        response = client.post(
+            "/asr/transcribe/stream",
+            files={"file": ("cached-validation.wav", audio_bytes, "audio/wav")},
+        )
+
+    assert response.status_code == 200
+    parsed = _parse_sse(response.text)
+    segments_event = next(event for event in parsed if event["type"] == "segments")
+    assert [item["text"] for item in segments_event["document"]] == [
+        "Turno validado uno",
+        "Turno validado dos",
+    ]
+    assert [turn["text"] for turn in segments_event["speaker_turns"]] == [
+        "Turno validado uno",
+        "Turno validado dos",
+    ]
+    assert segments_event["speaker_turns"][0]["speaker"] == "Defensa"
 
 
 def test_stream_should_emit_error_event_on_upstream_failure(

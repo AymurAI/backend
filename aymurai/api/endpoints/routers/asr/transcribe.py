@@ -25,7 +25,10 @@ from aymurai.audio.asr_client import (
     transcribe_audio_bytes,
 )
 from aymurai.audio.duration import probe_audio_duration
-from aymurai.audio.transcript import transcript_turns
+from aymurai.audio.transcript import (
+    speaker_turns_from_validated_paragraphs,
+    transcript_turns,
+)
 from aymurai.database.crud.audio_transcription import (
     audio_transcription_create_or_update,
     audio_transcription_get,
@@ -99,7 +102,7 @@ def _segments_to_paragraphs(segments: list[CoroSegment]) -> list[ASRParagraph]:
     ]
 
 
-def _speaker_turns_for_paragraphs(
+def _speaker_turns_for_transcription(
     paragraphs: list[ASRParagraph],
 ) -> list[ASRSpeakerTurn]:
     if not paragraphs:
@@ -110,12 +113,41 @@ def _speaker_turns_for_paragraphs(
     ]
 
 
-def _asr_document(document_id: UUID5, paragraphs: list[ASRParagraph]) -> ASRDocument:
+def _speaker_turns_for_validation(
+    paragraphs: list[ASRParagraph],
+) -> list[ASRSpeakerTurn]:
+    return [
+        ASRSpeakerTurn.model_validate(turn)
+        for turn in speaker_turns_from_validated_paragraphs(paragraphs)
+    ]
+
+
+def _asr_document_from_transcription(
+    document_id: UUID5, paragraphs: list[ASRParagraph]
+) -> ASRDocument:
     return ASRDocument(
         document_id=document_id,
         document=paragraphs,
-        speaker_turns=_speaker_turns_for_paragraphs(paragraphs),
+        speaker_turns=_speaker_turns_for_transcription(paragraphs),
     )
+
+
+def _paragraphs_from_storage(items: list[Any]) -> list[ASRParagraph]:
+    return [ASRParagraph.model_validate(item) for item in items]
+
+
+def _asr_document_from_cached_record(document_id: UUID5, record: Any) -> ASRDocument:
+    validation = record.validation or []
+    if validation:
+        paragraphs = _paragraphs_from_storage(validation)
+        return ASRDocument(
+            document_id=document_id,
+            document=paragraphs,
+            speaker_turns=_speaker_turns_for_validation(paragraphs),
+        )
+
+    paragraphs = _paragraphs_from_storage(record.transcription)
+    return _asr_document_from_transcription(document_id, paragraphs)
 
 
 def _build_sse_message(payload: dict[str, Any]) -> str:
@@ -207,18 +239,14 @@ async def transcribe(
         )
         if cached_record is not None:
             logger.debug("Audio transcription DB hit for %s", file.filename)
-            cached_paragraphs = [
-                ASRParagraph.model_validate(item)
-                for item in (cached_record.validation or cached_record.transcription)
-            ]
-            return _asr_document(document_id, cached_paragraphs)
+            return _asr_document_from_cached_record(document_id, cached_record)
 
     transcription_items = await _transcribe_audio_bytes_with_error_handling(
         data,
         file.filename or str(document_id),
         file.content_type or "application/octet-stream",
     )
-    document = _asr_document(document_id, transcription_items)
+    document = _asr_document_from_transcription(document_id, transcription_items)
     audio_transcription_create_or_update(
         transcription_id=document_id,
         name=file.filename or str(document_id),
@@ -263,16 +291,15 @@ async def transcribe_stream(
     filename = file.filename or str(document_id)
     content_type = file.content_type or "application/octet-stream"
 
-    cached_paragraphs: list[ASRParagraph] | None = None
+    cached_document: ASRDocument | None = None
     if use_cache:
         cached_record = audio_transcription_get(
             transcription_id=document_id, session=session
         )
         if cached_record is not None:
-            cached_paragraphs = [
-                ASRParagraph.model_validate(item)
-                for item in (cached_record.validation or cached_record.transcription)
-            ]
+            cached_document = _asr_document_from_cached_record(
+                document_id, cached_record
+            )
 
     duration = probe_audio_duration(data)
 
@@ -285,17 +312,17 @@ async def transcribe_stream(
             }
         )
 
-        if cached_paragraphs is not None:
+        if cached_document is not None:
             yield _build_sse_message(
                 {
                     "type": "segments",
                     "document": [
                         paragraph.model_dump(mode="json")
-                        for paragraph in cached_paragraphs
+                        for paragraph in cached_document.document
                     ],
                     "speaker_turns": [
                         turn.model_dump(mode="json")
-                        for turn in _speaker_turns_for_paragraphs(cached_paragraphs)
+                        for turn in cached_document.speaker_turns
                     ],
                 }
             )
@@ -331,7 +358,7 @@ async def transcribe_stream(
                             ],
                             "speaker_turns": [
                                 turn.model_dump(mode="json")
-                                for turn in _speaker_turns_for_paragraphs(paragraphs)
+                                for turn in _speaker_turns_for_transcription(paragraphs)
                             ],
                         }
                     )
@@ -372,10 +399,7 @@ async def asr_read_document_validation(
     if not record:
         raise NotFoundError(detail=f"Document not found: {document_id}")
 
-    return ASRDocument(
-        document_id=document_id,
-        document=record.validation or record.transcription,
-    )
+    return _asr_document_from_cached_record(document_id, record)
 
 
 @router.post("/validation/document/{document_id}")

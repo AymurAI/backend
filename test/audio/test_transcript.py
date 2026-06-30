@@ -7,6 +7,7 @@ from aymurai.audio.transcript import (
     ends_sentence,
     markdown_transcript,
     merge_speaker_turns_by_sentence,
+    speaker_turns_from_validated_paragraphs,
 )
 from aymurai.meta.api_interfaces import ASRParagraph
 
@@ -161,3 +162,33 @@ def test_markdown_transcript_uses_sentence_aware_turns():
     assert "## Speaker 1 (00:00:00.000 - 00:00:01.000)" in markdown
     assert "## Speaker 1 (00:00:01.000 - 00:00:02.000)" in markdown
     assert "Hola.\n\n## Speaker 1" in markdown
+
+
+def test_validated_paragraphs_become_one_turn_each_without_merging():
+    paragraphs = [
+        _paragraph(1, 0.0, 1.0, "Texto editado sin cierre", "Docente"),
+        _paragraph(1, 1.0, 2.5, "Sigue siendo otro bloque", "Docente"),
+    ]
+
+    turns = speaker_turns_from_validated_paragraphs(paragraphs)
+
+    assert [turn["text"] for turn in turns] == [
+        "Texto editado sin cierre",
+        "Sigue siendo otro bloque",
+    ]
+    assert [turn["speaker"] for turn in turns] == ["Docente", "Docente"]
+    assert turns[0]["start"] == "00:00:00.000"
+    assert turns[1]["end"] == "00:00:02.500"
+    assert turns[0]["segments"][0]["text"] == "Texto editado sin cierre"
+
+
+def test_validated_paragraphs_ignore_empty_text():
+    paragraphs = [
+        _paragraph(1, 0.0, 1.0, "  "),
+        _paragraph(1, 1.0, 2.0, "Texto validado"),
+    ]
+
+    turns = speaker_turns_from_validated_paragraphs(paragraphs)
+
+    assert len(turns) == 1
+    assert turns[0]["text"] == "Texto validado"

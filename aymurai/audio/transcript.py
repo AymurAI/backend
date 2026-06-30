@@ -184,6 +184,37 @@ def serialize_speaker_turns(turns: list[dict[str, Any]]) -> list[dict[str, Any]]
     return serialized
 
 
+def speaker_turns_from_validated_paragraphs(
+    paragraphs: list[Any],
+) -> list[dict[str, Any]]:
+    turns: list[dict[str, Any]] = []
+    for paragraph in paragraphs:
+        segment = (
+            paragraph
+            if isinstance(paragraph, dict)
+            else paragraph.model_dump(mode="json")
+        )
+        text = str(segment.get("text") or "").strip()
+        if not text:
+            continue
+
+        start = parse_time_seconds(segment["start"])
+        end = parse_time_seconds(segment["end"])
+        turn_segment = dict(segment)
+        turn_segment["text"] = text
+        turns.append(
+            {
+                "speaker": speaker_label(turn_segment),
+                "speaker_no": turn_segment["speaker_no"],
+                "start": format_timestamp(start),
+                "end": format_timestamp(end),
+                "text": text,
+                "segments": [turn_segment],
+            }
+        )
+    return turns
+
+
 def markdown_transcript(payload: dict[str, Any], title: str) -> str:
     segments = diarized_segments(payload)
     turns = merge_speaker_turns_by_sentence(segments)
