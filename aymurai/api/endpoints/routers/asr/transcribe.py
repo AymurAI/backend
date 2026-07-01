@@ -314,6 +314,9 @@ async def transcribe_stream(
             {
                 "type": "meta",
                 "document_id": str(document_id),
+                "title": cached_document.title
+                if cached_document is not None
+                else filename,
                 "duration": duration,
             }
         )
@@ -322,6 +325,7 @@ async def transcribe_stream(
             yield _build_sse_message(
                 {
                     "type": "segments",
+                    "title": cached_document.title,
                     "document": [
                         paragraph.model_dump(mode="json")
                         for paragraph in cached_document.document
@@ -358,6 +362,7 @@ async def transcribe_stream(
                     yield _build_sse_message(
                         {
                             "type": "segments",
+                            "title": filename,
                             "document": [
                                 paragraph.model_dump(mode="json")
                                 for paragraph in paragraphs

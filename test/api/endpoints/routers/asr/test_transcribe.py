@@ -785,7 +785,10 @@ def test_stream_should_emit_cached_document_without_calling_coro(
     parsed = _parse_sse(response.text)
     types = [event["type"] for event in parsed]
     assert types == ["meta", "segments", "done"]
+    meta_event = next(event for event in parsed if event["type"] == "meta")
+    assert meta_event["title"] == "cached.wav"
     segments_event = next(event for event in parsed if event["type"] == "segments")
+    assert segments_event["title"] == "cached.wav"
     assert segments_event["document"][0]["text"] == "Texto cacheado"
     assert segments_event["speaker_turns"][0]["text"] == "Texto cacheado"
 
@@ -802,7 +805,7 @@ def test_stream_cache_should_emit_validation_turns_without_merging(
         session.add(
             AudioTranscription(
                 id=document_id,
-                name="cached-validation.wav",
+                name="Audiencia editada",
                 transcription=cast(
                     Any,
                     [
@@ -851,7 +854,10 @@ def test_stream_cache_should_emit_validation_turns_without_merging(
 
     assert response.status_code == 200
     parsed = _parse_sse(response.text)
+    meta_event = next(event for event in parsed if event["type"] == "meta")
+    assert meta_event["title"] == "Audiencia editada"
     segments_event = next(event for event in parsed if event["type"] == "segments")
+    assert segments_event["title"] == "Audiencia editada"
     assert [item["text"] for item in segments_event["document"]] == [
         "Turno validado uno",
         "Turno validado dos",
