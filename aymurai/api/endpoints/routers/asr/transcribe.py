@@ -41,6 +41,7 @@ from aymurai.meta.api_interfaces import (
     ASRParagraph,
     ASRParagraphRequest,
     ASRSpeakerTurn,
+    ASRValidationDocumentRequest,
 )
 from aymurai.settings import settings
 
@@ -123,10 +124,11 @@ def _speaker_turns_for_validation(
 
 
 def _asr_document_from_transcription(
-    document_id: UUID5, paragraphs: list[ASRParagraph]
+    document_id: UUID5, paragraphs: list[ASRParagraph], title: str | None = None
 ) -> ASRDocument:
     return ASRDocument(
         document_id=document_id,
+        title=title,
         document=paragraphs,
         speaker_turns=_speaker_turns_for_transcription(paragraphs),
     )
@@ -142,12 +144,13 @@ def _asr_document_from_cached_record(document_id: UUID5, record: Any) -> ASRDocu
         paragraphs = _paragraphs_from_storage(validation)
         return ASRDocument(
             document_id=document_id,
+            title=record.name,
             document=paragraphs,
             speaker_turns=_speaker_turns_for_validation(paragraphs),
         )
 
     paragraphs = _paragraphs_from_storage(record.transcription)
-    return _asr_document_from_transcription(document_id, paragraphs)
+    return _asr_document_from_transcription(document_id, paragraphs, title=record.name)
 
 
 def _build_sse_message(payload: dict[str, Any]) -> str:
@@ -246,10 +249,13 @@ async def transcribe(
         file.filename or str(document_id),
         file.content_type or "application/octet-stream",
     )
-    document = _asr_document_from_transcription(document_id, transcription_items)
+    title = file.filename or str(document_id)
+    document = _asr_document_from_transcription(
+        document_id, transcription_items, title=title
+    )
     audio_transcription_create_or_update(
         transcription_id=document_id,
-        name=file.filename or str(document_id),
+        name=title,
         transcription=document.document,
         session=session,
     )
@@ -405,7 +411,7 @@ async def asr_read_document_validation(
 @router.post("/validation/document/{document_id}")
 async def asr_save_document_validation(
     document_id: UUID5,
-    annotations: list[ASRParagraphRequest] = Body(...),
+    payload: list[ASRParagraphRequest] | ASRValidationDocumentRequest = Body(...),
     session: Session = Depends(get_session),
 ) -> None:
     """
@@ -413,7 +419,7 @@ async def asr_save_document_validation(
 
     Args:
         document_id (UUID5): The ID of the document to validate.
-        annotations (list[ASRParagraphRequest]): The list of annotations for the document.
+        payload (list[ASRParagraphRequest] | ASRValidationDocumentRequest): Legacy annotation list or validation payload with title and document.
         session (Session, optional): The database session. Defaults to Depends(get_session).
 
     Raises:
@@ -422,6 +428,13 @@ async def asr_save_document_validation(
     record = audio_transcription_get(transcription_id=document_id, session=session)
     if not record:
         raise NotFoundError(detail=f"Document not found: {document_id}")
+
+    if isinstance(payload, ASRValidationDocumentRequest):
+        annotations = payload.document
+        if payload.title is not None:
+            record.name = payload.title
+    else:
+        annotations = payload
 
     # NOTE: we are serializing the paragraphs to JSON for writing to the DB
     record.validation = [  # type: ignore

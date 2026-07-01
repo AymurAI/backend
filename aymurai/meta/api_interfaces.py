@@ -156,6 +156,21 @@ class ASRParagraphRequest(BaseModel):
     text: str
 
 
+class ASRValidationDocumentRequest(BaseModel):
+    title: str | None = None
+    document: list[ASRParagraphRequest]
+
+    @field_validator("title")
+    @classmethod
+    def validate_title(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        title = value.strip()
+        if not title:
+            raise ValueError("title cannot be empty")
+        return title
+
+
 class ASRSpeakerTurn(BaseModel):
     speaker: str
     speaker_no: int
@@ -168,6 +183,7 @@ class ASRSpeakerTurn(BaseModel):
 class ASRDocument(BaseModel):
     document: list[ASRParagraph]
     document_id: UUID
+    title: str | None = None
     speaker_turns: list[ASRSpeakerTurn] = Field(default_factory=list)
 
     def to_txt(self) -> str:
@@ -178,6 +194,7 @@ class ASRDocument(BaseModel):
         return cls(
             document=transcription.validation or transcription.transcription,
             document_id=transcription.id,
+            title=transcription.name,
         )
 
 

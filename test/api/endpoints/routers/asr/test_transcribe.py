@@ -55,6 +55,7 @@ def test_should_transcribe_and_persist_document_when_service_returns_paragraphs(
     assert response.status_code == 200
     payload = ASRDocument.model_validate(response.json())
     assert str(payload.document_id) == str(document_id)
+    assert payload.title == "sample.wav"
     assert len(payload.document) == 1
     assert payload.document[0].text == "Hola mundo"
     assert response.json()["speaker_turns"][0]["text"] == "Hola mundo"
@@ -344,6 +345,103 @@ def test_should_persist_validation_annotations_when_posting_validation_for_exist
         assert record is not None
         first_item = cast(dict[str, Any], record.validation[0])
         assert first_item["text"] == "Linea validada"
+
+
+def test_should_persist_validation_and_title_when_posting_validation_object(
+    asr_test_client,
+    make_wav_bytes,
+):
+    client, engine = asr_test_client
+    audio_bytes = make_wav_bytes(freq_hz=331)
+    document_id = data_to_uuid(audio_bytes)
+
+    with Session(engine) as session:
+        session.add(
+            AudioTranscription(
+                id=document_id,
+                name="old-title.wav",
+                transcription=cast(
+                    Any,
+                    [
+                        ASRParagraph(
+                            speaker_no=1,
+                            start=timedelta(seconds=0),
+                            end=timedelta(seconds=1),
+                            text="Base",
+                        ).model_dump(mode="json")
+                    ],
+                ),
+                validation=[],
+            )
+        )
+        session.commit()
+
+    body = {
+        "title": " Audiencia editada ",
+        "document": [{"speaker_no": 1, "start": 0, "end": 1, "text": "Linea validada"}],
+    }
+    response = client.post(f"/asr/validation/document/{document_id}", json=body)
+
+    assert response.status_code == 200
+    with Session(engine) as session:
+        record = session.get(AudioTranscription, document_id)
+        assert record is not None
+        assert record.name == "Audiencia editada"
+        first_item = cast(dict[str, Any], record.validation[0])
+        assert first_item["text"] == "Linea validada"
+
+    get_response = client.get(f"/asr/validation/document/{document_id}")
+    assert get_response.status_code == 200
+    payload = ASRDocument.model_validate(get_response.json())
+    assert payload.title == "Audiencia editada"
+
+    transcribe_response = client.post(
+        "/asr/transcribe",
+        files={"file": ("new-upload-name.wav", audio_bytes, "audio/wav")},
+    )
+    assert transcribe_response.status_code == 200
+    transcribe_payload = ASRDocument.model_validate(transcribe_response.json())
+    assert transcribe_payload.title == "Audiencia editada"
+
+
+def test_should_reject_empty_title_when_posting_validation_object(
+    asr_test_client,
+    make_wav_bytes,
+):
+    client, engine = asr_test_client
+    audio_bytes = make_wav_bytes(freq_hz=332)
+    document_id = data_to_uuid(audio_bytes)
+
+    with Session(engine) as session:
+        session.add(
+            AudioTranscription(
+                id=document_id,
+                name="existing.wav",
+                transcription=cast(
+                    Any,
+                    [
+                        ASRParagraph(
+                            speaker_no=1,
+                            start=timedelta(seconds=0),
+                            end=timedelta(seconds=1),
+                            text="Base",
+                        ).model_dump(mode="json")
+                    ],
+                ),
+                validation=[],
+            )
+        )
+        session.commit()
+
+    response = client.post(
+        f"/asr/validation/document/{document_id}",
+        json={
+            "title": "   ",
+            "document": [{"speaker_no": 1, "start": 0, "end": 1, "text": "Validada"}],
+        },
+    )
+
+    assert response.status_code == 422
 
 
 # MARK: POST Validation with speaker_name per paragraph
