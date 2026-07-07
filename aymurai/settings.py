@@ -65,9 +65,10 @@ class Settings(BaseSettings):
     SQLALCHEMY_DATABASE_URI: str = "sqlite:////resources/cache/sqlite/database.db"
 
     ##########################################################################
-    # ASR Config
+    # ASR Config (coro — OpenAI-compatible server)
     ##########################################################################
-    TRANSCRIBE_WS_URI: str | None = None
+    TRANSCRIBE_BASE_URL: str | None = None
+    TRANSCRIBE_API_KEY: str = "not-needed"
 
     ##########################################################################
     # Disambiguation Config

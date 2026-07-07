@@ -3,11 +3,20 @@ from __future__ import annotations
 import uuid
 from datetime import timedelta
 from functools import cached_property
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, ClassVar, Literal
 
-from pydantic import UUID4, UUID5, BaseModel, Field, RootModel, computed_field
+from pydantic import (
+    UUID4,
+    UUID5,
+    BaseModel,
+    ConfigDict,
+    Field,
+    RootModel,
+    computed_field,
+    field_validator,
+)
 
-from aymurai.api.meta.asr.websocket import TranscriptionItem
+from aymurai.api.meta.asr.coro import _parse_hhmmss
 from aymurai.database.utils import text_to_uuid
 from aymurai.meta.entities import EntityAttributes
 
@@ -90,7 +99,22 @@ class Document(BaseModel):
     footer: list[str] | None = None
 
 
-class ASRParagraph(TranscriptionItem):
+class ASRParagraph(BaseModel):
+    """A speaker-attributed transcription paragraph (persisted and anonymized)."""
+
+    model_config: ClassVar[ConfigDict] = ConfigDict(from_attributes=True)
+
+    speaker_no: int
+    speaker_name: str | None = None
+    start: timedelta
+    end: timedelta
+    text: str
+
+    @field_validator("start", "end", mode="before")
+    @classmethod
+    def parse_hhmmss(cls, value: str | int | float | timedelta) -> timedelta:
+        return _parse_hhmmss(value)
+
     @computed_field
     @property
     def paragraph_id(self) -> UUID:
@@ -132,9 +156,35 @@ class ASRParagraphRequest(BaseModel):
     text: str
 
 
+class ASRValidationDocumentRequest(BaseModel):
+    title: str | None = None
+    document: list[ASRParagraphRequest]
+
+    @field_validator("title")
+    @classmethod
+    def validate_title(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        title = value.strip()
+        if not title:
+            raise ValueError("title cannot be empty")
+        return title
+
+
+class ASRSpeakerTurn(BaseModel):
+    speaker: str
+    speaker_no: int
+    start: str
+    end: str
+    text: str
+    segments: list[ASRParagraph]
+
+
 class ASRDocument(BaseModel):
     document: list[ASRParagraph]
     document_id: UUID
+    title: str | None = None
+    speaker_turns: list[ASRSpeakerTurn] = Field(default_factory=list)
 
     def to_txt(self) -> str:
         return "\n\n".join([paragraph.to_txt() for paragraph in self.document])
@@ -144,6 +194,7 @@ class ASRDocument(BaseModel):
         return cls(
             document=transcription.validation or transcription.transcription,
             document_id=transcription.id,
+            title=transcription.name,
         )
 
 

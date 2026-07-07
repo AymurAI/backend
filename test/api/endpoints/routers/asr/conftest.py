@@ -20,10 +20,10 @@ def asr_test_client(sqlite_engine):
             yield session
 
     app.dependency_overrides[get_session] = _override_get_session
-    original_ws_uri = settings.TRANSCRIBE_WS_URI
-    settings.TRANSCRIBE_WS_URI = "ws://test-transcribe.local/ws"
+    original_base_url = settings.TRANSCRIBE_BASE_URL
+    settings.TRANSCRIBE_BASE_URL = "http://test-coro.local/v1"
 
     with TestClient(app) as client:
         yield client, sqlite_engine
 
-    settings.TRANSCRIBE_WS_URI = original_ws_uri
+    settings.TRANSCRIBE_BASE_URL = original_base_url
