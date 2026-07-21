@@ -1,6 +1,7 @@
 import json
 import os
 from pathlib import Path
+from typing import Literal
 
 from dotenv import load_dotenv
 from pydantic import ConfigDict, FilePath, field_validator
@@ -67,6 +68,18 @@ class Settings(BaseSettings):
     # Fuzzy Matching
     THRESHOLD: int = 70
     ANONYMIZER_PREDICT_BATCH_SIZE: int = 1
+
+    # Data extraction (defensoria) — organigram cross-reference search backend.
+    # "fuzzy" (rapidfuzz), "embeddings" (sentence-transformers + BM25), and
+    # "hybrid" (weighted combination of both) are being A/B tested; keep this
+    # switchable without a redeploy.
+    DATA_EXTRACTION_SEARCH_BACKEND: Literal["fuzzy", "embeddings", "hybrid"] = "hybrid"
+    DATA_EXTRACTION_TOP_K: int = 5
+    # Weight given to the embeddings score in "hybrid" mode (fuzzy gets 1 - this).
+    DATA_EXTRACTION_HYBRID_WEIGHT: float = 0.5
+    # Which destinatario field(s) to cross-reference against the organigram.
+    # "nombre" is fragile across a change of government; "cargo" is more durable.
+    DATA_EXTRACTION_SEARCH_FIELDS: Literal["nombre", "cargo", "both"] = "both"
 
     @field_validator("ANONYMIZER_PREDICT_BATCH_SIZE")
     @classmethod

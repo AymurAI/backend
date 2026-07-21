@@ -4,29 +4,34 @@ system-prompts:
     recibido y generar una síntesis muy concisa.
   extraction-guidelines: |
     Reglas de extracción y priorización:
-    1. Extrae destinatarios como una lista de objetos con: nombre, cargo y destinatario_principal.
+    1. Extrae destinatarios como una lista de objetos con: nombre, cargo, destinatario_principal y sector.
     2. `destinatario_principal=true` cuando la medida (recomendación/exhortación/intimación) se dirige directamente a ese destinatario.
     3. `destinatario_principal=false` cuando la mención sea solo de notificación/comunicación ("notificar", "poner en conocimiento", "remitir copia").
     4. Prioriza la sección RESUELVE y verbos directivos como "recomendar", "exhortar", "instar", "intimar" para identificar destinatarios principales.
-    5. Para cada destinatario, extrae nombre propio o denominación institucional y cargo/función formal cuando aparezca explícito.
-    6. Si falta nombre o cargo, devuelve `null` en ese campo. No inventes organismos, cargos ni nombres.
+    5. `nombre` es siempre un nombre propio de persona o una denominación institucional. Nunca describe un rol.
+    6. `cargo` es siempre la función/rol que ocupa esa persona, con el organismo incluido cuando corresponda (ej. "Presidente del Instituto de Vivienda de la Ciudad de Buenos Aires"). Nunca es un nombre propio ni un título truncado sin el organismo. NUNCA incluir sus dependencias.
+    7. Si el documento nombra a una persona por su cargo (ej. "el Presidente del Instituto de Vivienda, Sr. Juan Pérez"), genera UN solo destinatario: `nombre` = nombre de la persona, `cargo` = título completo incluyendo el organismo. No generes un destinatario aparte solo para el organismo en ese caso.
+    8. Genera un destinatario separado para un organismo únicamente cuando el documento lo menciona como destinatario propio y distinto (ej. en una lista de notificación a otra repartición), no cuando es solo el lugar donde trabaja la persona ya extraída.
+    9. Si falta nombre o cargo, devuelve `null` en ese campo. No inventes organismos, cargos ni nombres.
 
 fields:
   numero_recomendacion: Figura como pie de página con la leyenda "Resolución Nro /<AÑO>"
     o en el nombre del archivo.
   fecha_recomendacion: Suele aparecer en el encabezado del documento (ej. "Buenos
     Aires, 01 de enero de 2000").
-  destinatarios:
+  destinatarios: |
     Lista de destinatarios (personas, organismos o entidades) mencionados en la resolución.
-    Para cada destinatario incluir
-      - `nombre` — nombre propio o denominación institucional.
-      - `cargo` — cargo/función formal cuando aparezca explícito.
-      - `destinatario_principal` — true si es destinatario de la recomendación/exhortación;
-        false si solo recibe notificación/comunicación.
-  destinatarios_por_sector:
-    Lista de sectores inferidos para los destinatarios principales (ej. GCBA, organismo
-    nacional, empresa privada, poder judicial, legislativo, etc.). No incluir aquí
-    destinatarios únicamente notificados.
+    Para cada destinatario incluir:
+    - `nombre` — nombre propio o denominación institucional. NUNCA un cargo/función.
+    - `cargo` — cargo/función formal completo cuando aparezca explícito, incluyendo el organismo (ej. "Presidente del Instituto de Vivienda de la Ciudad de Buenos Aires", no solo "Presidente"). NUNCA un nombre propio. NUNCA poner de que organismo depende el cargo.
+    - `destinatario_principal` — true si es destinatario de la recomendación/exhortación; false si solo recibe notificación/comunicación.
+    - `sector` — clasificar en uno de los siguientes sectores: GCBA (la sigla de Gobierno de la Ciudad de Buenos Aires), Organismos Nacionales, Obra Social / Prepaga, Empresa. Si no encaja en ninguno, usar null.
+
+    Ejemplo INCORRECTO (funde a la persona con el organismo y trunca el cargo):
+    {"nombre": "Instituto de Vivienda de la Ciudad Autónoma de Buenos Aires", "cargo": "Presidente", "destinatario_principal": true, "sector": "GCBA"}
+
+    Ejemplo CORRECTO (misma situación real, nombre propio y cargo completos):
+    {"nombre": "Juan Francisco Loupias", "cargo": "Presidente del Instituto de Vivienda de la Ciudad Autónoma de Buenos Aires", "destinatario_principal": true, "sector": "GCBA"}
   tema: Clasificación temática principal del documento. Elegir únicamente uno de los
     temas listados en la taxonomía.
   subtema: Clasificación temática secundaria. Elegir uno de los subtemas asociados
@@ -203,14 +208,11 @@ output-format:
     numero_recomendacion: <NUM/AÑO o null>
     fecha_recomendacion: <DD de mes de YYYY o null>
     destinatarios:
-    - nombre: <nombre o denominacion institucional>
-      cargo: <cargo o null>
+    - nombre: <nombre propio o denominacion institucional, NUNCA un cargo>
+      cargo: <cargo/función formal o null, NUNCA un nombre propio>
       destinatario_principal: <true o false>
+      sector: <GCBA, Organismos Nacionales, Obra Social / Prepaga, Empresa o null>
     tema: <tema de la taxonomía o null>
     subtema: <subtema de la taxonomía o null>
-    destinatarios_por_sector:
-    - <sector 1>
-    - <sector 2>
-    - '...'
     datos_personales: <true o false>
     contenido_para_publicar: <síntesis 1-2 líneas>
