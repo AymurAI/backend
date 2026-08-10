@@ -12,6 +12,7 @@ from sqlmodel import Session
 from aymurai.api.exceptions import AymuraiAPIException
 from aymurai.database.crud.data_extraction.data_extraction import (
     data_extraction_create_or_update,
+    data_extraction_get,
 )
 from aymurai.database.crud.data_extraction.validated_destinatario import (
     validated_destinatario_get,
@@ -468,9 +469,17 @@ async def run_data_extraction(
     """
     Run the full data-extraction pipeline: LLM extraction + organigram cross-reference.
 
-    Persists the result keyed by `document.document_id`, so it can later be
-    looked up when the frontend submits a human validation (see
-    `data_extraction_set_validation`).
+    If `document.document_id` was already extracted before, returns the
+    persisted `prediction` directly instead of calling the LLM again. This is
+    a per-document cache, separate from `_validated_candidate`'s per-person
+    lookup: a document is only skipped if that exact `document_id` was
+    already processed, regardless of whether any of its destinatarios were
+    individually validated before.
+
+    Otherwise, persists the result keyed by `document.document_id`, so it can
+    later be looked up when the frontend submits a human validation (see
+    `data_extraction_set_validation`), or returned directly by a future call
+    with the same `document_id`.
 
     Args:
         document (Document): Already-extracted document (see /misc/document-extract).
@@ -502,6 +511,10 @@ async def run_data_extraction(
         sector candidates per destinatario and dropdown options for
         tema/subtema.
     """
+    existing = data_extraction_get(document.document_id, session)
+    if existing:
+        return DataExtractionResult.model_validate(existing.prediction)
+
     resolved_model = model or DEFAULT_MODEL
     resolved_backend = search_backend or settings.DATA_EXTRACTION_SEARCH_BACKEND
     resolved_hybrid_weight = (

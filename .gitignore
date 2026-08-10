@@ -139,6 +139,7 @@ aymurai/version.py
 notebooks/**
 !notebooks/**/
 !notebooks/**/*.ipynb
+!notebooks/experiments/defensoria/README.md
 
 # Frontend build output
 frontend-dist/

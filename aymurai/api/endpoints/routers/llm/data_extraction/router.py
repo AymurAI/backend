@@ -36,7 +36,9 @@ async def extract_recommendation_data(
 
     The result is persisted keyed by `payload.document.document_id`, so a
     later call to `/data-extraction/{document_id}/validate` can attach the
-    human-reviewed corrections to it.
+    human-reviewed corrections to it. If that `document_id` was already
+    extracted before, the persisted result is returned directly (the LLM and
+    organigram pipeline don't run again) -- see `run_data_extraction`.
 
     Args:
         payload (DataExtractionRequest): The document to process plus optional
