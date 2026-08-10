@@ -7,25 +7,33 @@ from typing import Any, ClassVar, Literal
 
 import yaml
 from pydantic import BaseModel, model_validator
+from sqlmodel import Session
 
 from aymurai.api.exceptions import AymuraiAPIException
+from aymurai.database.crud.data_extraction.data_extraction import (
+    data_extraction_create_or_update,
+)
+from aymurai.database.crud.data_extraction.validated_destinatario import (
+    validated_destinatario_get,
+)
 from aymurai.llm_providers import OllamaLLMProvider
 from aymurai.logger import get_logger
 from aymurai.meta.api_interfaces import Document
 from aymurai.settings import settings
 from aymurai.utils.yaml_data import load_yaml
 
-from . import organigram_matching
+from . import organigram_matching, sector_matching
 from .schemas import (
     DataExtractionResult,
     DestinatarioExtraction,
     SearchBackend,
-    SearchFields,
+    SectorCandidate,
+    SectorMode,
 )
 
 logger = get_logger(__name__)
 
-DEFAULT_MODEL = "gemma4:latest"
+DEFAULT_MODEL = settings.MODEL
 DEFAULT_OPTIONS = {"num_ctx": 32_768, "num_predict": 8192}
 DEFAULT_MAX_RETRIES = 2
 PROMPT_CONFIG_PATH = (
@@ -112,8 +120,10 @@ def _load_config() -> dict[str, Any]:
 
 
 _CONFIG = _load_config()
-_TAXONOMY: dict[str, frozenset[str]] = {
-    tema: frozenset(subtemas)
+# Subtemas are kept as an ordered tuple (not a set) so subtemas_disponibles
+# can preserve the taxonomy's own order.
+_TAXONOMY: dict[str, tuple[str, ...]] = {
+    tema: tuple(subtemas)
     for entry in yaml.safe_load(_CONFIG["taxonomy"])
     for tema, subtemas in entry.items()
 }
@@ -141,7 +151,7 @@ class _LLMExtraction(BaseModel):
     datos_personales: bool
     contenido_para_publicar: str
 
-    taxonomy: ClassVar[dict[str, frozenset[str]]] = _TAXONOMY
+    taxonomy: ClassVar[dict[str, tuple[str, ...]]] = _TAXONOMY
 
     @model_validator(mode="after")
     def _validate_tema_subtema(self) -> "_LLMExtraction":
@@ -272,82 +282,225 @@ async def _extract_with_retry(
     )
 
 
+def _validated_candidate(
+    raw: _LLMDestinatario,
+    session: Session,
+) -> SectorCandidate | None:
+    """
+    Look up a previously human-validated sector for this exact nombre.
+
+    Args:
+        raw (_LLMDestinatario): Destinatario as extracted by the LLM.
+        session (Session): SQLAlchemy session.
+
+    Returns:
+        SectorCandidate | None: A candidate built from the validated record,
+        meant to be listed first (ahead of organigram-derived candidates), or
+        None if this destinatario isn't GCBA, has no nombre, or was never
+        validated before.
+    """
+    if organigram_matching.normalize_text(raw.sector) != "gcba" or not raw.nombre:
+        return None
+
+    validated = validated_destinatario_get(
+        organigram_matching.normalize_text(raw.nombre), session
+    )
+    if not validated:
+        return None
+
+    return SectorCandidate(
+        sector=validated.sector,
+        score=1.0,
+        origen_campo="validado",
+        origen_nombre=validated.nombre,
+        origen_cargo=validated.cargo or "",
+        origen_score=1.0,
+    )
+
+
 def _build_destinatario(
     raw: _LLMDestinatario,
     *,
     backend: SearchBackend,
     top_k: int,
     hybrid_weight: float,
-    search_fields: SearchFields,
+    sector_mode: SectorMode,
+    sector_top_k: int,
+    nombre_origen_weight: float,
+    session: Session,
 ) -> DestinatarioExtraction:
     """
-    Cross-reference one destinatario against the organigram and build the public model.
+    Cross-reference one destinatario against the organigram to infer its GCBA sector.
+
+    `nombre`/`cargo` are passed through unchanged (free-text fields the user
+    can edit directly). The organigram candidates found for them are only
+    used internally, as evidence to resolve `candidatos_sector`. If this
+    exact nombre was already validated by a human in a past extraction, that
+    sector is listed first, ahead of the organigram-derived candidates.
 
     Args:
         raw (_LLMDestinatario): Destinatario as extracted by the LLM.
-        backend (SearchBackend): Organigram search backend to use.
-        top_k (int): Max number of candidates to attach.
+        backend (SearchBackend): Organigram/sector search backend to use.
+        top_k (int): Max number of organigram candidates (per field) to use
+            as sector evidence.
         hybrid_weight (float): Weight given to the embeddings score when
             backend="hybrid"; ignored otherwise.
-        search_fields (SearchFields): Which destinatario field(s) to search:
-            "nombre", "cargo", or "both".
+        sector_mode (SectorMode): "csv" matches organigram candidates against
+            destinatario_por_sector.csv; "hierarchy" reads the sector
+            directly off the organigram's own hierarchy instead.
+        sector_top_k (int): Max number of sector-corpus matches to consider
+            per organigram candidate, not just the single best one. Only
+            used when sector_mode="csv".
+        nombre_origen_weight (float): Discount applied to nombre-origin
+            evidence (vs. cargo-origin, always full weight) when inferring
+            `sector`.
+        session (Session): SQLAlchemy session, used to look up a previously
+            validated sector for this nombre.
 
     Returns:
-        DestinatarioExtraction: Public destinatario with independently ranked
-        candidatos_nombre/candidatos_cargo.
+        DestinatarioExtraction: Public destinatario with ranked sector candidates.
     """
-    candidatos = organigram_matching.search_candidates(
+    validated_candidate = _validated_candidate(raw, session)
+
+    organigram_matches = organigram_matching.search_candidates(
         nombre=raw.nombre,
         cargo=raw.cargo,
         sector=raw.sector,
         backend=backend,
         top_k=top_k,
         hybrid_weight=hybrid_weight,
-        search_fields=search_fields,
     )
+
+    if sector_mode == "hierarchy":
+        hierarchy_candidates = [
+            (
+                field,
+                candidate.nombre,
+                candidate.cargo,
+                candidate.score,
+                candidate.ruta_cargos,
+            )
+            for field, field_candidates in organigram_matches.items()
+            for candidate in field_candidates
+        ]
+        candidatos_sector = sector_matching.search_sector_candidates_from_hierarchy(
+            hierarchy_candidates,
+            backend=backend,
+            nombre_origen_weight=nombre_origen_weight,
+        )
+    else:
+        candidates = [
+            (field, candidate.nombre, candidate.cargo, candidate.score)
+            for field, field_candidates in organigram_matches.items()
+            for candidate in field_candidates
+        ]
+        candidatos_sector = sector_matching.search_sector_candidates(
+            candidates,
+            backend=backend,
+            hybrid_weight=hybrid_weight,
+            sector_top_k=sector_top_k,
+            nombre_origen_weight=nombre_origen_weight,
+        )
+
+    if validated_candidate:
+        candidatos_sector = [validated_candidate, *candidatos_sector]
+
     return DestinatarioExtraction(
         nombre=raw.nombre,
         cargo=raw.cargo,
         destinatario_principal=raw.destinatario_principal,
         sector=raw.sector,
-        candidatos_nombre=candidatos["nombre"],
-        candidatos_cargo=candidatos["cargo"],
+        candidatos_sector=candidatos_sector,
     )
+
+
+def _build_temas_disponibles(tema: str | None) -> list[str]:
+    """
+    Build the `tema` dropdown: the LLM's tema first, then the rest alphabetically.
+
+    Args:
+        tema (str | None): Tema inferred by the LLM, if any.
+
+    Returns:
+        list[str]: All taxonomy temas, alphabetical, with `tema` moved to the
+        front if set.
+    """
+    all_temas = sorted(_TAXONOMY)
+    if tema is None:
+        return all_temas
+    return [tema] + [t for t in all_temas if t != tema]
+
+
+def _build_subtemas_disponibles(tema: str | None, subtema: str | None) -> list[str]:
+    """
+    Build the `subtema` dropdown for `tema`: the LLM's subtema first, then the rest.
+
+    Args:
+        tema (str | None): Tema whose subtemas should be listed.
+        subtema (str | None): Subtema inferred by the LLM, if any.
+
+    Returns:
+        list[str]: Subtemas belonging to `tema`, in taxonomy order, with
+        `subtema` moved to the front if set. Empty if `tema` is None.
+    """
+    if tema is None:
+        return []
+    taxonomy_subtemas = list(_TAXONOMY[tema])
+    if subtema is None:
+        return taxonomy_subtemas
+    return [subtema] + [s for s in taxonomy_subtemas if s != subtema]
 
 
 async def run_data_extraction(
     document: Document,
+    session: Session,
     *,
     model: str | None = None,
     search_backend: SearchBackend | None = None,
     hybrid_weight: float | None = None,
-    search_fields: SearchFields | None = None,
     top_k: int | None = None,
+    sector_mode: SectorMode | None = None,
+    sector_top_k: int | None = None,
+    nombre_origen_weight: float | None = None,
     max_retries: int | None = None,
     options: dict[str, Any] | None = None,
 ) -> DataExtractionResult:
     """
     Run the full data-extraction pipeline: LLM extraction + organigram cross-reference.
 
+    Persists the result keyed by `document.document_id`, so it can later be
+    looked up when the frontend submits a human validation (see
+    `data_extraction_set_validation`).
+
     Args:
         document (Document): Already-extracted document (see /misc/document-extract).
+        session (Session): SQLAlchemy session, used both to look up
+            previously-validated destinatarios and to persist this result.
         model (str | None): Ollama model override. Defaults to DEFAULT_MODEL.
         search_backend (SearchBackend | None): Organigram search backend override.
             Defaults to settings.DATA_EXTRACTION_SEARCH_BACKEND.
         hybrid_weight (float | None): Weight given to the embeddings score when
             search_backend="hybrid". Defaults to settings.DATA_EXTRACTION_HYBRID_WEIGHT.
-        search_fields (SearchFields | None): Which destinatario field(s) to
-            search: "nombre", "cargo", or "both". Defaults to
-            settings.DATA_EXTRACTION_SEARCH_FIELDS.
-        top_k (int | None): Candidates per destinatario override. Defaults to
-            settings.DATA_EXTRACTION_TOP_K.
+        top_k (int | None): Organigram candidates (per field) used as sector
+            evidence. Defaults to settings.DATA_EXTRACTION_TOP_K.
+        sector_mode (SectorMode | None): "csv" matches organigram candidates
+            against destinatario_por_sector.csv; "hierarchy" reads the
+            sector directly off the organigram's own hierarchy instead.
+            Defaults to settings.DATA_EXTRACTION_SECTOR_MODE.
+        sector_top_k (int | None): Sector-corpus matches considered per
+            organigram candidate. Only used when sector_mode="csv". Defaults
+            to settings.DATA_EXTRACTION_SECTOR_TOP_K.
+        nombre_origen_weight (float | None): Discount applied to nombre-origin
+            sector evidence (cargo-origin is always full weight). Defaults to
+            settings.DATA_EXTRACTION_NOMBRE_ORIGEN_WEIGHT.
         max_retries (int | None): LLM validation retries override. Defaults to
             DEFAULT_MAX_RETRIES.
         options (dict[str, Any] | None): Ollama chat options override.
 
     Returns:
         DataExtractionResult: Extracted recommendation data, with ranked
-        organigram candidates per destinatario.
+        sector candidates per destinatario and dropdown options for
+        tema/subtema.
     """
     resolved_model = model or DEFAULT_MODEL
     resolved_backend = search_backend or settings.DATA_EXTRACTION_SEARCH_BACKEND
@@ -356,8 +509,14 @@ async def run_data_extraction(
         if hybrid_weight is not None
         else settings.DATA_EXTRACTION_HYBRID_WEIGHT
     )
-    resolved_search_fields = search_fields or settings.DATA_EXTRACTION_SEARCH_FIELDS
     resolved_top_k = top_k or settings.DATA_EXTRACTION_TOP_K
+    resolved_sector_mode = sector_mode or settings.DATA_EXTRACTION_SECTOR_MODE
+    resolved_sector_top_k = sector_top_k or settings.DATA_EXTRACTION_SECTOR_TOP_K
+    resolved_nombre_origen_weight = (
+        nombre_origen_weight
+        if nombre_origen_weight is not None
+        else settings.DATA_EXTRACTION_NOMBRE_ORIGEN_WEIGHT
+    )
     resolved_max_retries = (
         max_retries if max_retries is not None else DEFAULT_MAX_RETRIES
     )
@@ -378,17 +537,44 @@ async def run_data_extraction(
             backend=resolved_backend,
             top_k=resolved_top_k,
             hybrid_weight=resolved_hybrid_weight,
-            search_fields=resolved_search_fields,
+            sector_mode=resolved_sector_mode,
+            sector_top_k=resolved_sector_top_k,
+            nombre_origen_weight=resolved_nombre_origen_weight,
+            session=session,
         )
         for dest in extraction.destinatarios
     ]
 
-    return DataExtractionResult(
+    result = DataExtractionResult(
         numero_recomendacion=extraction.numero_recomendacion,
         fecha_recomendacion=extraction.fecha_recomendacion,
         destinatarios=destinatarios,
         tema=extraction.tema,
+        temas_disponibles=_build_temas_disponibles(extraction.tema),
         subtema=extraction.subtema,
+        subtemas_disponibles=_build_subtemas_disponibles(
+            extraction.tema, extraction.subtema
+        ),
         datos_personales=extraction.datos_personales,
         contenido_para_publicar=extraction.contenido_para_publicar,
     )
+
+    data_extraction_create_or_update(
+        data_extraction_id=document.document_id,
+        document=document.document,
+        prediction=result.model_dump(),
+        config={
+            "model": resolved_model,
+            "search_backend": resolved_backend,
+            "hybrid_weight": resolved_hybrid_weight,
+            "top_k": resolved_top_k,
+            "sector_mode": resolved_sector_mode,
+            "sector_top_k": resolved_sector_top_k,
+            "nombre_origen_weight": resolved_nombre_origen_weight,
+            "max_retries": resolved_max_retries,
+            "options": resolved_options,
+        },
+        session=session,
+    )
+
+    return result

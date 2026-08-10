@@ -16,7 +16,7 @@ from aymurai.models.sentence_encoder.factory import create_encoder
 from aymurai.settings import settings
 from aymurai.transforms.entity_subcategories.bm25 import BM25Scorer
 
-from .schemas import OrganigramCandidate, SearchBackend, SearchFields
+from .schemas import OrganigramCandidate, SearchBackend
 
 logger = get_logger(__name__)
 
@@ -47,6 +47,13 @@ class OrganigramNotAvailable(AymuraiAPIException):
 CARGO_ROLE_PREFIXES = (
     "ministro",
     "ministra",
+    # "General" here is part of the title ("Secretary General"), not the
+    # start of the topic clause -- these must come before the bare
+    # "secretario"/"secretaria" below, or the alternation matches the
+    # shorter prefix first and "general" gets mistaken for the topic (regex
+    # `|` alternation picks the first matching branch, not the longest).
+    "secretario general",
+    "secretaria general",
     "secretario",
     "secretaria",
     "subsecretario",
@@ -57,9 +64,16 @@ CARGO_ROLE_PREFIXES = (
     "directora",
     "presidente",
     "presidenta",
+    "titular",
+    "jefe",
+    "jefa",
+    "interventor",
+    "interventora",
+    "coordinador",
+    "coordinadora",
 )
 CARGO_ROLE_PATTERN = re.compile(
-    r"^(" + "|".join(CARGO_ROLE_PREFIXES) + r")\s+(?:de\s+)?"
+    r"^(" + "|".join(CARGO_ROLE_PREFIXES) + r")\b(?:\s+(?:de\s+)?)?"
 )
 
 # del/de la/de only counts as the parent-chain boundary when followed by an
@@ -125,10 +139,11 @@ def _extract_cargo_role(text: str) -> str:
     rest = text[match.end() :]
     parent_match = CARGO_PARENT_MARKERS.search(rest)
     topic = (rest[: parent_match.start()] if parent_match else rest).strip()
-    # topic can itself start with "del"/"de"/"dependiente" (e.g. "del Registro
-    # del Estado Civil"); only prepend "de" when it isn't already there, or
-    # reconstruction would produce a duplicated "de del ...".
-    first_word = topic.split(" ", 1)[0] if topic else ""
+    if not topic:
+        # Bare role title with nothing after it (e.g. "Secretaría General"
+        # on its own) -- no topic to prepend "de" to.
+        return match.group(1).strip()
+    first_word = topic.split(" ", 1)[0]
     if first_word not in ("de", "del", "dependiente"):
         topic = f"de {topic}"
     return f"{match.group(1)} {topic}".strip()
@@ -405,10 +420,17 @@ def _combine_hybrid_scores(
     return bm25_weight * bm25_norm + (1 - bm25_weight) * sim_norm
 
 
+@lru_cache(maxsize=8192)
 def _embeddings_score_vector(query_clean: str, field: str) -> np.ndarray:
     """
     Score `query_clean` against every organigram_people[field] value with the
     sentence-embedding + BM25 hybrid, unranked.
+
+    Cached by (query_clean, field): the expensive part is encoder.encode(),
+    a pure function of the query text given the fixed corpus/encoder --
+    hybrid_weight (applied later, outside this function) doesn't change it,
+    so repeated calls across a hybrid_weight/nombre_origen_weight sweep would
+    otherwise re-run the same encode() for the same text every time.
 
     Args:
         query_clean (str): Already-cleaned query text.
@@ -515,13 +537,6 @@ _SEARCH_FUNCTIONS = {
 # --- Public API ------------------------------------------------------------------
 
 
-_SEARCH_FIELDS_TO_QUERY = {
-    "nombre": ("nombre",),
-    "cargo": ("cargo",),
-    "both": ("nombre", "cargo"),
-}
-
-
 def search_candidates(
     *,
     nombre: str | None,
@@ -530,18 +545,17 @@ def search_candidates(
     backend: SearchBackend,
     top_k: int,
     hybrid_weight: float = 0.5,
-    search_fields: SearchFields = "both",
 ) -> dict[str, list[OrganigramCandidate]]:
     """
     Cross-reference a destinatario's nombre/cargo against the organigram.
 
-    Runs a nombre-search and/or a cargo-search (per `search_fields`) with the
-    selected backend and returns each as its own independently ranked list --
-    NOT merged into one. A nombre candidate is not necessarily tied to the
-    cargo candidate from the same organigram row: the person named X may no
-    longer hold the cargo Y the organigram lists for them (or vice versa), so
-    the frontend should let the user pick a nombre and a cargo separately
-    (e.g. two independent dropdowns), not as a linked pair.
+    Runs a nombre-search and a cargo-search with the selected backend and
+    returns each as its own independently ranked list -- NOT merged into one.
+    A nombre candidate is not necessarily tied to the cargo candidate from the
+    same organigram row: the person named X may no longer hold the cargo Y
+    the organigram lists for them (or vice versa), so the frontend should let
+    the user pick a nombre and a cargo separately (e.g. two independent
+    dropdowns), not as a linked pair.
 
     Args:
         nombre (str | None): Extracted destinatario name.
@@ -551,20 +565,16 @@ def search_candidates(
         top_k (int): Max number of candidates to return per field.
         hybrid_weight (float): Only used when backend="hybrid" -- weight given
             to the embeddings score, in [0, 1]. Ignored otherwise.
-        search_fields (SearchFields): "nombre", "cargo", or "both" -- which
-            destinatario field(s) to search. "nombre" is fragile across a
-            change of government; "cargo" is more durable.
 
     Returns:
         dict[str, list[OrganigramCandidate]]: {"nombre": [...], "cargo": [...]},
         each ranked best first. A field's list is empty when sector isn't
-        GCBA, that field's value is missing, or `search_fields` excludes it.
+        GCBA or that field's value is missing.
     """
     empty: dict[str, list[OrganigramCandidate]] = {"nombre": [], "cargo": []}
     if normalize_text(sector) != "gcba":
         return empty
 
-    fields_to_query = _SEARCH_FIELDS_TO_QUERY[search_fields]
     field_values = {"nombre": nombre, "cargo": cargo}
 
     if backend == "hybrid":
@@ -588,7 +598,7 @@ def search_candidates(
         search_fn = _SEARCH_FUNCTIONS[backend]
 
     result: dict[str, list[OrganigramCandidate]] = {"nombre": [], "cargo": []}
-    for field in fields_to_query:
+    for field in ("nombre", "cargo"):
         value = field_values[field]
         if not value:
             continue

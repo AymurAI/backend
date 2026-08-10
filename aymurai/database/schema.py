@@ -29,3 +29,15 @@ from .meta.anonymization.document import (
 from .meta.datapublic.document_paragraph import (
     DataPublicDocumentParagraph,
 )
+from .meta.data_extraction.data_extraction import (
+    DataExtraction,
+    DataExtractionRead,
+    DataExtractionCreate,
+    DataExtractionUpdate,
+)
+from .meta.data_extraction.validated_destinatario import (
+    ValidatedDestinatario,
+    ValidatedDestinatarioRead,
+    ValidatedDestinatarioCreate,
+    ValidatedDestinatarioUpdate,
+)

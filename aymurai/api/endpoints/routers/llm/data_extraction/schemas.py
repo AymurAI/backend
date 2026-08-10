@@ -7,7 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from aymurai.meta.api_interfaces import Document
 
 SearchBackend = Literal["fuzzy", "embeddings", "hybrid"]
-SearchFields = Literal["nombre", "cargo", "both"]
+SectorMode = Literal["csv", "hierarchy"]
 
 
 class OrganigramCandidate(BaseModel):
@@ -32,32 +32,100 @@ class OrganigramCandidate(BaseModel):
     )
 
 
+class SectorCandidate(BaseModel):
+    """One GCBA sector that a destinatario's nombre/cargo could belong to."""
+
+    sector: str = Field(
+        description=(
+            "Sector name. When `sector_mode='csv'`, as listed in "
+            "destinatario_por_sector.csv; when `sector_mode='hierarchy'`, the "
+            "organigram's own top-level entity name (see `search_sector_candidates_from_hierarchy`)."
+        )
+    )
+    score: float = Field(
+        description=(
+            "Combined score for this sector, weighted by how confident the "
+            "organigram search was in `origen_cargo` itself (origen_score, "
+            "normalized to [0, 1]) so a cargo that barely made the organigram "
+            "ranking doesn't count as much as one that ranked first. With "
+            "`sector_mode='csv'` this also factors in the "
+            "destinatario_por_sector.csv match score for `origen_cargo`; with "
+            "`sector_mode='hierarchy'` there's no such match (the sector is "
+            "read directly off the organigram), so this is purely the "
+            "organigram-match confidence. Scale depends on the search backend "
+            "used for the request: 0-100 for 'fuzzy', roughly 0-1 for "
+            "'embeddings' and 'hybrid'."
+        )
+    )
+    origen_campo: Literal["nombre", "cargo", "validado"] = Field(
+        description=(
+            "Which destinatario field's organigram search (nombre-search or "
+            "cargo-search) found the organigram row behind this sector "
+            "match -- NOT which field was used to match the sector (that's "
+            "always `origen_cargo`, since sector is always inferred from "
+            "cargo text). 'validado' means this candidate isn't from the "
+            "organigram at all: it's a sector a human already confirmed for "
+            "this exact nombre in a past extraction (see "
+            "`ValidatedDestinatario`), always listed first."
+        )
+    )
+    origen_nombre: str = Field(
+        description=(
+            "The organigram row's `nombre` (who currently holds `origen_cargo`, "
+            "per the organigram snapshot). When `origen_campo='validado'`, the "
+            "nombre as last confirmed by a human instead."
+        )
+    )
+    origen_cargo: str = Field(
+        description=(
+            "The organigram row's `cargo` -- with `sector_mode='csv'`, this is "
+            "the text actually matched against destinatario_por_sector.csv to "
+            "produce `score`; with `sector_mode='hierarchy'`, it's just the "
+            "organigram candidate's own cargo, kept for reference. Regardless "
+            "of `sector_mode`, this is populated the same way whether "
+            "`origen_campo` is 'nombre' or 'cargo'. When `origen_campo='validado'`, "
+            "the cargo as last confirmed by a human instead (may be empty)."
+        )
+    )
+    origen_score: float = Field(
+        description=(
+            "The organigram-search score for this row (how well it matched "
+            "the destinatario's nombre or cargo, per `origen_campo`). Same "
+            "scale as `score`. Always 1.0 when `origen_campo='validado'`, "
+            "since it's an exact nombre match, not a fuzzy/embeddings score."
+        )
+    )
+
+
 class DestinatarioExtraction(BaseModel):
-    """A destinatario as extracted by the LLM, with independently ranked organigram candidates."""
+    """A destinatario as extracted by the LLM, with GCBA sector candidates inferred from the organigram."""
 
     nombre: str | None = None
     cargo: str | None = None
     destinatario_principal: bool
     sector: str | None = None
-    candidatos_nombre: list[OrganigramCandidate] = Field(
-        default_factory=list,
+    sector_confirmado: str | None = Field(
+        default=None,
         description=(
-            "Ranked organigram candidates for `nombre` (from the nombre-search "
-            "alone), best first. Independent from candidatos_cargo -- a person "
-            "may no longer hold the cargo the organigram currently lists for "
-            "them, so the frontend should let the user pick a nombre and a "
-            "cargo separately (e.g. two independent dropdowns), not as a "
-            "linked pair. Empty when sector isn't GCBA, nombre is missing, or "
-            "search_fields excludes it."
+            "The specific GCBA sector a human picked from `candidatos_sector` "
+            "(or typed by hand), e.g. 'Ministerio de Hacienda'. Kept separate "
+            "from `sector`, which always stays the LLM's macro classification "
+            "('GCBA', 'Empresa', ...) -- the frontend shows `sector` and, when "
+            "it's 'GCBA', `sector_confirmado`'s options underneath. None until "
+            "a human validates this destinatario."
         ),
     )
-    candidatos_cargo: list[OrganigramCandidate] = Field(
+    candidatos_sector: list[SectorCandidate] = Field(
         default_factory=list,
         description=(
-            "Ranked organigram candidates for `cargo` (from the cargo-search "
-            "alone), best first. Independent from candidatos_nombre. Empty "
-            "when sector isn't GCBA, cargo is missing, or search_fields "
-            "excludes it."
+            "Ranked GCBA sector candidates: nombre/cargo are cross-referenced "
+            "against the organigram, and the resulting candidate cargos are "
+            "then matched against destinatario_por_sector.csv to infer which "
+            "sector the destinatario belongs to. Best first. `nombre` and "
+            "`cargo` are free-text fields the user can edit directly -- this "
+            "list is only meant to help resolve `sector`. Empty when the "
+            "LLM's inferred `sector` isn't GCBA, or nombre/cargo are both "
+            "missing."
         ),
     )
 
@@ -69,7 +137,22 @@ class DataExtractionResult(BaseModel):
     fecha_recomendacion: str | None = None
     destinatarios: list[DestinatarioExtraction] = Field(default_factory=list)
     tema: str | None = None
+    temas_disponibles: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Dropdown options for `tema`: the LLM's inferred tema first, "
+            "followed by the rest of the taxonomy's temas in alphabetical order."
+        ),
+    )
     subtema: str | None = None
+    subtemas_disponibles: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Dropdown options for `subtema`: the LLM's inferred subtema "
+            "first (if any), followed by the rest of the subtemas that "
+            "belong to `tema`, in taxonomy order. Empty when `tema` is None."
+        ),
+    )
     datos_personales: bool
     contenido_para_publicar: str
 
@@ -112,20 +195,47 @@ class DataExtractionRequest(BaseModel):
             "Defaults to settings.DATA_EXTRACTION_HYBRID_WEIGHT."
         ),
     )
-    search_fields: SearchFields | None = Field(
-        default=None,
-        description=(
-            "Which destinatario field(s) to cross-reference against the "
-            "organigram: 'nombre', 'cargo', or 'both'. 'nombre' is fragile "
-            "across a change of government; 'cargo' is more durable. Defaults "
-            "to settings.DATA_EXTRACTION_SEARCH_FIELDS."
-        ),
-    )
     top_k: int | None = Field(
         default=None,
         description=(
-            "Number of ranked candidates to return per destinatario. Defaults "
-            "to settings.DATA_EXTRACTION_TOP_K."
+            "Number of organigram candidates (per nombre/cargo field) to use "
+            "as evidence when inferring `sector`. Defaults to "
+            "settings.DATA_EXTRACTION_TOP_K."
+        ),
+    )
+    sector_mode: SectorMode | None = Field(
+        default=None,
+        description=(
+            "How to resolve `sector` from the organigram candidates. 'csv': "
+            "match each candidate's cargo against destinatario_por_sector.csv "
+            "(uses sector_top_k/hybrid_weight). 'hierarchy': read the sector "
+            "directly off the organigram's own hierarchy (see "
+            "`sector_matching.resolve_sector_from_hierarchy` for the exact "
+            "rules -- Ministerio, Secretaría/Subsecretaría, AGC, Instituto de "
+            "Vivienda de la Ciudad, and Jefatura de Gabinete are each handled "
+            "as their own case), ignoring destinatario_por_sector.csv "
+            "entirely. Defaults to settings.DATA_EXTRACTION_SECTOR_MODE."
+        ),
+    )
+    sector_top_k: int | None = Field(
+        default=None,
+        description=(
+            "Number of sector-corpus matches to consider per organigram "
+            "candidate when inferring `sector`, not just the single best "
+            "one. Only used when sector_mode='csv'. Defaults to "
+            "settings.DATA_EXTRACTION_SECTOR_TOP_K."
+        ),
+    )
+    nombre_origen_weight: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description=(
+            "Discount applied to nombre-origin evidence (vs. cargo-origin, "
+            "always full weight) when inferring `sector` -- nombre-search "
+            "scores tend to run higher than cargo-search scores on pure text "
+            "similarity even though cargo is the more durable signal. "
+            "Defaults to settings.DATA_EXTRACTION_NOMBRE_ORIGEN_WEIGHT."
         ),
     )
     max_retries: int | None = Field(

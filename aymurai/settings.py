@@ -76,10 +76,27 @@ class Settings(BaseSettings):
     DATA_EXTRACTION_SEARCH_BACKEND: Literal["fuzzy", "embeddings", "hybrid"] = "hybrid"
     DATA_EXTRACTION_TOP_K: int = 5
     # Weight given to the embeddings score in "hybrid" mode (fuzzy gets 1 - this).
-    DATA_EXTRACTION_HYBRID_WEIGHT: float = 0.5
-    # Which destinatario field(s) to cross-reference against the organigram.
-    # "nombre" is fragile across a change of government; "cargo" is more durable.
-    DATA_EXTRACTION_SEARCH_FIELDS: Literal["nombre", "cargo", "both"] = "both"
+    # 0.25 (favoring fuzzy) is the default sector_mode="hierarchy" was tuned
+    # against -- see notebooks/experiments/defensoria/README.md.
+    DATA_EXTRACTION_HYBRID_WEIGHT: float = 0.25
+    # How many sector-corpus matches to consider per organigram candidate
+    # when inferring `sector` (not just the single best one per candidate).
+    # Only used when DATA_EXTRACTION_SECTOR_MODE="csv".
+    DATA_EXTRACTION_SECTOR_TOP_K: int = 3
+    # Discount applied to nombre-origin candidates (vs. cargo-origin, always
+    # 1.0) when inferring `sector` -- nombre-search scores tend to run higher
+    # than cargo-search scores on pure text similarity (full names either
+    # match almost exactly or not at all), even though cargo is the more
+    # durable signal across a change of government. 0.0 discards nombre-origin
+    # evidence for `sector` entirely -- see notebooks/experiments/defensoria/README.md.
+    DATA_EXTRACTION_NOMBRE_ORIGEN_WEIGHT: float = 0.0
+    # How to resolve `sector` from the organigram candidates: "csv" matches
+    # against destinatario_por_sector.csv, "hierarchy" reads it directly off
+    # the organigram's own hierarchy, ignoring the CSV entirely. Default is
+    # "hierarchy": destinatario_por_sector.csv only covers 16 sectors (the
+    # organigram has ~30) and isn't kept in sync with it -- see
+    # notebooks/experiments/defensoria/README.md.
+    DATA_EXTRACTION_SECTOR_MODE: Literal["csv", "hierarchy"] = "hierarchy"
 
     @field_validator("ANONYMIZER_PREDICT_BATCH_SIZE")
     @classmethod
@@ -89,7 +106,7 @@ class Settings(BaseSettings):
         return v
 
     # LLM
-    MODEL: str = "phi4:14b"
+    MODEL: str = "gemma4:latest"
     MODEL_CONTEXT: int = 9500
     TEMPERATURE: float = 0.0
     CONTEXT_WINDOW_LENGTH: int | None = 120
