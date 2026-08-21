@@ -465,19 +465,21 @@ async def run_data_extraction(
     nombre_origen_weight: float | None = None,
     max_retries: int | None = None,
     options: dict[str, Any] | None = None,
+    force_reextract: bool = False,
 ) -> DataExtractionResult:
     """
     Run the full data-extraction pipeline: LLM extraction + organigram cross-reference.
 
     If `document.document_id` was already extracted before, returns the
-    persisted `prediction` directly instead of calling the LLM again. This is
-    a per-document cache, separate from `_validated_candidate`'s per-person
-    lookup: a document is only skipped if that exact `document_id` was
-    already processed, regardless of whether any of its destinatarios were
-    individually validated before.
+    persisted `prediction` directly instead of calling the LLM again, unless
+    `force_reextract` is set. This is a per-document cache, separate from
+    `_validated_candidate`'s per-person lookup: a document is only skipped if
+    that exact `document_id` was already processed, regardless of whether any
+    of its destinatarios were individually validated before.
 
-    Otherwise, persists the result keyed by `document.document_id`, so it can
-    later be looked up when the frontend submits a human validation (see
+    Otherwise (no prior record, or `force_reextract=True`), persists the
+    result keyed by `document.document_id`, so it can later be looked up when
+    the frontend submits a human validation (see
     `data_extraction_set_validation`), or returned directly by a future call
     with the same `document_id`.
 
@@ -505,15 +507,18 @@ async def run_data_extraction(
         max_retries (int | None): LLM validation retries override. Defaults to
             DEFAULT_MAX_RETRIES.
         options (dict[str, Any] | None): Ollama chat options override.
+        force_reextract (bool): Ignore any persisted result for this
+            `document_id` and re-run the full pipeline. Defaults to False.
 
     Returns:
         DataExtractionResult: Extracted recommendation data, with ranked
         sector candidates per destinatario and dropdown options for
         tema/subtema.
     """
-    existing = data_extraction_get(document.document_id, session)
-    if existing:
-        return DataExtractionResult.model_validate(existing.prediction)
+    if not force_reextract:
+        existing = data_extraction_get(document.document_id, session)
+        if existing:
+            return DataExtractionResult.model_validate(existing.prediction)
 
     resolved_model = model or DEFAULT_MODEL
     resolved_backend = search_backend or settings.DATA_EXTRACTION_SEARCH_BACKEND

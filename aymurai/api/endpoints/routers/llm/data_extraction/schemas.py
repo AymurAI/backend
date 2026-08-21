@@ -245,3 +245,12 @@ class DataExtractionRequest(BaseModel):
     options: dict[str, Any] | None = Field(
         default=None, description="Ollama chat options override."
     )
+    force_reextract: bool = Field(
+        default=False,
+        description=(
+            "If this document_id was already extracted before, by default "
+            "the persisted result is returned directly and the LLM/organigram "
+            "pipeline doesn't run again. Set to true to ignore that cached "
+            "result and re-run the full pipeline, overwriting it."
+        ),
+    )

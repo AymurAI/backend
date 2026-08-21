@@ -37,15 +37,16 @@ async def extract_recommendation_data(
     The result is persisted keyed by `payload.document.document_id`, so a
     later call to `/data-extraction/{document_id}/validate` can attach the
     human-reviewed corrections to it. If that `document_id` was already
-    extracted before, the persisted result is returned directly (the LLM and
-    organigram pipeline don't run again) -- see `run_data_extraction`.
+    extracted before, the persisted result is returned directly by default
+    (the LLM and organigram pipeline don't run again) -- pass
+    `force_reextract=true` to re-run it anyway. See `run_data_extraction`.
 
     Args:
         payload (DataExtractionRequest): The document to process plus optional
             overrides (model, search_backend, hybrid_weight, top_k,
             sector_mode, sector_top_k, nombre_origen_weight, max_retries,
-            options) -- see `DataExtractionRequest` for what each one does
-            and its default.
+            options, force_reextract) -- see `DataExtractionRequest` for what
+            each one does and its default.
         session (Session): SQLAlchemy session.
 
     Raises:
@@ -72,6 +73,7 @@ async def extract_recommendation_data(
         nombre_origen_weight=payload.nombre_origen_weight,
         max_retries=payload.max_retries,
         options=payload.options,
+        force_reextract=payload.force_reextract,
     )
 
 

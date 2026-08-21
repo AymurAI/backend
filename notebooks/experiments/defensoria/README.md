@@ -129,7 +129,7 @@ corridas futuras. Todo esto vive en
 `anonymization`/`datapublic`: una tabla `SQLModel` por concepto, un módulo CRUD, y
 las migraciones de Alembic correspondientes).
 
-### 5.1 `llm_data_extraction` — una fila por documento extraído
+### 5.1 `llm_data_extraction` — una fila por documento extraído, cacheada por `document_id`
 
 `POST /llm/data-extraction` guarda automáticamente el resultado en la tabla
 `llm_data_extraction` (modelo `DataExtraction`), keyed por
@@ -138,10 +138,20 @@ hash derivado del texto). Columnas: `document` (texto fuente), `prediction`
 (el `DataExtractionResult` tal cual lo devolvió el pipeline), `validation`
 (`None` hasta que alguien valide) y `config` (todos los parámetros resueltos de
 esa corrida: model, search_backend, hybrid_weight, top_k, sector_mode,
-sector_top_k, nombre_origen_weight, max_retries, options). Volver a extraer el
-mismo `document_id` **sobreescribe** la fila (`prediction`/`config` nuevos,
-`validation` se resetea a `None` -- mirror del mismo comportamiento que
-`summarization_create_or_update`).
+sector_top_k, nombre_origen_weight, max_retries, options).
+
+Si ese `document_id` ya tiene una fila guardada, por default el endpoint la
+devuelve directo (`existing.prediction`) **sin volver a llamar al LLM ni correr
+el organigrama** -- es un caché por documento, corre por `extraction_service.
+run_data_extraction`. Para forzar una nueva corrida (por ejemplo, para probar
+otra config) hay que mandar `force_reextract: true` en el request; ahí sí se
+sobreescribe la fila (`prediction`/`config` nuevos, `validation` se resetea a
+`None` -- mirror del mismo comportamiento que `summarization_create_or_update`).
+
+Este caché es independiente del lookup de la sección 5.3: uno es por
+`document_id` exacto (mismo documento), el otro es por `nombre` de destinatario
+(misma persona, en cualquier documento) -- son dos mecanismos distintos que no
+se pisan entre sí.
 
 ### 5.2 Guardar una validación humana
 
