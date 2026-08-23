@@ -25,9 +25,10 @@ texto libre en el front, sin dropdown propio. Lo único que se procesa más all�
 LLM es, para cada destinatario con `sector="GCBA"`, la inferencia de **a qué sector
 específico de GCBA pertenece** (`candidatos_sector`).
 
-`tema`/`subtema` sí generan dropdowns propios (`temas_disponibles`/
-`subtemas_disponibles`), pero son puramente estructurales (no hay búsqueda): el tema
-del LLM va primero, seguido del resto de la taxonomía.
+`tema`/`subtema` se validan contra la taxonomía del lado del backend (si el LLM
+devuelve un `subtema` que no pertenece al `tema`, se reintenta), pero el endpoint
+no genera ninguna lista de opciones para el dropdown -- eso lo maneja el front,
+que ya tiene la taxonomía completa (`resources/llm/defensoria_taxonomy.json`).
 
 ## 2. Inferencia de sector — paso 1: candidatos de organigrama
 
@@ -140,18 +141,20 @@ hash derivado del texto). Columnas: `document` (texto fuente), `prediction`
 esa corrida: model, search_backend, hybrid_weight, top_k, sector_mode,
 sector_top_k, nombre_origen_weight, max_retries, options).
 
-Si ese `document_id` ya tiene una fila guardada, por default el endpoint la
-devuelve directo (`existing.prediction`) **sin volver a llamar al LLM ni correr
-el organigrama** -- es un caché por documento, corre por `extraction_service.
-run_data_extraction`. Para forzar una nueva corrida (por ejemplo, para probar
-otra config) hay que mandar `force_reextract: true` en el request; ahí sí se
-sobreescribe la fila (`prediction`/`config` nuevos, `validation` se resetea a
-`None` -- mirror del mismo comportamiento que `summarization_create_or_update`).
+El caché se controla con el query param `use_cache` (default `true`), con la
+misma convención que `anonymizer_paragraph_predict`
+(`aymurai/api/endpoints/routers/anonymizer/anonymizer.py`): con
+`use_cache=true`, si ese `document_id` ya tiene una fila guardada, el endpoint
+la devuelve directo -- el `validation` humano si existe, sino el `prediction`
+crudo -- **sin volver a llamar al LLM ni correr el organigrama**, y el
+resultado de esta corrida se persiste al final. Con `use_cache=false` se
+saltea todo lo anterior: siempre corre el pipeline completo y no lee ni
+escribe nada en `llm_data_extraction`.
 
 Este caché es independiente del lookup de la sección 5.3: uno es por
-`document_id` exacto (mismo documento), el otro es por `nombre` de destinatario
-(misma persona, en cualquier documento) -- son dos mecanismos distintos que no
-se pisan entre sí.
+`document_id` exacto (mismo documento), el otro es por `nombre`/`cargo` de
+destinatario (misma persona u oficina, en cualquier documento) -- son dos
+mecanismos distintos que no se pisan entre sí.
 
 ### 5.2 Guardar una validación humana
 
@@ -160,11 +163,17 @@ ya corregido por un humano y:
 
 1. Lo guarda como `validation` en la fila de `llm_data_extraction` de ese
    `document_id` (404 si nunca se extrajo ese documento).
-2. Para cada destinatario con `sector` macro `"GCBA"` y `sector_confirmado` seteado,
-   upsertea una fila en `llm_validated_destinatario` (modelo
-   `ValidatedDestinatario`): `{nombre, cargo, sector}`, keyed por
-   `nombre_normalizado` (`organigram_matching.normalize_text(nombre)` --
-   minúsculas, sin tildes).
+2. Para cada destinatario con `sector` macro `"GCBA"`, `nombre` y
+   `sector_confirmado` seteados, upsertea una fila en
+   `llm_validated_destinatario` (modelo `ValidatedDestinatario`):
+   `{document_id, nombre, nombre_normalizado, cargo, cargo_normalizado,
+   sector}`. La clave primaria es un `id` numérico autoincremental (no el
+   nombre) y la fila queda asociada al `document_id` de origen -- upsertea por
+   (`document_id`, `nombre_normalizado`): revalidar el mismo documento
+   actualiza su fila, pero la misma persona validada en un documento
+   **distinto** genera una fila nueva, así no se pierde el historial entre
+   documentos. `nombre_normalizado`/`cargo_normalizado` son
+   `organigram_matching.normalize_text(...)` (minúsculas, sin tildes).
 
 `sector` y `sector_confirmado` son campos **distintos** en `DestinatarioExtraction`
 a propósito: `sector` siempre es la macro-categoría que devuelve el LLM ("GCBA",
@@ -177,12 +186,23 @@ hasta que se valida.
 ### 5.3 Sectores ya validados, como primera sugerencia
 
 Antes de correr la inferencia por organigrama (sección 2-3), cada destinatario
-GCBA con `nombre` se busca en `llm_validated_destinatario` por coincidencia
-**exacta** de `nombre_normalizado` (`extraction_service._validated_candidate`) --
-sin fuzzy matching, para no traer falsos positivos por similitud de texto.
+GCBA se busca en `llm_validated_destinatario`
+(`extraction_service._validated_candidate`), en dos pasos, siempre por
+coincidencia **exacta** normalizada (sin fuzzy matching, para no traer falsos
+positivos por similitud de texto):
 
-Si hay match, se antepone como primer elemento de `candidatos_sector`
-(`origen_campo="validado"`, `score=1.0`), seguido de los candidatos normales del
-organigrama sin alterar -- no lo reemplaza, así el humano siempre puede elegir
-otro si la persona cambió de sector. Si no hay match (nombre nuevo, o nunca
-validado antes), `candidatos_sector` sale igual que antes de esta sección.
+1. Primero por `nombre` del destinatario. Si matchea, listo.
+2. Si no matchea (nombre nuevo, con typo, o ausente), fallback por `cargo` tal
+   cual lo extrajo el LLM -- útil cuando la misma oficina ya se validó antes
+   bajo otro nombre (cambio de persona en el cargo).
+
+Como una persona/cargo puede tener varias filas (una por documento en el que
+se validó -- ver 5.2), en cualquiera de los dos pasos se toma la fila **más
+reciente** (mayor `id`).
+
+Si hay match (por nombre o por cargo), se antepone como primer elemento de
+`candidatos_sector` (`origen_campo="validado"`, `score=1.0`), seguido de los
+candidatos normales del organigrama sin alterar -- no los reemplaza, así el
+humano siempre puede elegir otro si la persona/oficina cambió de sector. Si no
+hay match en ningún paso, `candidatos_sector` sale igual que antes de esta
+sección.

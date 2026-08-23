@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import UUID5
 from sqlmodel import Session
 
@@ -26,6 +26,9 @@ router = APIRouter()
 @router.post("/data-extraction", response_model=DataExtractionResult)
 async def extract_recommendation_data(
     payload: DataExtractionRequest,
+    use_cache: bool = Query(
+        True, description="Use cache to store or retrieve predictions"
+    ),
     session: Session = Depends(get_session),
 ) -> DataExtractionResult:
     """
@@ -34,19 +37,24 @@ async def extract_recommendation_data(
     each destinatario against the GCBA organigram so the frontend can present
     ranked candidates and let the user pick the right one.
 
-    The result is persisted keyed by `payload.document.document_id`, so a
-    later call to `/data-extraction/{document_id}/validate` can attach the
-    human-reviewed corrections to it. If that `document_id` was already
-    extracted before, the persisted result is returned directly by default
-    (the LLM and organigram pipeline don't run again) -- pass
-    `force_reextract=true` to re-run it anyway. See `run_data_extraction`.
+    Same `use_cache` convention as `anonymizer_paragraph_predict`
+    (`aymurai/api/endpoints/routers/anonymizer/anonymizer.py`): with
+    `use_cache=True` (default), a previously-saved result for this
+    `document_id` is returned directly (the LLM/organigram pipeline doesn't
+    run again) -- the human-validated result if one was saved via
+    `/data-extraction/{document_id}/validate`, otherwise the raw prediction --
+    and this run's result is persisted so it (or its later validation) can be
+    found the same way next time. With `use_cache=False`, the pipeline always
+    runs and nothing is read from or written to the DB. See
+    `run_data_extraction`.
 
     Args:
         payload (DataExtractionRequest): The document to process plus optional
             overrides (model, search_backend, hybrid_weight, top_k,
             sector_mode, sector_top_k, nombre_origen_weight, max_retries,
-            options, force_reextract) -- see `DataExtractionRequest` for what
-            each one does and its default.
+            options) -- see `DataExtractionRequest` for what each one does
+            and its default.
+        use_cache (bool): Use cache to store or retrieve predictions.
         session (Session): SQLAlchemy session.
 
     Raises:
@@ -73,7 +81,7 @@ async def extract_recommendation_data(
         nombre_origen_weight=payload.nombre_origen_weight,
         max_retries=payload.max_retries,
         options=payload.options,
-        force_reextract=payload.force_reextract,
+        use_cache=use_cache,
     )
 
 
@@ -87,9 +95,10 @@ async def validate_recommendation_data(
     Save a human-reviewed correction of a previously extracted result.
 
     For each GCBA destinatario with both `nombre` and `sector_confirmado`
-    set, upserts a `ValidatedDestinatario` row keyed by the normalized
-    nombre -- so the next time this same person is extracted, that sector is
-    suggested first (see `extraction_service._validated_candidate`).
+    set, upserts a `ValidatedDestinatario` row for (`document_id`,
+    normalized nombre) -- so the next time this same person (or, failing
+    that, the same cargo) is extracted, that sector is suggested first (see
+    `extraction_service._validated_candidate`).
 
     Args:
         document_id (UUID5): ID of the document whose extraction is being
@@ -124,9 +133,15 @@ async def validate_recommendation_data(
             continue
 
         validated_destinatario_create_or_update(
-            nombre_normalizado=organigram_matching.normalize_text(destinatario.nombre),
+            document_id=document_id,
             nombre=destinatario.nombre,
+            nombre_normalizado=organigram_matching.normalize_text(destinatario.nombre),
             cargo=destinatario.cargo,
+            cargo_normalizado=(
+                organigram_matching.normalize_text(destinatario.cargo)
+                if destinatario.cargo
+                else None
+            ),
             sector=destinatario.sector_confirmado,
             session=session,
         )

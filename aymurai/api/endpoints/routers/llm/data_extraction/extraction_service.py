@@ -15,7 +15,8 @@ from aymurai.database.crud.data_extraction.data_extraction import (
     data_extraction_get,
 )
 from aymurai.database.crud.data_extraction.validated_destinatario import (
-    validated_destinatario_get,
+    validated_destinatario_get_by_cargo,
+    validated_destinatario_get_by_nombre,
 )
 from aymurai.llm_providers import OllamaLLMProvider
 from aymurai.logger import get_logger
@@ -288,7 +289,11 @@ def _validated_candidate(
     session: Session,
 ) -> SectorCandidate | None:
     """
-    Look up a previously human-validated sector for this exact nombre.
+    Look up a previously human-validated sector for this destinatario.
+
+    Tries an exact nombre match first; if there's none (or no nombre at
+    all), falls back to an exact match on the LLM's cargo -- e.g. the same
+    office was validated before under a different (or missing) nombre.
 
     Args:
         raw (_LLMDestinatario): Destinatario as extracted by the LLM.
@@ -297,15 +302,21 @@ def _validated_candidate(
     Returns:
         SectorCandidate | None: A candidate built from the validated record,
         meant to be listed first (ahead of organigram-derived candidates), or
-        None if this destinatario isn't GCBA, has no nombre, or was never
-        validated before.
+        None if this destinatario isn't GCBA, or neither nombre nor cargo
+        ever matched a validated record.
     """
-    if organigram_matching.normalize_text(raw.sector) != "gcba" or not raw.nombre:
+    if organigram_matching.normalize_text(raw.sector) != "gcba":
         return None
 
-    validated = validated_destinatario_get(
-        organigram_matching.normalize_text(raw.nombre), session
-    )
+    validated = None
+    if raw.nombre:
+        validated = validated_destinatario_get_by_nombre(
+            organigram_matching.normalize_text(raw.nombre), session
+        )
+    if not validated and raw.cargo:
+        validated = validated_destinatario_get_by_cargo(
+            organigram_matching.normalize_text(raw.cargo), session
+        )
     if not validated:
         return None
 
@@ -415,43 +426,6 @@ def _build_destinatario(
     )
 
 
-def _build_temas_disponibles(tema: str | None) -> list[str]:
-    """
-    Build the `tema` dropdown: the LLM's tema first, then the rest alphabetically.
-
-    Args:
-        tema (str | None): Tema inferred by the LLM, if any.
-
-    Returns:
-        list[str]: All taxonomy temas, alphabetical, with `tema` moved to the
-        front if set.
-    """
-    all_temas = sorted(_TAXONOMY)
-    if tema is None:
-        return all_temas
-    return [tema] + [t for t in all_temas if t != tema]
-
-
-def _build_subtemas_disponibles(tema: str | None, subtema: str | None) -> list[str]:
-    """
-    Build the `subtema` dropdown for `tema`: the LLM's subtema first, then the rest.
-
-    Args:
-        tema (str | None): Tema whose subtemas should be listed.
-        subtema (str | None): Subtema inferred by the LLM, if any.
-
-    Returns:
-        list[str]: Subtemas belonging to `tema`, in taxonomy order, with
-        `subtema` moved to the front if set. Empty if `tema` is None.
-    """
-    if tema is None:
-        return []
-    taxonomy_subtemas = list(_TAXONOMY[tema])
-    if subtema is None:
-        return taxonomy_subtemas
-    return [subtema] + [s for s in taxonomy_subtemas if s != subtema]
-
-
 async def run_data_extraction(
     document: Document,
     session: Session,
@@ -465,23 +439,25 @@ async def run_data_extraction(
     nombre_origen_weight: float | None = None,
     max_retries: int | None = None,
     options: dict[str, Any] | None = None,
-    force_reextract: bool = False,
+    use_cache: bool = True,
 ) -> DataExtractionResult:
     """
     Run the full data-extraction pipeline: LLM extraction + organigram cross-reference.
 
-    If `document.document_id` was already extracted before, returns the
-    persisted `prediction` directly instead of calling the LLM again, unless
-    `force_reextract` is set. This is a per-document cache, separate from
-    `_validated_candidate`'s per-person lookup: a document is only skipped if
-    that exact `document_id` was already processed, regardless of whether any
-    of its destinatarios were individually validated before.
+    If `use_cache` and `document.document_id` was already extracted before,
+    returns the persisted result directly instead of calling the LLM again --
+    the human-validated result if one was saved (see
+    `data_extraction_set_validation`), otherwise the raw prediction. This is a
+    per-document cache, separate from `_validated_candidate`'s per-person
+    lookup: a document is only skipped if that exact `document_id` was
+    already processed, regardless of whether any of its destinatarios were
+    individually validated before.
 
-    Otherwise (no prior record, or `force_reextract=True`), persists the
-    result keyed by `document.document_id`, so it can later be looked up when
-    the frontend submits a human validation (see
-    `data_extraction_set_validation`), or returned directly by a future call
-    with the same `document_id`.
+    Otherwise (no prior record, or `use_cache=False`), runs the full
+    pipeline; if `use_cache`, persists the result keyed by
+    `document.document_id` so it can later be looked up when the frontend
+    submits a human validation, or returned directly by a future call with
+    the same `document_id`.
 
     Args:
         document (Document): Already-extracted document (see /misc/document-extract).
@@ -507,18 +483,20 @@ async def run_data_extraction(
         max_retries (int | None): LLM validation retries override. Defaults to
             DEFAULT_MAX_RETRIES.
         options (dict[str, Any] | None): Ollama chat options override.
-        force_reextract (bool): Ignore any persisted result for this
-            `document_id` and re-run the full pipeline. Defaults to False.
+        use_cache (bool): Use the DB to retrieve a persisted result for this
+            `document_id` (skipping the LLM entirely) and to store the
+            result of this run. Defaults to True.
 
     Returns:
         DataExtractionResult: Extracted recommendation data, with ranked
-        sector candidates per destinatario and dropdown options for
-        tema/subtema.
+        sector candidates per destinatario.
     """
-    if not force_reextract:
+    if use_cache:
         existing = data_extraction_get(document.document_id, session)
         if existing:
-            return DataExtractionResult.model_validate(existing.prediction)
+            return DataExtractionResult.model_validate(
+                existing.validation or existing.prediction
+            )
 
     resolved_model = model or DEFAULT_MODEL
     resolved_backend = search_backend or settings.DATA_EXTRACTION_SEARCH_BACKEND
@@ -568,31 +546,28 @@ async def run_data_extraction(
         fecha_recomendacion=extraction.fecha_recomendacion,
         destinatarios=destinatarios,
         tema=extraction.tema,
-        temas_disponibles=_build_temas_disponibles(extraction.tema),
         subtema=extraction.subtema,
-        subtemas_disponibles=_build_subtemas_disponibles(
-            extraction.tema, extraction.subtema
-        ),
         datos_personales=extraction.datos_personales,
         contenido_para_publicar=extraction.contenido_para_publicar,
     )
 
-    data_extraction_create_or_update(
-        data_extraction_id=document.document_id,
-        document=document.document,
-        prediction=result.model_dump(),
-        config={
-            "model": resolved_model,
-            "search_backend": resolved_backend,
-            "hybrid_weight": resolved_hybrid_weight,
-            "top_k": resolved_top_k,
-            "sector_mode": resolved_sector_mode,
-            "sector_top_k": resolved_sector_top_k,
-            "nombre_origen_weight": resolved_nombre_origen_weight,
-            "max_retries": resolved_max_retries,
-            "options": resolved_options,
-        },
-        session=session,
-    )
+    if use_cache:
+        data_extraction_create_or_update(
+            data_extraction_id=document.document_id,
+            document=document.document,
+            prediction=result.model_dump(),
+            config={
+                "model": resolved_model,
+                "search_backend": resolved_backend,
+                "hybrid_weight": resolved_hybrid_weight,
+                "top_k": resolved_top_k,
+                "sector_mode": resolved_sector_mode,
+                "sector_top_k": resolved_sector_top_k,
+                "nombre_origen_weight": resolved_nombre_origen_weight,
+                "max_retries": resolved_max_retries,
+                "options": resolved_options,
+            },
+            session=session,
+        )
 
     return result

@@ -137,22 +137,7 @@ class DataExtractionResult(BaseModel):
     fecha_recomendacion: str | None = None
     destinatarios: list[DestinatarioExtraction] = Field(default_factory=list)
     tema: str | None = None
-    temas_disponibles: list[str] = Field(
-        default_factory=list,
-        description=(
-            "Dropdown options for `tema`: the LLM's inferred tema first, "
-            "followed by the rest of the taxonomy's temas in alphabetical order."
-        ),
-    )
     subtema: str | None = None
-    subtemas_disponibles: list[str] = Field(
-        default_factory=list,
-        description=(
-            "Dropdown options for `subtema`: the LLM's inferred subtema "
-            "first (if any), followed by the rest of the subtemas that "
-            "belong to `tema`, in taxonomy order. Empty when `tema` is None."
-        ),
-    )
     datos_personales: bool
     contenido_para_publicar: str
 
@@ -244,13 +229,4 @@ class DataExtractionRequest(BaseModel):
     )
     options: dict[str, Any] | None = Field(
         default=None, description="Ollama chat options override."
-    )
-    force_reextract: bool = Field(
-        default=False,
-        description=(
-            "If this document_id was already extracted before, by default "
-            "the persisted result is returned directly and the LLM/organigram "
-            "pipeline doesn't run again. Set to true to ignore that cached "
-            "result and re-run the full pipeline, overwriting it."
-        ),
     )
