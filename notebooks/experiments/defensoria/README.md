@@ -28,7 +28,7 @@ específico de GCBA pertenece** (`candidatos_sector`).
 `tema`/`subtema` se validan contra la taxonomía del lado del backend (si el LLM
 devuelve un `subtema` que no pertenece al `tema`, se reintenta), pero el endpoint
 no genera ninguna lista de opciones para el dropdown -- eso lo maneja el front,
-que ya tiene la taxonomía completa (`resources/llm/defensoria_taxonomy.json`).
+con su propia fuente de la taxonomía (no algo que este endpoint provea).
 
 ## 2. Inferencia de sector — paso 1: candidatos de organigrama
 

@@ -39,7 +39,7 @@ async def lifespan(app: FastAPI):
         alembic_cfg = Config(str(settings.ALEMBIC_INI_PATH))
         command.upgrade(alembic_cfg, "head")
     except Exception as error:
-        logger.error("Error while starting up:", error)
+        logger.error(f"Error while starting up: {error}")
 
     yield
 
